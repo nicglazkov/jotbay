@@ -130,15 +130,27 @@ private struct SummaryBar: View {
         if controller.status.rebaseInProgress {
             return "\(controller.status.conflicts.count) file(s) need resolving"
         }
-        if controller.status.isClean { return "This machine is in sync" }
+        // The dot reflects the whole mesh while this only described the local
+        // machine, so the two contradicted each other: a red dot beside "This
+        // machine is in sync", with a machine that had not synced in six hours
+        // listed directly underneath.
+        let failing = controller.status.nodes.filter { $0.lastError != nil }.count
 
-        var parts: [String] = []
-        if !controller.status.dirtyFiles.isEmpty {
-            parts.append("\(controller.status.dirtyFiles.count) uncommitted")
+        var local = "This machine is in sync"
+        if !controller.status.isClean {
+            var parts: [String] = []
+            if !controller.status.dirtyFiles.isEmpty {
+                parts.append("\(controller.status.dirtyFiles.count) uncommitted")
+            }
+            if controller.status.ahead > 0 { parts.append("\(controller.status.ahead) to push") }
+            if controller.status.behind > 0 { parts.append("\(controller.status.behind) to pull") }
+            local = parts.joined(separator: ", ").capitalizedFirst
         }
-        if controller.status.ahead > 0 { parts.append("\(controller.status.ahead) to push") }
-        if controller.status.behind > 0 { parts.append("\(controller.status.behind) to pull") }
-        return parts.joined(separator: ", ").capitalizedFirst
+
+        guard failing > 0 else { return local }
+        return failing == 1
+            ? "\(local) · 1 machine needs attention"
+            : "\(local) · \(failing) machines need attention"
     }
 }
 
@@ -328,14 +340,17 @@ private struct NodeRow: View {
     private var health: NodeHealth { node.health(localHead: localHead) }
 
     private var detail: String {
-        var parts: [String] = [health.label]
+        // The health label used to be prepended unconditionally, which read
+        // "behind · 1 behind" — the count already says it, and says it more
+        // precisely. The label is only worth showing when nothing else is.
+        var parts: [String] = []
         if node.behind > 0 { parts.append("\(node.behind) behind") }
         if node.ahead > 0 { parts.append("\(node.ahead) ahead") }
         if node.dirty > 0 { parts.append("\(node.dirty) uncommitted") }
         if node.conflictsResolved > 0 {
             parts.append("\(node.conflictsResolved) conflict\(node.conflictsResolved == 1 ? "" : "s") kept")
         }
-        return parts.joined(separator: " · ")
+        return parts.isEmpty ? health.label : parts.joined(separator: " · ")
     }
 }
 

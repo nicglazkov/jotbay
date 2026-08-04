@@ -10,12 +10,17 @@ resolve one.
 Built for handing context to an AI assistant from whichever machine you happen
 to be at, which is a use case that punishes silent data loss more than most.
 
+![The Jotbay window: four machines, one behind, one failing](docs/images/macos-main.png)
+
+*Every machine reports in. The one that has been failing for six hours says so
+here, and in no commit log anywhere.*
+
 ---
 
 ## Install
 
 **Download an installer** if you would rather not open a terminal — a notarized
-`.dmg` for macOS, `.msi` or `-setup.exe` for Windows, `.deb` or `.AppImage` for
+`.dmg` for macOS, `-setup.exe` for Windows, `.deb` or `.AppImage` for
 Linux, all on the [releases page](../../releases/latest). Open Jotbay and the
 first screen asks where your notes should live: it can create the private
 repository for you, clone one you already have, or adopt a folder that is
@@ -37,6 +42,11 @@ Both routes end in the same place. The Windows and Linux installers put
 `jotbay` on your PATH, so choosing the graphical one does not cost you the
 command line, and `jotbay init` offers the same three choices as the first-run
 screen.
+
+<p align="center">
+  <img src="docs/images/macos-first-run.png" width="49%" alt="First run: create, clone, or adopt">
+  <img src="docs/images/macos-ready.png" width="49%" alt="Setup complete, offering desktop shortcuts">
+</p>
 
 On a headless server, skip the GUI entirely:
 
