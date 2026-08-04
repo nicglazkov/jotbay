@@ -216,6 +216,16 @@ button.link {
 
 /* --- panes ---------------------------------------------------------------- */
 
+/* The wrapper the first-run screen needs, which had no rule at all.
+   body is a 100vh flex column and main is flex:1/min-height:0, so the chain
+   looks correct from either side — but an unstyled div between them grows to
+   its content instead of passing the height down. main measured 2385px inside
+   a 620px body, so every pane was exactly as tall as its content, overflow-y
+   had nothing to scroll against, and body{overflow:hidden} clipped the rest
+   with no scrollbar to say so. Found on Linux; the same stylesheet is Windows. */
+#app { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#app[hidden] { display: none !important; }
+
 main { flex: 1; display: flex; min-height: 0; }
 
 .pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -235,7 +245,7 @@ main { flex: 1; display: flex; min-height: 0; }
 }
 .count { font-weight: 400; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 
-.pane-body { flex: 1; overflow-y: auto; }
+.pane-body { flex: 1; overflow-y: auto; min-height: 0; }
 
 /* --- rows ----------------------------------------------------------------- */
 
