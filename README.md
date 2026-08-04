@@ -80,6 +80,11 @@ syncing, needs attention — which is the only health signal once the window is
 closed. On Windows, drag it out of the overflow flyout onto the taskbar so you
 can actually see it.
 
+macOS gets a native SwiftUI app; Windows and Linux share one built on the system
+webview. Same information, each following its own platform's conventions:
+
+![The Windows and Linux window](docs/images/tauri-main.png)
+
 ## How it works
 
 Sync is git against a private repository. GitHub is the default because `gh`
