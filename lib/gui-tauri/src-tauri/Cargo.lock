@@ -1824,7 +1824,7 @@ dependencies = [
 
 [[package]]
 name = "jotbay-core"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "gethostname",
  "serde",
@@ -1835,7 +1835,7 @@ dependencies = [
 
 [[package]]
 name = "jotbay-gui"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "jotbay-core",
  "serde",
