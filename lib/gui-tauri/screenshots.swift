@@ -102,7 +102,11 @@ func bridge(hasVault: Bool) -> String {
               };
               return listing[args.path] || [];
             }
-            case "read_note": return {
+            case "read_note": if (args.path === "frontend-tooling.md") return {
+              path: args.path, size: 3180, kind: "markdown", truncated: false,
+              content: "# Frontend tooling\\n\\n| Tool | Licence | Scope |\\n|---|---|---|\\n| **Tailark** | **$299 one-time** | Unlimited projects |\\n| shadcn/ui | MIT | Copy in, own the code |\\n| Tailwind | MIT | Everywhere |\\n\\n## Before starting\\n\\n- [x] Confirmed the project is React + Tailwind\\n- [x] Checked current docs for version numbers\\n- [ ] Confirmed the skill is actually loaded\\n\\n> Measure first. Everything above was a guess until it was not.\\n"
+            };
+            return {
               path: args.path, size: 4210, kind: "markdown", truncated: false,
               content: "# Postgres tuning\\n\\nNotes from the last round of slow-query hunting.\\n\\n## What actually helped\\n\\n- `work_mem` from 4MB to **64MB** for the analytics role only\\n- Partial index on `events(created_at)` where `processed = false`\\n- Killing the ORM's N+1 on the dashboard - see `specs/api-notes.md`\\n\\n## What did nothing\\n\\n1. Raising `shared_buffers` past 25% of RAM\\n2. `random_page_cost` tweaks on the NVMe box\\n\\n> Measure first. Every one of these was a guess until `pg_stat_statements` said otherwise.\\n\\n```sql\\nSELECT query, mean_exec_time\\nFROM pg_stat_statements\\nORDER BY mean_exec_time DESC LIMIT 10;\\n```\\n"
             };
@@ -177,6 +181,7 @@ let jobs: [(String, Bool, Bool, String, CGFloat)] = [
     ("tauri-first-run", false, false, "", 560),
     ("tauri-files", false, true, "showTab('files');", 620),
     ("tauri-preview", false, true, "showTab('files'); setTimeout(() => openFile('postgres-tuning.md'), 300);", 620),
+    ("tauri-note-rich", false, true, "showTab('files'); setTimeout(() => openFile('frontend-tooling.md'), 300);", 620),
 ]
 
 for (name, dark, hasVault, after, height) in jobs {
