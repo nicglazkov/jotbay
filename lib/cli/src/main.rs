@@ -316,8 +316,11 @@ fn cmd_watch(jotbay: &Jotbay) -> jotbay_core::Result<()> {
 
 fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     // Asking to upgrade is exactly the moment to find out what "latest" is,
-    // rather than trusting a cache that may be six hours old.
-    jotbay_core::update::refresh_remote();
+    // rather than trusting a cache that may be six hours old. This used to call
+    // refresh_remote(), which honours that cache — so the comment was true and
+    // the code was not, and a machine could be unable to reach a new release
+    // until the cache aged out.
+    jotbay_core::update::refresh_remote_now();
 
     let status = jotbay.update_status();
     match (&status.latest, status.available) {

@@ -229,6 +229,21 @@ let demoActivity: [ActivityEvent] = [
 
         > Measure first. Everything above was a guess until it was not.
         """
+        // A table whose cells differ wildly in height — the case where a
+        // short cell's border stops short of the row it is in.
+        let unevenTable = """
+        # Licences
+
+        | Tool | Licence | Scope |
+        |---|---|---|
+        | **Tailark** | **Complete — $299 one-time, lifetime** | **Unlimited projects.** Use freely on anything of mine, including client work, with no per-seat accounting and no expiry to track. |
+        | shadcn/ui | MIT | Copy in |
+        | Tailwind | MIT | Everywhere, forever, on anything at all — there is no licence tier to think about here and never has been. |
+        """
+        shot("table-uneven", PreviewView(preview: Preview(
+            rel: "licences.md", size: 900, text: unevenTable,
+            markdown: true, truncated: false)), width: 620, height: 460)
+
         shot("macos-note-rich", PreviewView(preview: Preview(
             rel: "frontend-tooling.md", size: 3180, text: richNote,
             markdown: true, truncated: false)), width: 620, height: 560)

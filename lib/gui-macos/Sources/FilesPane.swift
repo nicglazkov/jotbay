@@ -441,35 +441,46 @@ private struct MarkdownText: View {
 
 /// A markdown table.
 ///
-/// A Grid rather than SwiftUI's `Table`, which is a list control built around
-/// a typed row model — the wrong shape entirely for cells parsed out of text.
-/// Scrolls horizontally on its own so a wide reference table never widens the
-/// pane it sits in.
+/// Rows are HStacks in a VStack rather than a SwiftUI `Grid`. Grid could not be
+/// trusted to size a row to its tallest cell here: inside a horizontally
+/// scrolling ScrollView the proposed width is unbounded, so a cell that wrapped
+/// to three lines still reported a one-line row, and its text spilled over the
+/// header above and the row below with the last line clipped.
+///
+/// A fixed column width makes wrapping deterministic, and each cell then
+/// stretches to the row's height so its border and background cover the whole
+/// cell instead of stopping where its own text happens to end.
 private struct TableBlock: View {
     let header: [String]
     let rows: [[String]]
 
     private var columns: Int { max(header.count, rows.map(\.count).max() ?? 0) }
 
+    /// Wide enough for a sentence, narrow enough that three columns still fit
+    /// a default window before the horizontal scroll is needed.
+    private let columnWidth: CGFloat = 190
+
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
-                GridRow {
-                    ForEach(0..<columns, id: \.self) { column in
-                        cell(header.indices.contains(column) ? header[column] : "", head: true)
-                    }
-                }
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    GridRow {
-                        ForEach(0..<columns, id: \.self) { column in
-                            cell(row.indices.contains(column) ? row[column] : "", head: false)
-                        }
-                    }
+            VStack(spacing: 0) {
+                line(header, head: true)
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, cells in
+                    line(cells, head: false)
                 }
             }
             .overlay(RoundedRectangle(cornerRadius: 5).stroke(.quaternary, lineWidth: 1))
             .padding(.vertical, 3)
         }
+    }
+
+    private func line(_ cells: [String], head: Bool) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(0..<columns, id: \.self) { index in
+                cell(cells.indices.contains(index) ? cells[index] : "", head: head)
+            }
+        }
+        // The row is exactly as tall as its tallest cell, and no taller.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func cell(_ text: String, head: Bool) -> some View {
@@ -481,10 +492,13 @@ private struct TableBlock: View {
 
         return Text(styled)
             .font(.system(size: 11.5, weight: head ? .semibold : .regular))
-            .frame(maxWidth: 260, alignment: .leading)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 9)
             .padding(.vertical, 5)
+            .frame(width: columnWidth, alignment: .topLeading)
+            // Stretch to the row, so the border and shading describe the cell
+            // rather than the text that happens to be in it.
+            .frame(maxHeight: .infinity, alignment: .topLeading)
             .background(head ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
             .border(.quaternary, width: 0.5)
     }

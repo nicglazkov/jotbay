@@ -95,11 +95,29 @@ fn read_cache() -> Option<String> {
 /// Called only on the paths that already touch the network — a status refresh
 /// or an explicit upgrade — never from the local repaint loop, which runs every
 /// twenty seconds and must not make an HTTP request to redraw a badge.
+///
+/// Honours the cache. `refresh_remote_now` is the one that does not.
 pub fn refresh_remote() {
-    if let Ok(bytes) = std::fs::read(cache_path()) {
-        if let Ok(cached) = serde_json::from_slice::<CachedRelease>(&bytes) {
-            if now_secs().saturating_sub(cached.checked_at) < CACHE_SECS {
-                return;
+    refresh(false)
+}
+
+/// The same check, ignoring the cache.
+///
+/// For `jotbay upgrade`, where honouring a six-hour-old answer is exactly
+/// wrong: a machine that cached "1.6.0" half an hour before 1.6.1 shipped
+/// could not reach the new release at all, and the only way through was
+/// deleting the cache file by hand. Hit on Linux during a rollout.
+pub fn refresh_remote_now() {
+    refresh(true)
+}
+
+fn refresh(force: bool) {
+    if !force {
+        if let Ok(bytes) = std::fs::read(cache_path()) {
+            if let Ok(cached) = serde_json::from_slice::<CachedRelease>(&bytes) {
+                if now_secs().saturating_sub(cached.checked_at) < CACHE_SECS {
+                    return;
+                }
             }
         }
     }
