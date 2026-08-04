@@ -138,8 +138,23 @@
     </section>
 
     <section class="pane">
-      <div class="pane-header"><span>Activity</span><span id="log-count" class="count">0</span></div>
+      <div class="pane-header">
+        <!-- One pane, two lenses: what happened, and what is there. -->
+        <div class="pane-tabs" role="tablist">
+          <button id="tab-activity" class="pane-tab" role="tab" aria-selected="true">Activity</button>
+          <button id="tab-files" class="pane-tab" role="tab" aria-selected="false">Files</button>
+        </div>
+        <span id="log-count" class="count">0</span>
+      </div>
       <div id="log" class="pane-body"></div>
+      <div id="files" class="pane-body" hidden>
+        <div id="files-crumbs" class="crumbs"></div>
+        <div id="files-list"></div>
+        <div id="file-preview" hidden>
+          <div id="preview-meta" class="preview-meta"></div>
+          <div id="preview-body" class="preview-body"></div>
+        </div>
+      </div>
     </section>
   </main>
 

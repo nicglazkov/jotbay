@@ -137,8 +137,19 @@ pub fn refresh_remote() {
 /// request at all — and the cached remote answer covers the case where the
 /// notes repository is just notes.
 pub fn check(root: &Path) -> UpdateStatus {
+    decide(read_marker(root).map(|m| m.version), read_cache())
+}
+
+/// The decision alone, with both inputs handed in.
+///
+/// `check` reads the user's real config directory, which made its tests
+/// environment-dependent: they passed until the day this machine genuinely
+/// upgraded, at which point the cached "1.4.0" satisfied the fallback and a
+/// test named `a_missing_marker_never_claims_an_update` started failing on
+/// true behaviour.
+fn decide(marker: Option<String>, cached: Option<String>) -> UpdateStatus {
     let current = crate::VERSION.to_string();
-    let latest = read_marker(root).map(|m| m.version).or_else(read_cache);
+    let latest = marker.or(cached);
     let available = latest
         .as_deref()
         .map(|l| is_newer(l, &current))
@@ -456,12 +467,24 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_marker_never_claims_an_update() {
-        let tmp = std::env::temp_dir().join("jotbay-no-marker");
-        let _ = std::fs::create_dir_all(&tmp);
-        let status = check(&tmp);
+    fn no_marker_and_no_cache_never_claims_an_update() {
+        let status = decide(None, None);
         assert!(!status.available);
         assert_eq!(status.latest, None);
+    }
+
+    #[test]
+    fn the_cached_remote_answer_covers_a_markerless_vault() {
+        // The post-split case: a notes-only repository carries no marker.
+        let status = decide(None, Some("999.0.0".into()));
+        assert!(status.available);
+        assert_eq!(status.latest.as_deref(), Some("999.0.0"));
+    }
+
+    #[test]
+    fn the_marker_wins_over_the_cache() {
+        let status = decide(Some("999.0.0".into()), Some("1.0.0".into()));
+        assert_eq!(status.latest.as_deref(), Some("999.0.0"));
     }
 
     #[test]

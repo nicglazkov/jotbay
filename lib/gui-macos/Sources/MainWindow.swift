@@ -40,7 +40,7 @@ struct MainWindow: View {
                 NodesPane()
                     .frame(minWidth: 260, idealWidth: 300, maxWidth: 380)
                 Divider()
-                ActivityPane()
+                RightPane()
                     .frame(minWidth: 380, maxWidth: .infinity)
             }
         }
@@ -371,6 +371,58 @@ private struct ConflictBanner: View {
     }
 }
 
+// MARK: - Right pane
+
+/// One pane, two lenses: what happened, and what is there.
+private struct RightPane: View {
+    @EnvironmentObject private var controller: JotbayController
+    @State private var tab: Tab = .activity
+
+    enum Tab: String, CaseIterable {
+        case activity = "Activity"
+        case files = "Files"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                // Same place, same weight as the other pane headers, so the
+                // tabs read as part of the chrome rather than as content.
+                HStack(spacing: 2) {
+                    ForEach(Tab.allCases, id: \.self) { candidate in
+                        Button(candidate.rawValue) { tab = candidate }
+                            .buttonStyle(.plain)
+                            .font(.system(size: 11, weight: .semibold))
+                            .textCase(.uppercase)
+                            .foregroundStyle(tab == candidate ? .primary : .secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .fill(tab == candidate ? Color.primary.opacity(0.08) : .clear)
+                            )
+                    }
+                }
+                Spacer()
+                if tab == .activity {
+                    Text("\(controller.activity.count)")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(.tertiary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 7)
+            .background(.quaternary.opacity(0.35))
+
+            switch tab {
+            case .activity: ActivityPane()
+            case .files: FilesPane()
+            }
+        }
+    }
+}
+
 // MARK: - Activity
 
 private struct ActivityPane: View {
@@ -505,7 +557,7 @@ private struct PaneHeader: View {
     }
 }
 
-private struct EmptyPane: View {
+struct EmptyPane: View {
     let symbol: String
     let title: String
     let detail: String

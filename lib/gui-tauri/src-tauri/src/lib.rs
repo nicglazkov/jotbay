@@ -315,6 +315,28 @@ async fn abort_rebase() -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
+/// The file browser's two calls. Read-only by construction — the commands to
+/// write anything simply do not exist.
+#[tauri::command]
+async fn list_notes(path: String) -> Result<Vec<jotbay_core::browse::Entry>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = jotbay()?.data_dir();
+        jotbay_core::browse::list(&dir, &path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn read_note(path: String) -> Result<jotbay_core::browse::FileContent, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let dir = jotbay()?.data_dir();
+        jotbay_core::browse::read(&dir, &path).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn open_data_dir() -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(|| {
@@ -430,6 +452,8 @@ pub fn run() {
             get_nodes,
             forget_node,
             data_dir,
+            list_notes,
+            read_note,
             abort_rebase,
             open_data_dir,
         ])

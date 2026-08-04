@@ -163,5 +163,55 @@ let demoActivity: [ActivityEvent] = [
              width: 940, height: 620, dark: true)
 
         shot("macos-menubar", MenuBarView().environmentObject(c), width: 300, height: 400)
+
+        // The file browser, against a real (temporary) notes tree — the pane
+        // reads the filesystem, so the demo has to exist on disk.
+        let vault = FileManager.default.temporaryDirectory
+            .appendingPathComponent("jotbay-shot-vault")
+        let notes = vault.appendingPathComponent("data")
+        try? FileManager.default.removeItem(at: vault)
+        for sub in ["daily", "specs", "refs"] {
+            try? FileManager.default.createDirectory(
+                at: notes.appendingPathComponent(sub), withIntermediateDirectories: true)
+        }
+        let demoNote = """
+        # Postgres tuning
+
+        Notes from the last round of slow-query hunting.
+
+        ## What actually helped
+
+        - `work_mem` from 4MB to **64MB** for the analytics role only
+        - Partial index on `events(created_at)` where `processed = false`
+        - Killing the ORM's N+1 on the dashboard - see `specs/api-notes.md`
+
+        > Measure first. Every one of these was a guess until `pg_stat_statements` said otherwise.
+
+        ```sql
+        SELECT query, mean_exec_time
+        FROM pg_stat_statements
+        ORDER BY mean_exec_time DESC LIMIT 10;
+        ```
+        """
+        try? demoNote.write(to: notes.appendingPathComponent("postgres-tuning.md"),
+                            atomically: true, encoding: .utf8)
+        try? "reading list".write(to: notes.appendingPathComponent("reading-list.md"),
+                                  atomically: true, encoding: .utf8)
+        for (dir, n) in [("daily", 14), ("specs", 6), ("refs", 9)] {
+            for i in 0..<n {
+                try? "x".write(to: notes.appendingPathComponent("\(dir)/n\(i).md"),
+                               atomically: true, encoding: .utf8)
+            }
+        }
+
+        c.status = JotbayStatus(
+            root: vault.path, branch: demoStatus.branch, head: demoStatus.head,
+            headShort: demoStatus.headShort, ahead: 0, behind: 0, dirtyFiles: [],
+            rebaseInProgress: false, conflicts: [], dataFiles: 34, warnings: [],
+            updateAvailable: nil, nodes: demoNodes)
+        shot("macos-files", FilesPane().environmentObject(c), width: 560, height: 480)
+        shot("macos-note", PreviewView(preview: Preview(
+            rel: "postgres-tuning.md", size: 4210, text: demoNote,
+            markdown: true, truncated: false)), width: 560, height: 560)
     }
 }

@@ -74,6 +74,7 @@ window.__DEMO__ = {
 func bridge(hasVault: Bool) -> String {
     """
     function ISO(secondsAgo) { return new Date(Date.now() - secondsAgo * 1000).toISOString(); }
+    function ISO2(secondsAgo) { return Math.floor(Date.now() / 1000) - secondsAgo; }
     \(demoJSON)
     window.__TAURI__ = {
       core: {
@@ -86,6 +87,25 @@ func bridge(hasVault: Bool) -> String {
             case "get_settings":    return { theme: "system", verbose: false };
             case "data_dir":        return "/home/you/jotbay/data";
             case "get_nodes":       return d.status.nodes;
+            case "list_notes": {
+              const listing = {
+                "": [
+                  { name: "daily",  path: "daily",  is_dir: true,  size: 0, modified: ISO2(3600),  children: 14 },
+                  { name: "specs",  path: "specs",  is_dir: true,  size: 0, modified: ISO2(7200),  children: 6 },
+                  { name: "refs",   path: "refs",   is_dir: true,  size: 0, modified: ISO2(86400), children: 9 },
+                  { name: "postgres-tuning.md", path: "postgres-tuning.md", is_dir: false, size: 4210, modified: ISO2(900),  children: 0 },
+                  { name: "reading-list.md",    path: "reading-list.md",    is_dir: false, size: 1830, modified: ISO2(5400), children: 0 }
+                ],
+                "specs": [
+                  { name: "api-notes.md", path: "specs/api-notes.md", is_dir: false, size: 6120, modified: ISO2(1200), children: 0 }
+                ]
+              };
+              return listing[args.path] || [];
+            }
+            case "read_note": return {
+              path: args.path, size: 4210, kind: "markdown", truncated: false,
+              content: "# Postgres tuning\\n\\nNotes from the last round of slow-query hunting.\\n\\n## What actually helped\\n\\n- `work_mem` from 4MB to **64MB** for the analytics role only\\n- Partial index on `events(created_at)` where `processed = false`\\n- Killing the ORM's N+1 on the dashboard - see `specs/api-notes.md`\\n\\n## What did nothing\\n\\n1. Raising `shared_buffers` past 25% of RAM\\n2. `random_page_cost` tweaks on the NVMe box\\n\\n> Measure first. Every one of these was a guess until `pg_stat_statements` said otherwise.\\n\\n```sql\\nSELECT query, mean_exec_time\\nFROM pg_stat_statements\\nORDER BY mean_exec_time DESC LIMIT 10;\\n```\\n"
+            };
             default:                return null;
           }
         }
@@ -155,6 +175,8 @@ let jobs: [(String, Bool, Bool, String, CGFloat)] = [
     ("tauri-main", false, true, "", 620),
     ("tauri-main-dark", true, true, "", 620),
     ("tauri-first-run", false, false, "", 560),
+    ("tauri-files", false, true, "showTab('files');", 620),
+    ("tauri-preview", false, true, "showTab('files'); setTimeout(() => openFile('postgres-tuning.md'), 300);", 620),
 ]
 
 for (name, dark, hasVault, after, height) in jobs {
