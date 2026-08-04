@@ -17,8 +17,7 @@
 //! which is a supervisor worth more than anything this could hand-roll.
 
 use crate::error::{Error, Result};
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::path::PathBuf;
 
 /// The one name this is registered under, on every platform that has a concept
 /// of one. Matches `LAUNCH_LABEL` in install.sh and the task name in install.ps1.
@@ -29,7 +28,7 @@ pub fn is_installed() -> bool {
     if cfg!(target_os = "macos") {
         plist_path().exists()
     } else if cfg!(target_os = "windows") {
-        Command::new("schtasks")
+        crate::proc::quiet("schtasks")
             .args(["/query", "/tn", "jotbay-sync"])
             .output()
             .map(|o| o.status.success())
@@ -155,19 +154,26 @@ fn install() -> Result<()> {
             ),
         )?;
         // Unload first: re-registering over a loaded agent is otherwise a no-op.
-        let _ = Command::new("launchctl").args(["unload", &path.to_string_lossy()]).output();
-        Command::new("launchctl")
+        let _ = crate::proc::quiet("launchctl").args(["unload", &path.to_string_lossy()]).output();
+        crate::proc::quiet("launchctl")
             .args(["load", &path.to_string_lossy()])
             .output()
             .map_err(|e| Error::Other(format!("launchctl: {e}")))?;
     } else if cfg!(target_os = "windows") {
         // Through PowerShell rather than schtasks.exe: the XML schtasks wants
         // for a logon trigger with restart counts is far more error-prone than
-        // the cmdlets, and install.ps1 already proves this exact shape works.
+        // the cmdlets.
+        //
+        // -User is not optional. `New-ScheduledTrigger -AtLogOn` with no user
+        // means *any* user's logon, which only an administrator may register —
+        // so the first version failed with "Access is denied" for exactly the
+        // person it was meant to help, and did so silently, because the GUI
+        // ignores the result. install.ps1 looked like precedent but used a time
+        // trigger, which has no such rule. Proven unelevated on Windows 11.
         let script = format!(
             r#"$a = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
   -Argument '--headless "{}" watch' -WorkingDirectory "$env:USERPROFILE"
-$t = New-ScheduledTaskTrigger -AtLogOn
+$t = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $s = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
   -AllowStartIfOnBatteries -MultipleInstances IgnoreNew `
   -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
@@ -178,7 +184,7 @@ Start-ScheduledTask -TaskName 'jotbay-sync' -ErrorAction SilentlyContinue
 "#,
             exe.display()
         );
-        let out = Command::new("powershell")
+        let out = crate::proc::quiet("powershell")
             .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
             .output()
             .map_err(|e| Error::Other(format!("powershell: {e}")))?;
@@ -212,8 +218,8 @@ Start-ScheduledTask -TaskName 'jotbay-sync' -ErrorAction SilentlyContinue
                 exe.display()
             ),
         )?;
-        let _ = Command::new("systemctl").args(["--user", "daemon-reload"]).output();
-        Command::new("systemctl")
+        let _ = crate::proc::quiet("systemctl").args(["--user", "daemon-reload"]).output();
+        crate::proc::quiet("systemctl")
             .args(["--user", "enable", "--now", "jotbay-sync.service"])
             .output()
             .map_err(|e| Error::Other(format!("systemctl: {e}")))?;
@@ -221,7 +227,7 @@ Start-ScheduledTask -TaskName 'jotbay-sync' -ErrorAction SilentlyContinue
         // watcher stops on exactly the headless boxes that need it most.
         let user = std::env::var("USER").unwrap_or_default();
         if !user.is_empty() {
-            let _ = Command::new("loginctl").args(["enable-linger", &user]).output();
+            let _ = crate::proc::quiet("loginctl").args(["enable-linger", &user]).output();
         }
     }
 

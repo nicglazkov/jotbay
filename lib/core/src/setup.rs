@@ -17,7 +17,6 @@
 use crate::error::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 /// What the machine can offer, so a first-run screen can grey out what will
 /// not work rather than failing after the user commits to it.
@@ -40,14 +39,14 @@ pub fn capabilities() -> SetupCapabilities {
     let git = has("git");
     let gh = has("gh");
     let gh_authenticated = gh
-        && Command::new("gh")
+        && crate::proc::quiet("gh")
             .args(["auth", "status"])
             .output()
             .map(|o| o.status.success())
             .unwrap_or(false);
 
     let login = if gh_authenticated {
-        Command::new("gh")
+        crate::proc::quiet("gh")
             .args(["api", "user", "--jq", ".login"])
             .output()
             .ok()
@@ -72,7 +71,7 @@ pub fn capabilities() -> SetupCapabilities {
 }
 
 fn has(cmd: &str) -> bool {
-    Command::new(cmd)
+    crate::proc::quiet(cmd)
         .arg("--version")
         .output()
         .map(|o| o.status.success())
@@ -80,7 +79,7 @@ fn has(cmd: &str) -> bool {
 }
 
 fn run(cmd: &str, args: &[&str], cwd: Option<&Path>) -> Result<String> {
-    let mut c = Command::new(cmd);
+    let mut c = crate::proc::quiet(cmd);
     c.args(args);
     c.env("GIT_TERMINAL_PROMPT", "0");
     if let Some(dir) = cwd {
@@ -118,7 +117,7 @@ pub fn create_and_clone(name: &str, destination: &Path) -> Result<PathBuf> {
     // Check before creating. Otherwise the failure surfaces as raw GraphQL —
     // "Name already exists on this account (createRepository)" — at the worst
     // possible moment, when someone is three clicks into first-run setup.
-    let exists = Command::new("gh")
+    let exists = crate::proc::quiet("gh")
         .args(["repo", "view", &slug, "--json", "name"])
         .output()
         .map(|o| o.status.success())
@@ -174,7 +173,7 @@ pub fn adopt(path: &Path) -> Result<PathBuf> {
 /// moment a commit is attempted on a new machine, which is precisely where a
 /// missing git identity strands people, so both are settled here.
 fn publish_initial(root: &Path) -> Result<()> {
-    let has_upstream = Command::new("git")
+    let has_upstream = crate::proc::quiet("git")
         .args(["rev-parse", "--abbrev-ref", "@{u}"])
         .current_dir(root)
         .output()
@@ -255,9 +254,15 @@ fn use_noreply_email(root: &Path) -> Result<()> {
 /// only; an installer has no business rewriting what every other repository on
 /// the machine commits under.
 fn ensure_identity(root: &Path) -> Result<()> {
-    let have = |key: &str| {
-        Command::new("git")
-            .args(["config", "--get", key])
+    // `--local`, not `--get`. The plain form reads the global config too, so a
+    // machine with any global identity satisfied this check and skipped
+    // everything below — including the noreply address. The first push then
+    // died on GH007 ("would publish a private email"), which is the exact wall
+    // install.ps1 already learned to avoid, reached through a different door:
+    // setup succeeded, the watcher committed, and nothing ever left the machine.
+    let have_local = |key: &str| {
+        crate::proc::quiet("git")
+            .args(["config", "--local", "--get", key])
             .current_dir(root)
             .output()
             .ok()
@@ -265,7 +270,7 @@ fn ensure_identity(root: &Path) -> Result<()> {
             .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
             .unwrap_or(false)
     };
-    if have("user.name") && have("user.email") {
+    if have_local("user.name") && have_local("user.email") {
         return Ok(());
     }
 
@@ -273,18 +278,37 @@ fn ensure_identity(root: &Path) -> Result<()> {
     let login = match caps.login {
         Some(l) if caps.gh_authenticated => l,
         _ => {
+            // No gh to ask. A global identity is then the best available, and
+            // may well be fine — it is only private-email accounts that GH007
+            // rejects, and the failure says so clearly when it happens.
+            let have_any = |key: &str| {
+                crate::proc::quiet("git")
+                    .args(["config", "--get", key])
+                    .current_dir(root)
+                    .output()
+                    .ok()
+                    .filter(|o| o.status.success())
+                    .map(|o| !String::from_utf8_lossy(&o.stdout).trim().is_empty())
+                    .unwrap_or(false)
+            };
+            if have_any("user.name") && have_any("user.email") {
+                return Ok(());
+            }
             return Err(Error::Other(
-                "git has no user.name/user.email and gh cannot supply one —                  set them with `git config --global user.name` and `user.email`"
+                "git has no user.name/user.email and gh cannot supply one — \
+                 set them with `git config --global user.name` and `user.email`"
                     .into(),
-            ))
+            ));
         }
     };
     let id = run("gh", &["api", "user", "--jq", ".id"], None)?;
     let name = run("gh", &["api", "user", "--jq", ".name // .login"], None)
         .unwrap_or_else(|_| login.clone());
 
-    // The noreply address is the one GitHub hands out, so a push is never
-    // rejected for exposing a private email (GH007).
+    // Written to the vault only, never globally: an installer has no business
+    // changing the identity every other repository on the machine commits
+    // under. The noreply address is the one GitHub hands out, so a push is
+    // never rejected for exposing a private email (GH007).
     run("git", &["config", "user.name", &name], Some(root))?;
     run(
         "git",

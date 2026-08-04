@@ -12,6 +12,7 @@ pub mod git;
 pub mod limits;
 pub mod lock;
 pub mod model;
+pub mod proc;
 pub mod schedule;
 pub mod settings;
 pub mod setup;
@@ -64,6 +65,31 @@ impl Jotbay {
         }
 
         Err(Error::NotAJotbay(start))
+    }
+
+    /// Discovery for a windowed app.
+    ///
+    /// `discover` starts from the working directory, which is right for a CLI —
+    /// `cd` into another vault and it follows you. An installed app has no
+    /// meaningful working directory: it is wherever the launcher happened to
+    /// leave it. On Windows that was the install directory, so the app reported
+    /// "no jotbay found at C:\Users\…\AppData\Local\Jotbay" before setup and
+    /// could bind to the wrong repository after it, if one happened to sit
+    /// above the launch directory.
+    ///
+    /// So: what setup recorded, then the default location, and nothing else.
+    pub fn for_app() -> Result<Self> {
+        if let Some(recorded) = settings::Settings::load().vault_path {
+            let path = PathBuf::from(recorded);
+            if path.join(".git").exists() {
+                return Ok(Self { git: Git::new(path) });
+            }
+        }
+        let fallback = default_root();
+        if fallback.join(".git").exists() {
+            return Ok(Self { git: Git::new(fallback) });
+        }
+        Err(Error::NotAJotbay(fallback))
     }
 
     pub fn open(root: impl Into<PathBuf>) -> Result<Self> {

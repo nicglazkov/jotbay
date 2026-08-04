@@ -133,7 +133,9 @@ impl Drop for SyncGuard {
 /// and git is the real source of truth, so caching a handle would only create
 /// a way for the UI to show something git no longer agrees with.
 fn jotbay() -> Result<Jotbay, String> {
-    Jotbay::discover(None).map_err(|e| e.to_string())
+    // for_app, not discover: this process's working directory is wherever the
+    // launcher left it, which on Windows is the install directory.
+    Jotbay::for_app().map_err(|e| e.to_string())
 }
 
 /// Every read command below is `async` for the same reason as `do_sync`: a

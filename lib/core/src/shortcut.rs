@@ -188,7 +188,7 @@ fn windows_link(target: Target, source: &Path, location: &Path) -> Result<PathBu
         ),
     );
 
-    let output = std::process::Command::new("powershell")
+    let output = crate::proc::quiet("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .output()
         .map_err(|e| Error::Other(format!("could not run powershell: {e}")))?;

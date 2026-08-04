@@ -287,12 +287,15 @@ final class JotbayController: ObservableObject {
         }
         binaryMissing = false
 
-        let root = jotbayRoot.path
+        // No --jotbay when the vault is not yet known: the CLI's for_app-style
+        // resolution reads the recorded setting, where this would hand it a
+        // guess based on a default path.
+        let root = status.root.isEmpty ? nil : status.root
         return await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
                 process.executableURL = binary
-                process.arguments = arguments + ["--jotbay", root]
+                process.arguments = root.map { arguments + ["--jotbay", $0] } ?? arguments
 
                 let out = Pipe()
                 let err = Pipe()

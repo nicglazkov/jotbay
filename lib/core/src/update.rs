@@ -123,7 +123,7 @@ fn refresh(force: bool) {
     }
 
     let url = format!("https://api.github.com/repos/{}/releases/latest", tool_repo());
-    let Ok(out) = std::process::Command::new("curl")
+    let Ok(out) = crate::proc::quiet("curl")
         .args(["-fsSL", "--max-time", "10", "-H", "Accept: application/vnd.github+json", &url])
         .output()
     else {
@@ -250,7 +250,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
     let _sweep = Sweep(tmp.clone());
 
     let downloaded = tmp.join(asset);
-    let fetched_with_gh = std::process::Command::new("gh")
+    let fetched_with_gh = crate::proc::quiet("gh")
         .args([
             "release", "download", &format!("v{version}"),
             "--repo", &repo,
@@ -266,7 +266,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
         let url = format!(
             "https://github.com/{repo}/releases/download/v{version}/{asset}"
         );
-        let ok = std::process::Command::new("curl")
+        let ok = crate::proc::quiet("curl")
             .args(["-fsSL", "-o", &downloaded.to_string_lossy(), &url])
             .status()
             .map(|s| s.success())
@@ -284,11 +284,11 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
 
     // Unpack.
     let status = if asset.ends_with(".zip") {
-        std::process::Command::new("tar")
+        crate::proc::quiet("tar")
             .args(["-xf", &downloaded.to_string_lossy(), "-C", &tmp.to_string_lossy()])
             .status()
     } else {
-        std::process::Command::new("tar")
+        crate::proc::quiet("tar")
             .args(["-xzf", &downloaded.to_string_lossy(), "-C", &tmp.to_string_lossy()])
             .status()
     };
@@ -327,7 +327,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
             let _ = std::fs::remove_dir_all(&staging);
             // Copy beside the live bundle, then swap, so a failed copy cannot
             // leave a half-written app where the working one used to be.
-            let copied = std::process::Command::new("cp")
+            let copied = crate::proc::quiet("cp")
                 .args(["-R", &from.to_string_lossy(), &staging.to_string_lossy()])
                 .status()
                 .map(|s| s.success())

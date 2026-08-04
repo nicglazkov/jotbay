@@ -3,6 +3,21 @@ import SwiftUI
 struct MenuBarView: View {
     @EnvironmentObject private var controller: JotbayController
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.dismiss) private var dismiss
+
+    /// Close the popover, then do the thing.
+    ///
+    /// Every other menu bar app on the system closes when you pick something,
+    /// and this one sat there — most obviously on "Open Jotbay Folder", where
+    /// Finder came forward and left the popover hanging over it.
+    ///
+    /// Dismiss first, act second: several of these activate another app or open
+    /// a window, and doing that while the popover is still up leaves it
+    /// stranded on screen instead of closing it.
+    private func choose(_ action: @escaping () -> Void) {
+        dismiss()
+        DispatchQueue.main.async(execute: action)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -92,26 +107,30 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             if controller.needsSetup {
                 MenuButton(title: "Set Up Jotbay…", symbol: "sparkles", key: "m") {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
+                    choose {
+                        openWindow(id: "main")
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
                 }
             } else {
                 MenuButton(title: "Sync now", symbol: "arrow.triangle.2.circlepath", key: "s") {
-                    controller.sync()
+                    choose { controller.sync() }
                 }
                 .disabled(controller.isSyncing)
 
                 MenuButton(title: "Open Jotbay Folder", symbol: "folder", key: "o") {
-                    controller.revealDataDirectory()
+                    choose { controller.revealDataDirectory() }
                 }
 
                 MenuButton(title: "Management Window", symbol: "square.grid.2x2", key: "m") {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
+                    choose {
+                        openWindow(id: "main")
+                        NSApp.activate(ignoringOtherApps: true)
+                    }
                 }
 
                 MenuButton(title: "Terminal Dashboard", symbol: "terminal", key: "d") {
-                    controller.openTerminalDashboard()
+                    choose { controller.openTerminalDashboard() }
                 }
             }
 
