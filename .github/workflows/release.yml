@@ -142,6 +142,15 @@ jobs:
           if [ -f "$src.exe" ]; then cp "$src.exe" "$staged/jotbay.exe"; else cp "$src" "$staged/jotbay"; fi
           ls -l "$staged"
 
+      # The cargo cache restores target/, bundle directory included, so a
+      # previous run's installers survive into this one — and the collect step
+      # below cannot tell them apart from what was just built. v1.4.0 shipped
+      # with a Jotbay_1.3.4 .deb and -setup.exe attached because of this.
+      - name: Clear stale bundle output
+        if: matrix.os != 'macos'
+        shell: bash
+        run: rm -rf "lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
+
       - name: Build desktop app and installers (Windows and Linux)
         if: matrix.os != 'macos'
         working-directory: lib/gui-tauri/src-tauri
