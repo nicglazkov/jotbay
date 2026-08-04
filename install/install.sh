@@ -16,10 +16,16 @@ set -euo pipefail
 # Piped through `curl | sh` there is no script file and no clone — only a
 # published release can supply the binaries. From a clone, source builds are
 # also on the table.
+CLONE_DIR=""
 if [ -n "${BASH_SOURCE:-}" ] && [ -f "${BASH_SOURCE[0]:-}" ]; then
-  CLONE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-else
-  CLONE_DIR=""
+  candidate="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  # Verified, not assumed. Downloading this script to a temp directory and
+  # running it there made the parent of that directory "the clone", and the
+  # source-build path then failed somewhere confusing instead of here. A clone
+  # is a directory that actually contains the thing we would build.
+  if [ -f "$candidate/lib/Cargo.toml" ]; then
+    CLONE_DIR="$candidate"
+  fi
 fi
 
 # Where releases live. Deliberately not derived from any clone's origin: since

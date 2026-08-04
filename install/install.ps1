@@ -22,7 +22,15 @@ $ErrorActionPreference = 'Stop'
 # Piped (`irm ... | iex`) there is no script file and no clone - only a
 # published release can supply the binaries. From a clone, source builds are
 # also possible.
-$CloneDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { $null }
+# Verified, not assumed: downloading this script to a temp directory and
+# running it there made the parent of that directory "the clone", and the
+# script then died claiming it was not a git checkout. A clone is a directory
+# that actually contains the thing we would build.
+$CloneDir = $null
+if ($PSScriptRoot) {
+  $candidate = Split-Path -Parent $PSScriptRoot
+  if (Test-Path (Join-Path $candidate 'lib\Cargo.toml')) { $CloneDir = $candidate }
+}
 
 # Where releases live. Deliberately not derived from the clone's origin any
 # more: since the split, a clone of this script sits next to somebody's *notes*,
@@ -41,9 +49,6 @@ function Warn { param($m) Write-Host "    warning: $m" -ForegroundColor Yellow }
 function Die  { param($m) Write-Host "error: $m" -ForegroundColor Red; exit 1 }
 function Have { param($c) [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 
-if ($CloneDir -and -not (Test-Path (Join-Path $CloneDir '.git'))) {
-  Die "$CloneDir is not a git clone of Jotbay"
-}
 if ($Source -and -not $CloneDir) {
   Die "-Source needs a clone: git clone https://github.com/$Repo.git"
 }
