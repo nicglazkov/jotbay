@@ -25,6 +25,9 @@ Info 'scheduled task removed'
 
 Say 'removing binaries and launchers'
 Remove-Item -Recurse -Force $BinDir -ErrorAction SilentlyContinue
+# The directory the tool used before it was renamed, if a machine still has it.
+Remove-Item -Recurse -Force (Join-Path $env:LOCALAPPDATA 'Programs\inkway') `
+  -ErrorAction SilentlyContinue
 Remove-Item -Force (Join-Path $JotbayDir 'Jotbay.lnk') -ErrorAction SilentlyContinue
 
 Say 'removing shortcuts'
@@ -33,8 +36,10 @@ Remove-Item -Force (Join-Path $desktop 'Jotbay.lnk') -ErrorAction SilentlyContin
 
 Say 'cleaning PATH'
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($userPath -like "*$BinDir*") {
-  $cleaned = ($userPath -split ';' | Where-Object { $_ -and $_ -ne $BinDir }) -join ';'
+$LegacyBin = Join-Path $env:LOCALAPPDATA 'Programs\inkway'
+if (($userPath -like "*$BinDir*") -or ($userPath -like "*$LegacyBin*")) {
+  $cleaned = ($userPath -split ';' |
+    Where-Object { $_ -and $_ -ne $BinDir -and $_ -ne $LegacyBin }) -join ';'
   [Environment]::SetEnvironmentVariable('Path', $cleaned, 'User')
   Info 'PATH entry removed'
 }

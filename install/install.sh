@@ -13,10 +13,15 @@ set -euo pipefail
 
 JOTBAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Derived from the clone's own origin rather than hardcoded, so a fork or a
-# repo made from the template pulls its own releases with no edits.
-REPO="$(git -C "$JOTBAY_DIR" remote get-url origin 2>/dev/null \
-        | sed -E 's#^git@[^:]+:##; s#^https?://[^/]+/##; s#\.git$##')"
+# Where releases live. Deliberately not derived from the clone's origin any
+# more: since the split, a clone of this script sits next to somebody's *notes*,
+# and a notes repository has no releases on it. Deriving it meant every install
+# silently fell through to a source build, which needs a Rust toolchain — the
+# one thing the release assets exist to avoid.
+#
+# A fork overrides it rather than editing this file. Matches JOTBAY_TOOL_REPO in
+# lib/core/src/update.rs, which `jotbay upgrade` uses for the same reason.
+REPO="${JOTBAY_TOOL_REPO:-nicglazkov/jotbay}"
 BIN_DIR="$HOME/.local/bin"
 INTERVAL=600
 LAUNCH_LABEL="com.jotbay.sync"

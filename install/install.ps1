@@ -21,10 +21,15 @@ $ErrorActionPreference = 'Stop'
 
 $JotbayDir  = Split-Path -Parent $PSScriptRoot
 
-# Derived from the clone's own origin rather than hardcoded, so a fork or a
-# repo made from the template pulls its own releases with no edits.
-$Repo = (& git -C $JotbayDir remote get-url origin 2>$null) `
-  -replace '^git@[^:]+:', '' -replace '^https?://[^/]+/', '' -replace '\.git$', ''
+# Where releases live. Deliberately not derived from the clone's origin any
+# more: since the split, a clone of this script sits next to somebody's *notes*,
+# and a notes repository has no releases on it. Deriving it meant every install
+# silently fell through to a source build, which needs a Rust toolchain - the
+# one thing the release assets exist to avoid.
+#
+# A fork overrides it rather than editing this file. Matches JOTBAY_TOOL_REPO in
+# lib/core/src/update.rs, which `jotbay upgrade` uses for the same reason.
+$Repo = if ($env:JOTBAY_TOOL_REPO) { $env:JOTBAY_TOOL_REPO } else { 'nicglazkov/jotbay' }
 $BinDir    = Join-Path $env:LOCALAPPDATA 'Programs\jotbay'
 $IntervalM = 10
 
@@ -41,6 +46,23 @@ if (-not (Test-Path (Join-Path $JotbayDir '.git'))) {
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
 Say "installing for windows/$arch from $JotbayDir"
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+
+# Everything the previous name left behind. The rename replaced the scheduled
+# task but not the binaries, so inkway.exe stayed on PATH beside jotbay.exe -
+# and running it would republish to refs/inkway-status/ and recreate the orphan
+# ref the migration had just deleted. The directory has to come off PATH too,
+# which is the half Unix does not have to deal with.
+$LegacyBin = Join-Path $env:LOCALAPPDATA 'Programs\inkway'
+if (Test-Path $LegacyBin) {
+  Remove-Item -Recurse -Force $LegacyBin -ErrorAction SilentlyContinue
+  Info "removed the superseded install at $LegacyBin"
+}
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($userPath -and (($userPath -split ';') -contains $LegacyBin)) {
+  $cleaned = ($userPath -split ';' | Where-Object { $_ -ne $LegacyBin -and $_ -ne '' }) -join ';'
+  [Environment]::SetEnvironmentVariable('Path', $cleaned, 'User')
+  Info 'removed the superseded install directory from PATH'
+}
 
 # --- binaries ---------------------------------------------------------------
 
@@ -78,6 +100,17 @@ function Install-FromSource {
   Copy-Item (Join-Path $JotbayDir 'lib\target\release\jotbay.exe') $BinDir -Force
 
   if (-not $NoGui) {
+    # The GUI crate's bundle config packages the CLI from src-tauri/staged,
+    # and tauri-build validates that resources exist even for a plain
+    # `cargo build` - so without this staging step (normally bundle.sh's job)
+    # the GUI can never build from a fresh clone: the build script dies with
+    # "resource path `staged\jotbay.exe` doesn't exist". Found during the
+    # jotbay migration, masked before it by a stale staged/ dir left behind
+    # by earlier bundle.sh runs.
+    $staged = Join-Path $JotbayDir 'lib\gui-tauri\src-tauri\staged'
+    New-Item -ItemType Directory -Force -Path $staged | Out-Null
+    Copy-Item (Join-Path $JotbayDir 'lib\target\release\jotbay.exe') $staged -Force
+
     Info 'building the desktop app'
     Push-Location (Join-Path $JotbayDir 'lib\gui-tauri\src-tauri')
     cargo build --release --quiet
