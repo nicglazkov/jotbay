@@ -44,7 +44,13 @@ notarize() {
   if [ "$status" != "Accepted" ]; then
     id=$(printf '%s' "$out" | awk '/^ *id:/ {print $2; exit}')
     printf '\033[31mnotarization %s\033[0m\n' "${status:-failed}" >&2
-    [ -n "$id" ] && xcrun notarytool log "$id" --keychain-profile "$PROFILE" >&2 || true
+    # Written as an `if` rather than `A && B || true`: that form is not
+    # if-then-else — the `|| true` also swallows a failure of the *test*, which
+    # is the one case worth seeing. shellcheck 0.8 flags it (SC2015); 0.11 does
+    # not, so CI caught what the local tool missed.
+    if [ -n "$id" ]; then
+      xcrun notarytool log "$id" --keychain-profile "$PROFILE" >&2 || true
+    fi
     die "notarization did not succeed for $target"
   fi
 }
