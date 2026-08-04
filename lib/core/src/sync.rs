@@ -130,6 +130,18 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
 
     // 4. Publish. A push rejected because someone else pushed between our
     //    fetch and ours is normal, not an error: integrate and retry once.
+    //
+    //    Whether anything is actually going out is decided *before* the push,
+    //    because afterwards the answer is always no. `pushed` used to be set
+    //    unconditionally, which made did_nothing() permanently false — a lie
+    //    nobody noticed at ten-minute intervals and that the watcher turned
+    //    into "Saved your changes" every twenty seconds, forever.
+    let ahead: u32 = git
+        .run(&["rev-list", "--count", "@{u}..@"])
+        .unwrap_or_default()
+        .trim()
+        .parse()
+        .unwrap_or(0);
     let branch = git.current_branch()?;
     let first = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
     if first.timed_out {
@@ -145,7 +157,7 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
             return Err(Error::Other(retry.describe("push")));
         }
     }
-    report.pushed = true;
+    report.pushed = ahead > 0;
     report.head_short = git.head_short()?;
 
     let head_after = git.head().unwrap_or_default();
