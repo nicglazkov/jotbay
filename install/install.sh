@@ -195,7 +195,10 @@ info "jotbay $("$BIN_DIR/jotbay" --version | awk '{print $2}') → $BIN_DIR/jotb
 # Now it asks: resolved from recorded settings (or ~/jotbay), from $HOME so a
 # clone this script happens to sit in is never mistaken for the notes.
 
-VAULT_DATA="$(cd "$HOME" && "$BIN_DIR/jotbay" path 2>/dev/null || true)"
+# Not `… || true` inside the substitution: that is the A && B || C shape,
+# which shellcheck 0.8 on the CI runner rejects and 0.11 locally lets pass —
+# the second time that version gap has shipped a red lint job.
+VAULT_DATA="$(cd "$HOME" && "$BIN_DIR/jotbay" path 2>/dev/null)" || VAULT_DATA=""
 VAULT_DIR=""
 if [ -n "$VAULT_DATA" ]; then
   VAULT_DIR="$(dirname "$VAULT_DATA")"
