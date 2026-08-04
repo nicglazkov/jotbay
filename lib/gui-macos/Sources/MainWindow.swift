@@ -50,18 +50,14 @@ struct MainWindow: View {
                 Button {
                     controller.sync()
                 } label: {
-                    Label("Sync", systemImage: "arrow.triangle.2.circlepath")
+                    Label("Sync now", systemImage: "arrow.triangle.2.circlepath")
                 }
                 .disabled(controller.isSyncing)
-                .help("Commit, integrate the remote, and push")
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    controller.refresh(fetchRemote: true)
-                } label: {
-                    Label("Refresh", systemImage: "arrow.clockwise")
-                }
-                .help("Fetch the latest state from the remote")
+                // One button. Refresh used to sit beside it, which asked the
+                // user to know the difference between fetching what others did
+                // and sending what they did — a git distinction, in an app
+                // whose point is not needing one.
+                .help("Send your changes and bring in everyone else's")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {

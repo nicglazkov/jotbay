@@ -28,7 +28,6 @@ fi
 # the file. Matches JOTBAY_TOOL_REPO in lib/core/src/update.rs.
 REPO="${JOTBAY_TOOL_REPO:-nicglazkov/jotbay}"
 BIN_DIR="$HOME/.local/bin"
-INTERVAL=600
 LAUNCH_LABEL="com.jotbay.sync"
 
 FROM_SOURCE=0
@@ -259,7 +258,7 @@ ensure_git_identity
 # schedule rewritten. The old form baked a --jotbay path into the plist, which
 # was the installer deciding where the notes were; that is init's job now.
 
-say "scheduling background sync every $((INTERVAL / 60)) minutes"
+say "starting the background sync"
 
 if [ "$OS" = macos ]; then
   # A neutral label: this one ends up in every user's LaunchAgents directory,
@@ -288,10 +287,14 @@ if [ "$OS" = macos ]; then
   <key>ProgramArguments</key>
   <array>
     <string>$BIN_DIR/jotbay</string>
-    <string>sync</string>
+    <string>watch</string>
   </array>
   <key>WorkingDirectory</key><string>$HOME</string>
-  <key>StartInterval</key><integer>$INTERVAL</integer>
+  <!-- A long-running watcher, not a ten-minute alarm. KeepAlive restarts it if
+       it ever dies, which is the whole reason the watcher runs in the
+       foreground and leaves supervision to launchd. -->
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$HOME/Library/Logs/jotbay-sync.log</string>
   <key>StandardErrorPath</key><string>$HOME/Library/Logs/jotbay-sync.log</string>
@@ -300,20 +303,24 @@ if [ "$OS" = macos ]; then
 PLIST_EOF
   launchctl unload "$PLIST" 2>/dev/null || true
   launchctl load "$PLIST"
-  info "LaunchAgent loaded · logs in ~/Library/Logs/jotbay-sync.log"
+  info "watching for changes · logs in ~/Library/Logs/jotbay-sync.log"
 
 else
   UNITS="$HOME/.config/systemd/user"
   mkdir -p "$UNITS"
 
-  # Historical unit name, not to be renamed with the rest of the codebase.
+  # Historical unit names, not to be renamed with the rest of the codebase.
   # A leftover timer keeps calling a binary that no longer exists, and the
-  # failure only ever surfaces in the journal.
-  if [ -f "$UNITS/inkway-sync.timer" ]; then
-    systemctl --user disable --now inkway-sync.timer 2>/dev/null || true
-    rm -f "$UNITS/inkway-sync.service" "$UNITS/inkway-sync.timer"
-    info "removed the superseded systemd timer"
-  fi
+  # failure only ever surfaces in the journal. jotbay-sync.timer is the
+  # ten-minute schedule this release replaces with a watcher.
+  for OLD in inkway-sync jotbay-sync; do
+    if [ -f "$UNITS/$OLD.timer" ]; then
+      systemctl --user disable --now "$OLD.timer" 2>/dev/null || true
+      rm -f "$UNITS/$OLD.timer"
+      info "removed the superseded $OLD timer"
+    fi
+  done
+  rm -f "$UNITS/inkway-sync.service"
 
   cat > "$UNITS/jotbay-sync.service" <<UNIT_EOF
 [Unit]
@@ -322,38 +329,25 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=oneshot
+# A watcher that runs for as long as the session does, restarted if it dies.
+# systemd is the supervisor, which is why the watcher stays in the foreground.
+Type=simple
 WorkingDirectory=$HOME
-ExecStart=$BIN_DIR/jotbay sync
-UNIT_EOF
-
-  cat > "$UNITS/jotbay-sync.timer" <<UNIT_EOF
-[Unit]
-Description=Run jotbay sync every $((INTERVAL / 60)) minutes
-
-[Timer]
-OnBootSec=2min
-OnUnitActiveSec=${INTERVAL}s
-# Catch up after suspend or downtime instead of waiting a whole interval —
-# this matters for laptops that move between networks.
-Persistent=true
+ExecStart=$BIN_DIR/jotbay watch
+Restart=always
+RestartSec=10
 
 [Install]
-WantedBy=timers.target
+WantedBy=default.target
 UNIT_EOF
 
   systemctl --user daemon-reload
-  # Enabled but not started yet. `--now` starts the timer immediately, and
-  # because it is Persistent with an elapsed OnBootSec systemd fires a sync
-  # right then — which races the first sync below, takes the lock, and makes
-  # the installer sign off with "another sync is already running". Started
-  # after that first sync instead.
-  systemctl --user enable jotbay-sync.timer >/dev/null
+  systemctl --user enable jotbay-sync.service >/dev/null
   # Without lingering, the user manager is torn down at logout and the timer
   # stops firing on exactly the headless boxes that need it most.
   loginctl enable-linger "$USER" 2>/dev/null || \
     warn "could not enable lingering — run: sudo loginctl enable-linger $USER"
-  info "systemd timer enabled · logs: journalctl --user -u jotbay-sync"
+  info "watching for changes · logs: journalctl --user -u jotbay-sync -f"
 fi
 
 # --- launcher and shortcuts -------------------------------------------------
@@ -432,7 +426,7 @@ fi
 # Now that any first sync has finished and released the lock, hand over to the
 # schedule. On macOS launchctl already did this via RunAtLoad.
 if [ "$OS" = linux ]; then
-  systemctl --user start jotbay-sync.timer
+  systemctl --user restart jotbay-sync.service
 fi
 
 echo

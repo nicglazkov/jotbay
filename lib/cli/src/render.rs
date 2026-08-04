@@ -423,3 +423,19 @@ pub fn capabilities(c: &jotbay_core::setup::SetupCapabilities) {
     println!("  {}", format!("default location: {}", c.default_location).bright_black());
     println!();
 }
+
+/// One timestamped line from the watcher.
+///
+/// Timestamped because this output is read hours later in a log file, where
+/// "pushed" with no time attached answers nothing.
+pub fn watch_event(text: &str, failed: bool) {
+    // UTC: the `local-offset` feature is not enabled, and a log that is
+    // consistently UTC beats one that silently falls back to it.
+    let now = time::OffsetDateTime::now_utc();
+    let stamp = format!("{:02}:{:02}:{:02}Z", now.hour(), now.minute(), now.second());
+    if failed {
+        println!("  {} {} {}", stamp.dimmed(), "\u{2716}".red(), text);
+    } else {
+        println!("  {} {} {}", stamp.dimmed(), "\u{2713}".green(), text);
+    }
+}

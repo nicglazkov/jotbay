@@ -18,6 +18,7 @@ pub mod shortcut;
 pub mod status;
 pub mod sync;
 pub mod update;
+pub mod watch;
 
 pub use error::{Error, Result};
 pub use git::Git;

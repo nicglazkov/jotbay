@@ -30,6 +30,8 @@ if [ "$OS" = macos ]; then
   info "LaunchAgent removed"
 else
   for UNIT in jotbay-sync inkway-sync; do
+    # Both shapes: a .service since the watcher landed, a .timer before it.
+    systemctl --user disable --now "$UNIT.service" 2>/dev/null || true
     systemctl --user disable --now "$UNIT.timer" 2>/dev/null || true
     rm -f "$HOME/.config/systemd/user/$UNIT.service" \
           "$HOME/.config/systemd/user/$UNIT.timer"

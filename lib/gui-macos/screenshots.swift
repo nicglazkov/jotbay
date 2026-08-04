@@ -210,6 +210,29 @@ let demoActivity: [ActivityEvent] = [
             rebaseInProgress: false, conflicts: [], dataFiles: 34, warnings: [],
             updateAvailable: nil, nodes: demoNodes)
         shot("macos-files", FilesPane().environmentObject(c), width: 560, height: 480)
+        // A note using the constructs a real reference document leans on:
+        // tables and checklists, neither of which the first renderer handled.
+        let richNote = """
+        # Frontend tooling
+
+        | Tool | Licence | Scope |
+        |---|---|---|
+        | **Tailark** | **$299 one-time** | Unlimited projects |
+        | shadcn/ui | MIT | Copy in, own the code |
+        | Tailwind | MIT | Everywhere |
+
+        ## Before starting
+
+        - [x] Confirmed the project is React + Tailwind
+        - [x] Checked current docs for version numbers
+        - [ ] Confirmed the skill is actually loaded
+
+        > Measure first. Everything above was a guess until it was not.
+        """
+        shot("macos-note-rich", PreviewView(preview: Preview(
+            rel: "frontend-tooling.md", size: 3180, text: richNote,
+            markdown: true, truncated: false)), width: 620, height: 560)
+
         shot("macos-note", PreviewView(preview: Preview(
             rel: "postgres-tuning.md", size: 4210, text: demoNote,
             markdown: true, truncated: false)), width: 560, height: 560)

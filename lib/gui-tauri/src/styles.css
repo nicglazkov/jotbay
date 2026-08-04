@@ -424,3 +424,14 @@ main { flex: 1; display: flex; min-height: 0; }
   border-left: 3px solid var(--border); color: var(--text-dim); }
 .preview-body hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
 .preview-body a { color: var(--accent); }
+
+/* Tables and checklists in rendered notes. */
+.preview-body table { border-collapse: collapse; margin: 0.7em 0; font-size: 12.5px;
+  display: block; overflow-x: auto; max-width: 100%; }
+.preview-body th, .preview-body td { border: 1px solid var(--border);
+  padding: 5px 10px; vertical-align: top; }
+.preview-body th { background: var(--bg-raised); font-weight: 600; text-align: left; }
+.preview-body li.task { list-style: none; margin-left: -1.1em;
+  display: flex; align-items: baseline; gap: 7px; }
+.preview-body li.task input { margin: 0; }
+.preview-body li.task .done { color: var(--text-dim); text-decoration: line-through; }

@@ -73,7 +73,7 @@ after setup needs it at all.
 | `jotbay upgrade` | fetch the current release and replace this machine's binaries |
 | `jotbay init` | set up a vault on a new machine |
 
-A sync runs every ten minutes in the background. The desktop app shows the same
+Jotbay watches the folder and syncs a couple of seconds after you stop typing, so notes reach your other machines in well under a minute without anyone pressing anything. The desktop app shows the same
 information with per-machine detail and history, and lives in the menu bar
 (macOS) or system tray (Windows and Linux); its icon changes with state — idle,
 syncing, needs attention — which is the only health signal once the window is

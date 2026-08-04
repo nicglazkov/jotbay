@@ -34,7 +34,6 @@ $CloneDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { $null
 # lib/core/src/update.rs, which `jotbay upgrade` uses for the same reason.
 $Repo = if ($env:JOTBAY_TOOL_REPO) { $env:JOTBAY_TOOL_REPO } else { 'nicglazkov/jotbay' }
 $BinDir    = Join-Path $env:LOCALAPPDATA 'Programs\jotbay'
-$IntervalM = 10
 
 function Say  { param($m) Write-Host "==> $m" -ForegroundColor White }
 function Info { param($m) Write-Host "    $m" }
@@ -199,7 +198,7 @@ $IdentityOk = Initialize-GitIdentity
 
 # --- scheduled sync ---------------------------------------------------------
 
-Say "scheduling background sync every $IntervalM minutes"
+Say 'starting the background sync'
 
 # Launched through `conhost --headless`: a console binary started directly by
 # an interactive scheduled task flashes a console window at every run - here,
@@ -209,27 +208,31 @@ Say "scheduling background sync every $IntervalM minutes"
 # on or not") would also be windowless but moves the sync into a session where
 # the credential manager is not guaranteed to open.
 $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
-  -Argument "--headless `"$JotbayExe`" sync"
-# Omitting RepetitionDuration is what the Task Scheduler UI calls
-# "Indefinitely". Do NOT pass [TimeSpan]::MaxValue: it serialises to
-# P99999999DT23H59M59S, which the scheduler rejects outright with "the task XML
-# contains a value which is incorrectly formatted or out of range", aborting the
-# install before the launcher, the shortcuts and the first sync. [TimeSpan]::Zero
-# is rejected too. Verified on Windows 11 (26200): a trigger started two days ago
-# with no Duration still reports a NextRunTime ten minutes out, where the same
-# trigger with an explicit one-day Duration reports none at all - so "forever" is
-# the absence of the element, not a very large value in it.
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
-  -RepetitionInterval (New-TimeSpan -Minutes $IntervalM)
+  -Argument "--headless `"$JotbayExe`" watch" -WorkingDirectory $env:USERPROFILE
+# A watcher that runs for the whole session, not a repeating alarm: it starts
+# at logon and the scheduler restarts it if it dies. RestartCount/-Interval are
+# the Windows equivalent of launchd's KeepAlive and systemd's Restart=always,
+# which is why the watcher stays in the foreground on every platform.
+#
+# ExecutionTimeLimit must be zero. The default is three days, after which the
+# scheduler kills the task - which for a repeating one-shot never mattered and
+# for a long-lived watcher means sync silently stopping after 72 hours.
+$trigger  = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
-  -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries -MultipleInstances IgnoreNew
+  -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries -MultipleInstances IgnoreNew `
+  -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
+  -ExecutionTimeLimit ([TimeSpan]::Zero)
 
 # Historical task name; a leftover one keeps invoking a binary that is gone.
 Unregister-ScheduledTask -TaskName 'inkway-sync' -Confirm:$false -ErrorAction SilentlyContinue
 
 Register-ScheduledTask -TaskName 'jotbay-sync' -Action $action -Trigger $trigger `
   -Settings $settings -Description 'Keep markdown notes in sync' -Force | Out-Null
-Info 'scheduled task "jotbay-sync" registered'
+Info 'watching for changes - scheduled task "jotbay-sync" runs at logon'
+
+# Registering does not start it; without this the watcher would not run until
+# the next logon, and nothing would sync in the meantime.
+Start-ScheduledTask -TaskName 'jotbay-sync' -ErrorAction SilentlyContinue
 
 # --- launcher and shortcuts -------------------------------------------------
 

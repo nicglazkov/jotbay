@@ -96,7 +96,7 @@ struct MenuBarView: View {
                     NSApp.activate(ignoringOtherApps: true)
                 }
             } else {
-                MenuButton(title: "Sync Now", symbol: "arrow.triangle.2.circlepath", key: "s") {
+                MenuButton(title: "Sync now", symbol: "arrow.triangle.2.circlepath", key: "s") {
                     controller.sync()
                 }
                 .disabled(controller.isSyncing)

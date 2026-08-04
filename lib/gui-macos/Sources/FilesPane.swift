@@ -258,15 +258,44 @@ private struct MarkdownText: View {
         case heading(Int, String)
         case code(String)
         case quote(String)
-        case list([String], ordered: Bool)
+        case list([Item], ordered: Bool)
+        case table(header: [String], rows: [[String]])
         case rule
         case para(String)
+    }
+
+    /// A list item, and whether it is a checklist entry.
+    struct Item {
+        let text: String
+        /// nil for an ordinary bullet; true/false for a ticked or unticked box.
+        let checked: Bool?
+    }
+
+    /// A pipe table row. The separator row beneath the header (|---|:--:|) is
+    /// what proves a table rather than a line that happens to contain pipes.
+    private static func isRow(_ t: String) -> Bool {
+        let s = t.trimmingCharacters(in: .whitespaces)
+        return s.hasPrefix("|") && s.hasSuffix("|") && s.count > 1
+    }
+
+    private static func isSeparator(_ t: String) -> Bool {
+        guard isRow(t) else { return false }
+        return cells(t).allSatisfy {
+            $0.range(of: #"^:?-{2,}:?$"#, options: .regularExpression) != nil
+        }
+    }
+
+    private static func cells(_ t: String) -> [String] {
+        var s = t.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("|") { s.removeFirst() }
+        if s.hasSuffix("|") { s.removeLast() }
+        return s.components(separatedBy: "|").map { $0.trimmingCharacters(in: .whitespaces) }
     }
 
     private var blocks: [Block] {
         var out: [Block] = []
         var code: [String]? = nil
-        var list: [String] = []
+        var list: [Item] = []
         var ordered = false
         var para: [String] = []
 
@@ -277,8 +306,11 @@ private struct MarkdownText: View {
             if !list.isEmpty { out.append(.list(list, ordered: ordered)); list = [] }
         }
 
-        for raw in source.components(separatedBy: "\n") {
-            let line = String(raw)
+        let allLines = source.components(separatedBy: "\n")
+        var index = 0
+        while index < allLines.count {
+            let line = allLines[index]
+            defer { index += 1 }
             if line.hasPrefix("```") {
                 flushPara(); flushList()
                 if let body = code { out.append(.code(body.joined(separator: "\n"))); code = nil }
@@ -299,18 +331,33 @@ private struct MarkdownText: View {
             if trimmed.range(of: #"^(-{3,}|\*{3,})$"#, options: .regularExpression) != nil {
                 flushPara(); flushList(); out.append(.rule); continue
             }
+            // Tables, before the list rules: without this an 80-line reference
+            // document renders mostly as literal pipes.
+            if Self.isRow(line), index + 1 < allLines.count, Self.isSeparator(allLines[index + 1]) {
+                flushPara(); flushList()
+                let header = Self.cells(line)
+                var rows: [[String]] = []
+                var scan = index + 2
+                while scan < allLines.count, Self.isRow(allLines[scan]) {
+                    rows.append(Self.cells(allLines[scan]))
+                    scan += 1
+                }
+                out.append(.table(header: header, rows: rows))
+                index = scan - 1
+                continue
+            }
             if let match = trimmed.range(of: #"^[-*] "#, options: .regularExpression) {
                 flushPara()
                 if !list.isEmpty && ordered { flushList() }
                 ordered = false
-                list.append(String(trimmed[match.upperBound...]))
+                list.append(Self.item(String(trimmed[match.upperBound...])))
                 continue
             }
             if let match = trimmed.range(of: #"^\d+[.)] "#, options: .regularExpression) {
                 flushPara()
                 if !list.isEmpty && !ordered { flushList() }
                 ordered = true
-                list.append(String(trimmed[match.upperBound...]))
+                list.append(Self.item(String(trimmed[match.upperBound...])))
                 continue
             }
             if trimmed.hasPrefix(">") {
@@ -323,6 +370,16 @@ private struct MarkdownText: View {
         flushPara(); flushList()
         if let body = code { out.append(.code(body.joined(separator: "\n"))) }
         return out
+    }
+
+    /// `- [ ]` and `- [x]`: a checklist is a list whose whole point is the
+    /// boxes, and literal brackets lose it.
+    private static func item(_ text: String) -> Item {
+        guard let r = text.range(of: #"^\[[ xX]\] "#, options: .regularExpression) else {
+            return Item(text: text, checked: nil)
+        }
+        let mark = text[text.index(text.startIndex, offsetBy: 1)]
+        return Item(text: String(text[r.upperBound...]), checked: mark != " ")
     }
 
     @ViewBuilder private func render(_ block: Block) -> some View {
@@ -346,13 +403,24 @@ private struct MarkdownText: View {
             VStack(alignment: .leading, spacing: 3) {
                 ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 6) {
-                        Text(ordered ? "\(index + 1)." : "•")
+                        if let checked = item.checked {
+                            Image(systemName: checked ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 12))
+                                .foregroundStyle(checked ? Color.accentColor : .secondary)
+                        } else {
+                            Text(ordered ? "\(index + 1)." : "•")
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(.secondary)
+                        }
+                        inline(item.text)
                             .font(.system(size: 12.5))
-                            .foregroundStyle(.secondary)
-                        inline(item).font(.system(size: 12.5))
+                            .foregroundStyle(item.checked == true ? .secondary : .primary)
+                            .strikethrough(item.checked == true)
                     }
                 }
             }
+        case .table(let header, let rows):
+            TableBlock(header: header, rows: rows)
         case .rule:
             Divider()
         case .para(let text):
@@ -368,5 +436,56 @@ private struct MarkdownText: View {
             return Text(attributed)
         }
         return Text(text)
+    }
+}
+
+/// A markdown table.
+///
+/// A Grid rather than SwiftUI's `Table`, which is a list control built around
+/// a typed row model — the wrong shape entirely for cells parsed out of text.
+/// Scrolls horizontally on its own so a wide reference table never widens the
+/// pane it sits in.
+private struct TableBlock: View {
+    let header: [String]
+    let rows: [[String]]
+
+    private var columns: Int { max(header.count, rows.map(\.count).max() ?? 0) }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            Grid(alignment: .topLeading, horizontalSpacing: 0, verticalSpacing: 0) {
+                GridRow {
+                    ForEach(0..<columns, id: \.self) { column in
+                        cell(header.indices.contains(column) ? header[column] : "", head: true)
+                    }
+                }
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    GridRow {
+                        ForEach(0..<columns, id: \.self) { column in
+                            cell(row.indices.contains(column) ? row[column] : "", head: false)
+                        }
+                    }
+                }
+            }
+            .overlay(RoundedRectangle(cornerRadius: 5).stroke(.quaternary, lineWidth: 1))
+            .padding(.vertical, 3)
+        }
+    }
+
+    private func cell(_ text: String, head: Bool) -> some View {
+        // Inline styling still applies inside a cell: **bold** carries a lot of
+        // meaning in a comparison table, which is most of what tables are for.
+        let styled = (try? AttributedString(
+            markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(text)
+
+        return Text(styled)
+            .font(.system(size: 11.5, weight: head ? .semibold : .regular))
+            .frame(maxWidth: 260, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 9)
+            .padding(.vertical, 5)
+            .background(head ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
+            .border(.quaternary, width: 0.5)
     }
 }

@@ -61,10 +61,11 @@ final class JotbayController: ObservableObject {
         loadSettings()
         checkSetup()
         refresh(fetchRemote: true)
-        // Local-only repaints keep ages and dirty counts honest without a
-        // network round trip on every tick.
+        // Fetches on every tick now that a watcher is doing the syncing: the
+        // window's job is to show what the mesh is doing, and a local-only
+        // repaint could sit twenty minutes behind the machine next to it.
         timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refresh(fetchRemote: false) }
+            Task { @MainActor in self?.refresh(fetchRemote: true) }
         }
     }
 

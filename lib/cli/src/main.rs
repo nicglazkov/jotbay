@@ -90,6 +90,10 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         at: Option<PathBuf>,
     },
+    /// Sync automatically whenever the notes change, until stopped
+    ///
+    /// What the background schedule runs. Also useful by hand to watch it work.
+    Watch,
     /// Fetch the current release and replace this machine's binaries
     Upgrade,
     /// Show or change per-machine preferences
@@ -135,6 +139,7 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::Init { .. } => unreachable!("handled before discovery"),
+        Command::Watch => cmd_watch(&jotbay),
         Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
         Command::Upgrade => cmd_upgrade(&jotbay),
         Command::Settings { assignment } => cmd_settings(cli.json, assignment),
@@ -285,6 +290,28 @@ fn cmd_shortcut(
     }
     println!();
     Ok(())
+}
+
+/// Run the watcher in the foreground, narrating what it does.
+///
+/// The supervisor is the operating system's: launchd, systemd and Task
+/// Scheduler all restart a process that dies and capture what it printed, so
+/// there is nothing here worth reimplementing.
+fn cmd_watch(jotbay: &Jotbay) -> jotbay_core::Result<()> {
+    use jotbay_core::watch::{self, Event};
+
+    println!();
+    println!("  watching {}", jotbay.data_dir().display());
+    println!("  edits sync automatically; press ctrl-c to stop");
+    println!();
+
+    watch::run(jotbay, |event, detail| {
+        let text = detail.unwrap_or_default();
+        match event {
+            Event::Local | Event::Remote => render::watch_event(&text, false),
+            Event::Failed => render::watch_event(&text, true),
+        }
+    })
 }
 
 fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {

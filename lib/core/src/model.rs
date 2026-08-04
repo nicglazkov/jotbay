@@ -150,6 +150,45 @@ impl SyncReport {
     pub fn did_nothing(&self) -> bool {
         !self.committed && self.pulled == 0 && !self.pushed && self.conflicts.is_empty()
     }
+
+    /// One line describing what happened, in the words a non-git user needs.
+    ///
+    /// Lives here rather than in each front end because it was written three
+    /// times — once per UI — and the three had already drifted apart on
+    /// pluralisation and on whether "committed" was a word worth showing
+    /// somebody who never asked for a commit.
+    pub fn summary(&self) -> String {
+        if self.skipped_locked {
+            return "Another sync is already running".into();
+        }
+        if self.did_nothing() {
+            return "Everything is up to date".into();
+        }
+
+        let mut parts = Vec::new();
+        if self.committed || self.pushed {
+            parts.push("Saved your changes".to_string());
+        }
+        if self.pulled > 0 {
+            parts.push(format!(
+                "brought in {} update{}",
+                self.pulled,
+                if self.pulled == 1 { "" } else { "s" }
+            ));
+        }
+        if !self.conflicts.is_empty() {
+            parts.push(format!(
+                "kept both versions of {} file{}",
+                self.conflicts.len(),
+                if self.conflicts.len() == 1 { "" } else { "s" }
+            ));
+        }
+        let mut text = parts.join(", ");
+        if let Some(first) = text.get_mut(0..1) {
+            first.make_ascii_uppercase();
+        }
+        text
+    }
 }
 
 /// One file whose two versions were both preserved.
