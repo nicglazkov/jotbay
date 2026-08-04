@@ -319,14 +319,21 @@ if [ "$WANT_GUI" -eq 1 ]; then
   else
     if [ -x "$BIN_DIR/jotbay-gui" ]; then
       DESKTOP_FILE="$JOTBAY_DIR/jotbay.desktop"
-      ICON="$JOTBAY_DIR/lib/icons/generated/linux/256x256.png"
+      # The icon is installed to the hicolor theme and referenced by name, not
+      # by path. An absolute Icon= into this clone dangles the moment the clone
+      # is deleted — and did: the menu entry lost its icon on every machine
+      # whose notes repo stripped lib/ after the split.
+      ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+      mkdir -p "$ICON_DIR"
+      cp "$JOTBAY_DIR/lib/icons/generated/linux/256x256.png" "$ICON_DIR/jotbay.png"
+      gtk-update-icon-cache "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
       cat > "$DESKTOP_FILE" <<DESKTOP_EOF
 [Desktop Entry]
 Type=Application
 Name=Jotbay
-Comment=Manage the synced markdown jotbay
+Comment=Keep your markdown notes in sync
 Exec=$BIN_DIR/jotbay-gui
-Icon=$ICON
+Icon=jotbay
 Terminal=false
 Categories=Utility;
 DESKTOP_EOF
