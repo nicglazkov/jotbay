@@ -10,7 +10,7 @@
 
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
@@ -115,19 +115,25 @@ fn legacy_config_dir() -> Option<PathBuf> {
 /// upgrade replaces one copy, not every copy — and it would find an empty
 /// directory and re-run setup. Leaving the original costs a few hundred bytes.
 fn migrate_settings() {
-    let target = settings_path();
-    if target.exists() {
-        return;
-    }
     let Some(legacy) = legacy_config_dir() else {
         return;
     };
-    let source = legacy.join("settings.json");
-    if !source.exists() {
+    migrate_between(&legacy.join("settings.json"), &settings_path());
+}
+
+/// The migration itself, with both paths handed in.
+///
+/// Split out so it can be tested without mutating `HOME` — these tests run in
+/// parallel, and every other test in this module reads the environment through
+/// `config_dir`, so a test that reassigned it would corrupt its neighbours
+/// intermittently and only under load.
+fn migrate_between(source: &Path, target: &Path) {
+    if target.exists() || !source.exists() {
         return;
     }
-    if std::fs::create_dir_all(config_dir()).is_ok() {
-        let _ = std::fs::copy(&source, &target);
+    let Some(dir) = target.parent() else { return };
+    if std::fs::create_dir_all(dir).is_ok() {
+        let _ = std::fs::copy(source, target);
     }
 }
 
@@ -167,6 +173,40 @@ mod tests {
         let s = Settings::default();
         assert_eq!(s.theme, Theme::System);
         assert!(!s.verbose);
+    }
+
+    /// The Linux migration run could not test this: that machine never had a
+    /// config directory, so the branch was vacuous rather than passing. Losing
+    /// `vault_path` sends every upgraded machine to the first-run screen as
+    /// though it had never been set up — too expensive to leave to whichever
+    /// machine happens to have the right shape.
+    #[test]
+    fn settings_migrate_from_the_previous_name() {
+        let base = std::env::temp_dir().join(format!("jotbay-migrate-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let old = base.join("Inkway/settings.json");
+        let new = base.join("Jotbay/settings.json");
+        std::fs::create_dir_all(old.parent().unwrap()).unwrap();
+        let body = br#"{"vault_path":"/somewhere/notes","theme":"dark","verbose":true}"#;
+        std::fs::write(&old, body).unwrap();
+
+        migrate_between(&old, &new);
+
+        let moved: Settings = serde_json::from_slice(&std::fs::read(&new).unwrap()).unwrap();
+        assert_eq!(moved.vault_path.as_deref(), Some("/somewhere/notes"));
+        assert_eq!(moved.theme, Theme::Dark);
+        assert!(moved.verbose);
+        // Copied, not moved: an older binary may still be installed alongside,
+        // and it would find an empty directory and re-run setup.
+        assert!(old.exists());
+
+        // Never overwrite a newer file with an older one.
+        std::fs::write(&new, br#"{"theme":"light"}"#).unwrap();
+        migrate_between(&old, &new);
+        let kept: Settings = serde_json::from_slice(&std::fs::read(&new).unwrap()).unwrap();
+        assert_eq!(kept.theme, Theme::Light);
+
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]

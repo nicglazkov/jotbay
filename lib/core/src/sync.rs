@@ -2,6 +2,7 @@
 
 use crate::conflict;
 use crate::error::{Error, Result};
+use crate::git::{Git, NETWORK_TIMEOUT};
 use crate::limits;
 use crate::lock::SyncLock;
 use crate::model::{ActivityEvent, EventKind, NodeStatus, SyncReport};
@@ -12,6 +13,15 @@ use time::OffsetDateTime;
 /// Run one full sync. Holding the lock for the whole pass means a scheduled
 /// run that overlaps a manual one exits cleanly instead of interleaving git
 /// operations with it.
+/// Fetch with a deadline, reporting what git said rather than discarding it.
+fn fetch(git: &Git) -> Result<()> {
+    let out = git.run_networked(&["fetch", "--quiet", "origin"], NETWORK_TIMEOUT)?;
+    if !out.success {
+        return Err(Error::Other(out.describe("fetch")));
+    }
+    Ok(())
+}
+
 pub fn run(jotbay: &Jotbay) -> Result<SyncReport> {
     let git = jotbay.git();
 
@@ -97,7 +107,7 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
     }
 
     // 2. Fetch content and every node's status in the same trip.
-    git.run(&["fetch", "--quiet", "origin"])?;
+    fetch(git)?;
     let _ = status::fetch_all(git);
 
     if !git.has_upstream() {
@@ -121,10 +131,19 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
     // 4. Publish. A push rejected because someone else pushed between our
     //    fetch and ours is normal, not an error: integrate and retry once.
     let branch = git.current_branch()?;
-    if !git.try_run(&["push", "--quiet", "origin", &branch])? {
-        git.run(&["fetch", "--quiet", "origin"])?;
+    let first = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
+    if first.timed_out {
+        return Err(Error::Other(first.describe("push")));
+    }
+    if !first.success {
+        fetch(git)?;
         integrate(jotbay, hostname, report)?;
-        git.run(&["push", "--quiet", "origin", &branch])?;
+        let retry = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
+        if !retry.success {
+            // The first rejection is expected — someone else pushed between our
+            // fetch and ours. A second one is not, and carries the reason.
+            return Err(Error::Other(retry.describe("push")));
+        }
     }
     report.pushed = true;
     report.head_short = git.head_short()?;

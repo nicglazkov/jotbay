@@ -4,7 +4,7 @@
 //! heartbeat ever lands on `main` — the branch carries content and nothing
 //! else. Reading every node's state costs one fetch.
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::git::Git;
 use crate::model::{ActivityEvent, NodeStatus, MAX_EVENTS_PER_NODE};
 
@@ -62,14 +62,29 @@ pub fn publish(git: &Git, status: &NodeStatus, events: &[ActivityEvent]) -> Resu
 
     let refname = ref_name(&status.hostname);
     git.run(&["update-ref", &refname, &commit])?;
-    git.try_run(&["push", "--quiet", "--force", "origin", &format!("{refname}:{refname}")])?;
+    // Bounded: this is the exact call that once sat for four minutes inside a
+    // scheduled sync. Publishing status is best-effort, so a failure here is
+    // not worth aborting over — but it must not hang the scheduler either.
+    let out = git.run_networked(
+        &["push", "--quiet", "--force", "origin", &format!("{refname}:{refname}")],
+        crate::git::NETWORK_TIMEOUT,
+    )?;
+    if out.timed_out {
+        return Err(Error::Other(out.describe("publishing this machine's status")));
+    }
     Ok(())
 }
 
 /// Fetch every node's status ref. Best-effort: being offline is not an error
 /// worth aborting a sync over.
 pub fn fetch_all(git: &Git) -> Result<()> {
-    git.try_run(&["fetch", "--quiet", "origin", REFSPEC])?;
+    let out = git.run_networked(
+        &["fetch", "--quiet", "origin", REFSPEC],
+        crate::git::NETWORK_TIMEOUT,
+    )?;
+    if out.timed_out {
+        return Err(Error::Other(out.describe("fetching machine status")));
+    }
     Ok(())
 }
 
@@ -141,7 +156,10 @@ pub fn push_event(events: &mut Vec<ActivityEvent>, event: ActivityEvent) {
 pub fn forget(git: &Git, hostname: &str) -> Result<()> {
     let refname = ref_name(hostname);
     git.try_run(&["update-ref", "-d", &refname])?;
-    git.try_run(&["push", "--quiet", "origin", "--delete", &refname])?;
+    let _ = git.run_networked(
+        &["push", "--quiet", "origin", "--delete", &refname],
+        crate::git::NETWORK_TIMEOUT,
+    )?;
     Ok(())
 }
 

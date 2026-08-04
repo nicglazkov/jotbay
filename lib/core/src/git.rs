@@ -8,6 +8,7 @@
 use crate::error::{Error, Result};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
 /// Build a `git` Command that never flashes a console.
 ///
@@ -28,6 +29,35 @@ fn git_command() -> Command {
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
     cmd
+}
+
+/// How long a single network git call may take before it is killed.
+///
+/// Generous for a notes-sized push and far short of the four-minute stall that
+/// prompted it. The scheduler runs every ten minutes, so a hung call must die
+/// well before the next one starts or they queue up behind each other.
+pub const NETWORK_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// What a network git call did, including what it said on the way out.
+#[derive(Debug, Clone)]
+pub struct NetOutcome {
+    pub success: bool,
+    pub stderr: String,
+    /// Killed at the deadline rather than having failed on its own.
+    pub timed_out: bool,
+}
+
+impl NetOutcome {
+    /// One sentence naming what happened, for an activity event.
+    pub fn describe(&self, what: &str) -> String {
+        if self.timed_out {
+            return format!("{what} timed out after {}s", NETWORK_TIMEOUT.as_secs());
+        }
+        if self.stderr.is_empty() {
+            return format!("{what} failed");
+        }
+        format!("{what} failed: {}", self.stderr.lines().next().unwrap_or_default())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -103,6 +133,63 @@ impl Git {
             .status()
             .map_err(Error::GitMissing)?;
         Ok(status.success())
+    }
+
+    /// A git call that talks to the network, with a deadline.
+    ///
+    /// Everything else here can only block on the local filesystem. `fetch` and
+    /// `push` can block on a remote that has stopped answering, and one did:
+    /// four minutes at zero CPU inside a scheduled sync, the child parked in
+    /// `poll_schedule_timeout`. Two things made that worse than it needed to be.
+    /// The scheduler had no deadline, so a stall was indistinguishable from work.
+    /// And the child ran with stderr on /dev/null, so whatever git was waiting
+    /// on could not have been reported even if it had said so.
+    ///
+    /// This gives network calls a deadline and keeps what they said.
+    pub fn run_networked(&self, args: &[&str], timeout: Duration) -> Result<NetOutcome> {
+        let mut child = self
+            .command(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(Error::GitMissing)?;
+
+        // Drained on its own thread. A full pipe blocks the writer forever,
+        // which would be the same hang this exists to prevent, arriving by a
+        // different route.
+        let mut pipe = child.stderr.take();
+        let reader = std::thread::spawn(move || {
+            let mut buf = String::new();
+            if let Some(p) = pipe.as_mut() {
+                use std::io::Read;
+                let _ = p.read_to_string(&mut buf);
+            }
+            buf
+        });
+
+        let deadline = Instant::now() + timeout;
+        loop {
+            match child.try_wait().map_err(Error::GitMissing)? {
+                Some(status) => {
+                    return Ok(NetOutcome {
+                        success: status.success(),
+                        stderr: reader.join().unwrap_or_default().trim().to_string(),
+                        timed_out: false,
+                    })
+                }
+                None if Instant::now() >= deadline => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Ok(NetOutcome {
+                        success: false,
+                        stderr: reader.join().unwrap_or_default().trim().to_string(),
+                        timed_out: true,
+                    });
+                }
+                None => std::thread::sleep(Duration::from_millis(50)),
+            }
+        }
     }
 
     /// Raw bytes of stdout — used for blob contents, which may not be UTF-8.

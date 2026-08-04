@@ -101,7 +101,12 @@ impl Jotbay {
     /// on its fast redraw path so a repaint never blocks on a fetch.
     pub fn status(&self, refresh: bool) -> Result<JotbayStatus> {
         if refresh {
-            let _ = self.git.try_run(&["fetch", "--quiet", "origin"]);
+            // Bounded like every other network call: this runs on the GUI's
+            // refresh path, and an unbounded fetch there would freeze the
+            // window for as long as the remote stayed silent.
+            let _ = self
+                .git
+                .run_networked(&["fetch", "--quiet", "origin"], git::NETWORK_TIMEOUT);
             let _ = status::fetch_all(&self.git);
             // Only here, never on the offline repaint path: this is the one
             // call that already accepts network latency.

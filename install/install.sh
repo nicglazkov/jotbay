@@ -57,6 +57,16 @@ say "installing for $OS/$ARCH from $JOTBAY_DIR"
 [ -d "$JOTBAY_DIR/.git" ] || die "$JOTBAY_DIR is not a git clone of Jotbay"
 mkdir -p "$BIN_DIR"
 
+# Binaries from before the rename. The installer replaced the *timer* but left
+# these, so `inkway` stayed on PATH — and running one would republish to
+# refs/inkway-status/ and recreate the orphan ref that was just deleted.
+for STALE in inkway inkway-gui; do
+  if [ -e "$BIN_DIR/$STALE" ]; then
+    rm -f "$BIN_DIR/$STALE"
+    info "removed the superseded $STALE binary"
+  fi
+done
+
 # Two installs of the same tool is the quiet failure here. Ubuntu's default
 # ~/.profile prepends ~/.local/bin, so this install shadows a packaged one and
 # `jotbay` keeps running whichever is older — with nothing anywhere saying so.

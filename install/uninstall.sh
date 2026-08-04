@@ -39,7 +39,9 @@ else
 fi
 
 say "removing binaries and launchers"
-rm -f "$BIN_DIR/jotbay" "$BIN_DIR/jotbay-gui"
+# Both names: a machine installed before the rename still has the old pair.
+rm -f "$BIN_DIR/jotbay" "$BIN_DIR/jotbay-gui" \
+      "$BIN_DIR/inkway" "$BIN_DIR/inkway-gui"
 rm -rf "$JOTBAY_DIR/Jotbay.app"
 rm -f "$JOTBAY_DIR/jotbay.desktop" \
       "$HOME/.local/share/applications/jotbay.desktop"

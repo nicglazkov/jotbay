@@ -61,6 +61,11 @@ say "staged $(ls "$STAGED")"
 # editing tracked files. It must stay stable across releases — an installer
 # whose identifier changed reads as a different product and installs alongside
 # the old one instead of upgrading it.
+# Wipe previous output first. The listing at the end prints whatever is in the
+# bundle directory, so a leftover from an earlier build — including one under
+# the tool's previous name — was reported as if it had just been produced.
+rm -rf "src-tauri/target/${TARGET:+$TARGET/}release/bundle"
+
 say "bundling"
 ARGS=()
 [ -n "$TARGET" ] && ARGS+=(--target "$TARGET")
