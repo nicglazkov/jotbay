@@ -55,14 +55,17 @@ cp "$ICONS"/menubar/*.png Resources/
 # target too and lipo them. Skipping this ships an Apple-silicon-only tool
 # inside an app that claims to run on Intel.
 if [ "${JOTBAY_ARCHS:-}" = "arm64 x86_64" ] || [ "${JOTBAY_ARCHS:-}" = "x86_64 arm64" ]; then
-  if ! lipo -archs ../target/release/jotbay 2>/dev/null | grep -q x86_64; then
-    echo "    building a universal CLI to bundle"
-    ( cd .. && cargo build --release --quiet --target aarch64-apple-darwin \
-                && cargo build --release --quiet --target x86_64-apple-darwin )
-    lipo -create -output ../target/release/jotbay \
-      ../target/aarch64-apple-darwin/release/jotbay \
-      ../target/x86_64-apple-darwin/release/jotbay
-  fi
+  # Always rebuilt, never reused. This used to skip the build when the binary
+  # was already universal — which is a shape check, not a freshness check, and
+  # a universal binary from the *previous* release satisfied it. The 1.5.0 DMG
+  # shipped with 1.4.0 sealed inside its app that way. Cargo is incremental,
+  # so an up-to-date rebuild costs seconds.
+  echo "    building a universal CLI to bundle"
+  ( cd .. && cargo build --release --quiet --target aarch64-apple-darwin \
+              && cargo build --release --quiet --target x86_64-apple-darwin )
+  lipo -create -output ../target/release/jotbay \
+    ../target/aarch64-apple-darwin/release/jotbay \
+    ../target/x86_64-apple-darwin/release/jotbay
 fi
 
 # Bundle the CLI so the app works regardless of the user's PATH. Prefer a
