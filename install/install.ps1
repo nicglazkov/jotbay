@@ -19,7 +19,10 @@ param([switch]$Source, [switch]$NoGui)
 
 $ErrorActionPreference = 'Stop'
 
-$JotbayDir  = Split-Path -Parent $PSScriptRoot
+# Piped (`irm ... | iex`) there is no script file and no clone - only a
+# published release can supply the binaries. From a clone, source builds are
+# also possible.
+$CloneDir = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { $null }
 
 # Where releases live. Deliberately not derived from the clone's origin any
 # more: since the split, a clone of this script sits next to somebody's *notes*,
@@ -39,12 +42,16 @@ function Warn { param($m) Write-Host "    warning: $m" -ForegroundColor Yellow }
 function Die  { param($m) Write-Host "error: $m" -ForegroundColor Red; exit 1 }
 function Have { param($c) [bool](Get-Command $c -ErrorAction SilentlyContinue) }
 
-if (-not (Test-Path (Join-Path $JotbayDir '.git'))) {
-  Die "$JotbayDir is not a git clone of Jotbay"
+if ($CloneDir -and -not (Test-Path (Join-Path $CloneDir '.git'))) {
+  Die "$CloneDir is not a git clone of Jotbay"
+}
+if ($Source -and -not $CloneDir) {
+  Die "-Source needs a clone: git clone https://github.com/$Repo.git"
 }
 
 $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
-Say "installing for windows/$arch from $JotbayDir"
+if ($CloneDir) { Say "installing for windows/$arch from $CloneDir" }
+else { Say "installing for windows/$arch from the published release" }
 New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
 
 # Everything the previous name left behind. The rename replaced the scheduled
@@ -89,15 +96,18 @@ function Install-FromRelease {
 }
 
 function Install-FromSource {
+  if (-not $CloneDir) {
+    Die 'no release could be downloaded, and a source build needs a clone'
+  }
   if (-not (Have cargo)) {
     Die 'cargo not found - install Rust from https://rustup.rs, or wait for a published release'
   }
 
   Info 'building the CLI (this takes a minute)'
-  Push-Location (Join-Path $JotbayDir 'lib')
+  Push-Location (Join-Path $CloneDir 'lib')
   cargo build --release --quiet
   Pop-Location
-  Copy-Item (Join-Path $JotbayDir 'lib\target\release\jotbay.exe') $BinDir -Force
+  Copy-Item (Join-Path $CloneDir 'lib\target\release\jotbay.exe') $BinDir -Force
 
   if (-not $NoGui) {
     # The GUI crate's bundle config packages the CLI from src-tauri/staged,
@@ -107,17 +117,17 @@ function Install-FromSource {
     # "resource path `staged\jotbay.exe` doesn't exist". Found during the
     # jotbay migration, masked before it by a stale staged/ dir left behind
     # by earlier bundle.sh runs.
-    $staged = Join-Path $JotbayDir 'lib\gui-tauri\src-tauri\staged'
+    $staged = Join-Path $CloneDir 'lib\gui-tauri\src-tauri\staged'
     New-Item -ItemType Directory -Force -Path $staged | Out-Null
-    Copy-Item (Join-Path $JotbayDir 'lib\target\release\jotbay.exe') $staged -Force
+    Copy-Item (Join-Path $CloneDir 'lib\target\release\jotbay.exe') $staged -Force
 
     Info 'building the desktop app'
-    Push-Location (Join-Path $JotbayDir 'lib\gui-tauri\src-tauri')
+    Push-Location (Join-Path $CloneDir 'lib\gui-tauri\src-tauri')
     cargo build --release --quiet
     $ok = ($LASTEXITCODE -eq 0)
     Pop-Location
     if ($ok) {
-      Copy-Item (Join-Path $JotbayDir 'lib\gui-tauri\src-tauri\target\release\jotbay-gui.exe') $BinDir -Force
+      Copy-Item (Join-Path $CloneDir 'lib\gui-tauri\src-tauri\target\release\jotbay-gui.exe') $BinDir -Force
     } else {
       Warn 'skipping the GUI - Tauri needs the WebView2 runtime and MSVC build tools'
     }
@@ -142,11 +152,24 @@ Info "jotbay -> $JotbayExe"
 # setup-git` configures credentials but NOT identity, so authenticating with gh
 # is not enough. Found during a Linux deployment.
 
+# The installer used to assume it was running inside the vault, which stopped
+# being true the day the tool and the notes split. Ask instead: resolved from
+# recorded settings (or the default location), from the profile directory so a
+# clone this script happens to sit in is never mistaken for the notes.
+Push-Location $env:USERPROFILE
+$VaultData = (& $JotbayExe path 2>$null)
+Pop-Location
+$VaultDir = if ($LASTEXITCODE -eq 0 -and $VaultData) { Split-Path -Parent $VaultData } else { $null }
+if ($VaultDir) { Info "notes found at $VaultDir" }
+
 $IdentityOk = $true
 
 function Initialize-GitIdentity {
-  $name  = (& git -C $JotbayDir config --get user.name  2>$null)
-  $email = (& git -C $JotbayDir config --get user.email 2>$null)
+  # No vault yet means no repository to configure; `jotbay init` runs its own
+  # identity check when it creates one.
+  if (-not $VaultDir) { return $true }
+  $name  = (& git -C $VaultDir config --get user.name  2>$null)
+  $email = (& git -C $VaultDir config --get user.email 2>$null)
   if ($name -and $email) { return $true }
 
   # gh already knows who you are, so borrow it rather than asking. The noreply
@@ -161,8 +184,8 @@ function Initialize-GitIdentity {
         if (-not $email) { $email = "$id+$login@users.noreply.github.com" }
         # This clone only. An installer has no business rewriting the identity
         # every other repository on the machine commits under.
-        & git -C $JotbayDir config user.name  $name
-        & git -C $JotbayDir config user.email $email
+        & git -C $VaultDir config user.name  $name
+        & git -C $VaultDir config user.email $email
         Info "commits from this machine will be authored as $name <$email>"
         return $true
       }
@@ -186,7 +209,7 @@ Say "scheduling background sync every $IntervalM minutes"
 # on or not") would also be windowless but moves the sync into a session where
 # the credential manager is not guaranteed to open.
 $action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
-  -Argument "--headless `"$JotbayExe`" sync --jotbay `"$JotbayDir`""
+  -Argument "--headless `"$JotbayExe`" sync"
 # Omitting RepetitionDuration is what the Task Scheduler UI calls
 # "Indefinitely". Do NOT pass [TimeSpan]::MaxValue: it serialises to
 # P99999999DT23H59M59S, which the scheduler rejects outright with "the task XML
@@ -205,7 +228,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
 Unregister-ScheduledTask -TaskName 'inkway-sync' -Confirm:$false -ErrorAction SilentlyContinue
 
 Register-ScheduledTask -TaskName 'jotbay-sync' -Action $action -Trigger $trigger `
-  -Settings $settings -Description 'Sync the markdown jotbay' -Force | Out-Null
+  -Settings $settings -Description 'Keep markdown notes in sync' -Force | Out-Null
 Info 'scheduled task "jotbay-sync" registered'
 
 # --- launcher and shortcuts -------------------------------------------------
@@ -215,25 +238,29 @@ $shell = New-Object -ComObject WScript.Shell
 if (-not $NoGui) {
   $guiExe = Join-Path $BinDir 'jotbay-gui.exe'
   if (Test-Path $guiExe) {
+    # Start Menu, not "the repository root": since the split there may be no
+    # clone at all, and a launcher inside a throwaway clone dies with it. The
+    # exe carries its own icon, so nothing here points into a directory that
+    # can disappear.
     Say 'creating the launcher'
-    $lnk = $shell.CreateShortcut((Join-Path $JotbayDir 'Jotbay.lnk'))
+    $programs = [Environment]::GetFolderPath('Programs')
+    $lnk = $shell.CreateShortcut((Join-Path $programs 'Jotbay.lnk'))
     $lnk.TargetPath       = $guiExe
-    $lnk.WorkingDirectory = $JotbayDir
-    $lnk.IconLocation     = Join-Path $JotbayDir 'lib\icons\generated\jotbay.ico'
-    $lnk.Description      = 'Manage the synced markdown jotbay'
+    $lnk.WorkingDirectory = $env:USERPROFILE
+    $lnk.IconLocation     = "$guiExe,0"
+    $lnk.Description      = 'Keep your markdown notes in sync'
     $lnk.Save()
-    Info '"Jotbay.lnk" is in the repository root - double-click it'
+    Info 'Jotbay is in the Start Menu'
   }
 }
 
-Say 'putting a shortcut to the synced folder on your Desktop'
 $desktop = [Environment]::GetFolderPath('Desktop')
-if ($desktop) {
+if ($VaultData -and $desktop) {
+  Say 'putting a shortcut to the synced folder on your Desktop'
   $s = $shell.CreateShortcut((Join-Path $desktop 'Jotbay.lnk'))
-  $s.TargetPath   = Join-Path $JotbayDir 'data'
-  $s.IconLocation = Join-Path $JotbayDir 'lib\icons\generated\jotbay.ico'
+  $s.TargetPath = $VaultData
   $s.Save()
-  Info "Desktop\Jotbay -> $JotbayDir\data"
+  Info "Desktop\Jotbay -> $VaultData"
 }
 
 # --- PATH -------------------------------------------------------------------
@@ -244,18 +271,24 @@ if ($userPath -notlike "*$BinDir*") {
   Info "added $BinDir to your PATH (restart your terminal to pick it up)"
 }
 
-Say 'running the first sync'
+$syncOut = @()
+$syncOk = $true
+if ($VaultDir) {
+  Say 'running the first sync'
 
-# Echo the sync live but keep a copy, so the specific failures worth explaining
-# can be recognised instead of leaving the user with raw git stderr. EAP is
-# relaxed for the call because native stderr merged with 2>&1 under
-# 'Stop' terminates the script.
-$prevEap = $ErrorActionPreference
-$ErrorActionPreference = 'Continue'
-$syncOut = & $JotbayExe sync --jotbay $JotbayDir 2>&1 |
-  ForEach-Object { $line = "$_"; Write-Host $line; $line }
-$syncOk = ($LASTEXITCODE -eq 0)
-$ErrorActionPreference = $prevEap
+  # Echo the sync live but keep a copy, so the specific failures worth
+  # explaining can be recognised instead of leaving the user with raw git
+  # stderr. EAP is relaxed for the call because native stderr merged with 2>&1
+  # under 'Stop' terminates the script.
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  Push-Location $env:USERPROFILE
+  $syncOut = & $JotbayExe sync 2>&1 |
+    ForEach-Object { $line = "$_"; Write-Host $line; $line }
+  $syncOk = ($LASTEXITCODE -eq 0)
+  Pop-Location
+  $ErrorActionPreference = $prevEap
+}
 
 # GitHub refuses a push carrying any commit whose author email is private, when
 # "Block command line pushes that expose my email" is on - error GH007. The
@@ -272,7 +305,7 @@ if ($EmailBlocked -and (Have gh)) {
   if ($login -and $id) {
     # This clone only, as above.
     $NoReply = "$id+$login@users.noreply.github.com"
-    & git -C $JotbayDir config user.email $NoReply
+    & git -C $VaultDir config user.email $NoReply
   }
 }
 
@@ -290,9 +323,15 @@ if ($LockHit) {
 
 Write-Host ''
 Say 'done'
-Info 'jotbay status   - see every machine'
-Info 'jotbay dash     - live dashboard'
-Info 'jotbay sync     - sync right now'
+if (-not $VaultDir) {
+  Info 'no notes on this machine yet - one more step:'
+  Info '  jotbay init          create, clone, or adopt your notes repository'
+  if (-not $NoGui) { Info '  ...or open Jotbay from the Start Menu - the first screen asks the same question' }
+} else {
+  Info 'jotbay status   - see every machine'
+  Info 'jotbay dash     - live dashboard'
+  Info 'jotbay sync     - sync right now'
+}
 
 if (-not $IdentityOk) {
   Write-Host ''
@@ -315,13 +354,13 @@ if ($EmailBlocked) {
     Write-Host '        The commit already made still carries the old address.'
     Write-Host '        Re-author it and sync again:'
     Write-Host ''
-    Write-Host "        git -C `"$JotbayDir`" commit --amend --reset-author --no-edit"
+    Write-Host "        git -C `"$VaultDir`" commit --amend --reset-author --no-edit"
     Write-Host '        jotbay sync'
   } else {
     Write-Host '        Find your noreply address at https://github.com/settings/emails, then:'
     Write-Host ''
-    Write-Host "        git -C `"$JotbayDir`" config user.email `"ID+USER@users.noreply.github.com`""
-    Write-Host "        git -C `"$JotbayDir`" commit --amend --reset-author --no-edit"
+    Write-Host "        git -C `"$VaultDir`" config user.email `"ID+USER@users.noreply.github.com`""
+    Write-Host "        git -C `"$VaultDir`" commit --amend --reset-author --no-edit"
     Write-Host '        jotbay sync'
   }
   Write-Host ''

@@ -29,7 +29,7 @@ already a clone.
 **Or use the terminal** and never see a window:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
 jotbay init
 ```
 
