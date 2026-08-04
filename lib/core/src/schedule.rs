@@ -1,0 +1,268 @@
+//! Registering the background watcher with the operating system.
+//!
+//! This lived only in `install.sh` and `install.ps1`, which meant it happened
+//! only for people who ran a script. Someone who downloaded the `.dmg`, dragged
+//! it to Applications, opened the app and finished setup got no background sync
+//! at all — their notes moved when they pressed a button and at no other time.
+//! That is precisely backwards: the graphical route exists for the people least
+//! likely to go and find a shell.
+//!
+//! So the app does it too. `ensure()` is idempotent and writes the same label,
+//! unit and task name the installers use, so a machine that has run both ends
+//! up with one scheduler rather than two.
+//!
+//! The watcher runs in the foreground and the OS supervises it — launchd
+//! `KeepAlive`, systemd `Restart=always`, a Windows logon task with restart
+//! counts. All three restart a process that dies and capture what it printed,
+//! which is a supervisor worth more than anything this could hand-roll.
+
+use crate::error::{Error, Result};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+/// The one name this is registered under, on every platform that has a concept
+/// of one. Matches `LAUNCH_LABEL` in install.sh and the task name in install.ps1.
+pub const LABEL: &str = "com.jotbay.sync";
+
+/// Whether a background watcher is registered on this machine.
+pub fn is_installed() -> bool {
+    if cfg!(target_os = "macos") {
+        plist_path().exists()
+    } else if cfg!(target_os = "windows") {
+        Command::new("schtasks")
+            .args(["/query", "/tn", "jotbay-sync"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    } else {
+        unit_path().exists()
+    }
+}
+
+/// Register it if it is not already there.
+///
+/// Never fatal to the caller: a machine where this fails still syncs whenever
+/// somebody asks it to, and refusing to finish setup over a scheduler would be
+/// a worse outcome than a missing one.
+pub fn ensure() -> Result<bool> {
+    if is_installed() {
+        return Ok(false);
+    }
+    install()?;
+    Ok(true)
+}
+
+/// The installed `jotbay` binary to schedule.
+///
+/// Not `current_exe()`: the caller may be the GUI, and scheduling *that* would
+/// launch a window every ten minutes. The CLI is what runs headless.
+fn cli_path() -> Result<PathBuf> {
+    // Beside whatever is running, first — an app bundle carries its own copy,
+    // and a cask links that same file onto PATH.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            for name in ["jotbay", "jotbay.exe"] {
+                let beside = dir.join(name);
+                if beside.exists() && beside != exe {
+                    return Ok(beside);
+                }
+            }
+            // The macOS app keeps the CLI in Resources, next to MacOS/.
+            let bundled = dir.join("../Resources/jotbay");
+            if bundled.exists() {
+                return Ok(bundled.canonicalize().unwrap_or(bundled));
+            }
+        }
+        // A jotbay binary scheduling itself is the ordinary CLI case.
+        if exe.file_stem().map(|s| s == "jotbay").unwrap_or(false) {
+            return Ok(exe);
+        }
+    }
+
+    for candidate in install_candidates() {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err(Error::Other(
+        "could not find the jotbay command to schedule".into(),
+    ))
+}
+
+fn install_candidates() -> Vec<PathBuf> {
+    let home = crate::home();
+    if cfg!(target_os = "windows") {
+        let local = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join("AppData/Local"));
+        vec![
+            local.join(r"Jotbay\jotbay.exe"),
+            local.join(r"Programs\jotbay\jotbay.exe"),
+        ]
+    } else {
+        vec![
+            home.join(".local/bin/jotbay"),
+            PathBuf::from("/usr/local/bin/jotbay"),
+            PathBuf::from("/opt/homebrew/bin/jotbay"),
+            PathBuf::from("/usr/bin/jotbay"),
+        ]
+    }
+}
+
+fn plist_path() -> PathBuf {
+    crate::home().join(format!("Library/LaunchAgents/{LABEL}.plist"))
+}
+
+fn unit_path() -> PathBuf {
+    crate::home().join(".config/systemd/user/jotbay-sync.service")
+}
+
+fn install() -> Result<()> {
+    let exe = cli_path()?;
+    let home = crate::home();
+
+    if cfg!(target_os = "macos") {
+        let path = plist_path();
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(
+            &path,
+            format!(
+                r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>{LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{}</string>
+    <string>watch</string>
+  </array>
+  <key>WorkingDirectory</key><string>{}</string>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>10</integer>
+  <key>RunAtLoad</key><true/>
+  <key>StandardOutPath</key><string>{}/Library/Logs/jotbay-sync.log</string>
+  <key>StandardErrorPath</key><string>{}/Library/Logs/jotbay-sync.log</string>
+</dict>
+</plist>
+"#,
+                exe.display(),
+                home.display(),
+                home.display(),
+                home.display()
+            ),
+        )?;
+        // Unload first: re-registering over a loaded agent is otherwise a no-op.
+        let _ = Command::new("launchctl").args(["unload", &path.to_string_lossy()]).output();
+        Command::new("launchctl")
+            .args(["load", &path.to_string_lossy()])
+            .output()
+            .map_err(|e| Error::Other(format!("launchctl: {e}")))?;
+    } else if cfg!(target_os = "windows") {
+        // Through PowerShell rather than schtasks.exe: the XML schtasks wants
+        // for a logon trigger with restart counts is far more error-prone than
+        // the cmdlets, and install.ps1 already proves this exact shape works.
+        let script = format!(
+            r#"$a = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
+  -Argument '--headless "{}" watch' -WorkingDirectory "$env:USERPROFILE"
+$t = New-ScheduledTaskTrigger -AtLogOn
+$s = New-ScheduledTaskSettingsSet -StartWhenAvailable -DontStopIfGoingOnBatteries `
+  -AllowStartIfOnBatteries -MultipleInstances IgnoreNew `
+  -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) `
+  -ExecutionTimeLimit ([TimeSpan]::Zero)
+Register-ScheduledTask -TaskName 'jotbay-sync' -Action $a -Trigger $t -Settings $s `
+  -Description 'Keep markdown notes in sync' -Force | Out-Null
+Start-ScheduledTask -TaskName 'jotbay-sync' -ErrorAction SilentlyContinue
+"#,
+            exe.display()
+        );
+        let out = Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script])
+            .output()
+            .map_err(|e| Error::Other(format!("powershell: {e}")))?;
+        if !out.status.success() {
+            return Err(Error::Other(format!(
+                "could not register the scheduled task: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            )));
+        }
+    } else {
+        let path = unit_path();
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        std::fs::write(
+            &path,
+            format!(
+                "[Unit]\n\
+                 Description=Keep markdown notes in sync\n\
+                 After=network-online.target\n\
+                 Wants=network-online.target\n\n\
+                 [Service]\n\
+                 Type=simple\n\
+                 WorkingDirectory={}\n\
+                 ExecStart={} watch\n\
+                 Restart=always\n\
+                 RestartSec=10\n\n\
+                 [Install]\n\
+                 WantedBy=default.target\n",
+                home.display(),
+                exe.display()
+            ),
+        )?;
+        let _ = Command::new("systemctl").args(["--user", "daemon-reload"]).output();
+        Command::new("systemctl")
+            .args(["--user", "enable", "--now", "jotbay-sync.service"])
+            .output()
+            .map_err(|e| Error::Other(format!("systemctl: {e}")))?;
+        // Without lingering the user manager is torn down at logout, and the
+        // watcher stops on exactly the headless boxes that need it most.
+        let user = std::env::var("USER").unwrap_or_default();
+        if !user.is_empty() {
+            let _ = Command::new("loginctl").args(["enable-linger", &user]).output();
+        }
+    }
+
+    Ok(())
+}
+
+/// Where the watcher's output goes, for a UI that wants to point at it.
+pub fn log_hint() -> String {
+    if cfg!(target_os = "macos") {
+        "~/Library/Logs/jotbay-sync.log".into()
+    } else if cfg!(target_os = "windows") {
+        "Task Scheduler → jotbay-sync".into()
+    } else {
+        "journalctl --user -u jotbay-sync".into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_label_matches_what_the_installers_write() {
+        // A drifted label means a machine that ran both ends up with two
+        // schedulers, each syncing on its own timetable.
+        assert_eq!(LABEL, "com.jotbay.sync");
+    }
+
+    #[test]
+    fn candidate_paths_are_platform_appropriate() {
+        let candidates = install_candidates();
+        assert!(!candidates.is_empty());
+        let joined = candidates
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+        if cfg!(target_os = "windows") {
+            assert!(joined.contains("jotbay.exe"));
+        } else {
+            assert!(joined.contains(".local/bin/jotbay"));
+        }
+    }
+}

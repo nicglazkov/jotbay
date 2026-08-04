@@ -145,6 +145,11 @@ final class JotbayController: ObservableObject {
             }
 
             if await run(args) != nil {
+                // Leave the machine syncing by itself. `jotbay init` does this
+                // too, but setup here goes through run_setup rather than init,
+                // so someone who arrived via the .dmg would otherwise finish
+                // with a tool that syncs only when asked.
+                _ = await run(["schedule"])
                 // Not straight into the app: the shortcut offer only makes
                 // sense now, when both targets finally exist.
                 self.justSetUp = true

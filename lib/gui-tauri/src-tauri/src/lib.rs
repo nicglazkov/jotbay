@@ -177,6 +177,11 @@ async fn run_setup(mode: String, value: String, location: String) -> Result<Stri
         // Record it before syncing: if the first sync fails the vault still
         // exists and the app must open onto it rather than back to first run.
         vault.remember().map_err(|e| e.to_string())?;
+        // And leave the machine syncing by itself. This used to happen only in
+        // install.sh / install.ps1, so anyone who arrived through the .msi or
+        // the .deb finished setup with a tool that synced when asked and at no
+        // other time — the opposite of what the graphical route is for.
+        let _ = jotbay_core::schedule::ensure();
         let _ = vault.sync();
         Ok(root.to_string_lossy().to_string())
     })

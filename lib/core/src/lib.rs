@@ -12,6 +12,7 @@ pub mod git;
 pub mod limits;
 pub mod lock;
 pub mod model;
+pub mod schedule;
 pub mod settings;
 pub mod setup;
 pub mod shortcut;

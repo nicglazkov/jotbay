@@ -90,6 +90,8 @@ enum Command {
         #[arg(long, value_name = "PATH")]
         at: Option<PathBuf>,
     },
+    /// Show or set up the background sync this machine runs
+    Schedule,
     /// Sync automatically whenever the notes change, until stopped
     ///
     /// What the background schedule runs. Also useful by hand to watch it work.
@@ -139,6 +141,7 @@ fn main() -> ExitCode {
             Ok(())
         }
         Command::Init { .. } => unreachable!("handled before discovery"),
+        Command::Schedule => cmd_schedule(),
         Command::Watch => cmd_watch(&jotbay),
         Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
         Command::Upgrade => cmd_upgrade(&jotbay),
@@ -168,6 +171,15 @@ fn cmd_sync(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
     if !json {
         println!();
     }
+    // A machine set up here should sync by itself afterwards. Doing it only in
+    // the installer meant anyone who arrived through the .dmg or the .msi got
+    // a tool that synced when asked and at no other time.
+    match jotbay_core::schedule::ensure() {
+        Ok(true) => println!("  background sync set up"),
+        Ok(false) => {}
+        Err(e) => render::error(&format!("could not set up background sync: {e}")),
+    }
+
     let report = jotbay.sync()?;
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
@@ -288,6 +300,20 @@ fn cmd_shortcut(
     if made == 0 {
         println!("  nothing to link");
     }
+    println!();
+    Ok(())
+}
+
+/// Report the background sync, and set it up if it is missing.
+fn cmd_schedule() -> jotbay_core::Result<()> {
+    use jotbay_core::schedule;
+    println!();
+    if schedule::ensure()? {
+        println!("  background sync is now set up on this machine");
+    } else {
+        println!("  background sync is already set up");
+    }
+    println!("  logs: {}", schedule::log_hint());
     println!();
     Ok(())
 }
