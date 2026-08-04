@@ -1,0 +1,393 @@
+mod dash;
+mod render;
+
+use clap::{Parser, Subcommand};
+use std::path::PathBuf;
+use std::process::ExitCode;
+use jotbay_core::{Jotbay, VERSION};
+
+#[derive(Parser)]
+#[command(
+    name = "jotbay",
+    version = VERSION,
+    about = "Keep your markdown notes in sync across machines",
+    long_about = "Keeps your markdown notes in sync across machines through a private git remote.\n\
+                  Run `jotbay dash` for a live dashboard."
+)]
+struct Cli {
+    /// Jotbay location. Defaults to the enclosing repo, then ~/jotbay.
+    #[arg(long, global = true, value_name = "PATH")]
+    jotbay: Option<PathBuf>,
+
+    /// Emit machine-readable JSON instead of formatted output.
+    #[arg(long, global = true)]
+    json: bool,
+
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Subcommand)]
+enum Command {
+    /// Show local and network-wide sync state (default)
+    Status {
+        /// Skip the network fetch and report only what is already local
+        #[arg(long)]
+        offline: bool,
+    },
+    /// Commit, integrate the remote, and push
+    Sync,
+    /// List every machine that has reported in
+    Nodes {
+        /// Remove a decommissioned machine's status
+        #[arg(long, value_name = "HOSTNAME")]
+        forget: Option<String>,
+    },
+    /// What every machine has actually done: syncs, conflicts, failures
+    Activity {
+        #[arg(short = 'n', long, default_value_t = 25)]
+        limit: usize,
+        /// Skip the network fetch
+        #[arg(long)]
+        offline: bool,
+    },
+    /// Commit history: what changed
+    Log {
+        #[arg(short = 'n', long, default_value_t = 15)]
+        limit: u32,
+    },
+    /// Deal with an interrupted rebase
+    Resolve {
+        /// Discard the in-progress rebase and return to a clean tree
+        #[arg(long)]
+        abort: bool,
+    },
+    /// Live dashboard
+    Dash,
+    /// Print the path of the synced data directory
+    Path,
+    /// Set up a vault on this machine for the first time
+    Init {
+        /// Create a private GitHub repository and clone it
+        #[arg(long, value_name = "NAME")]
+        create: Option<String>,
+        /// Clone a repository you already have
+        #[arg(long, value_name = "URL")]
+        clone: Option<String>,
+        /// Adopt a directory that is already a clone
+        #[arg(long, value_name = "PATH")]
+        adopt: Option<PathBuf>,
+        /// Where to put it (default ~/jotbay)
+        #[arg(long, value_name = "PATH")]
+        at: Option<PathBuf>,
+    },
+    /// Put a shortcut to the app or to your notes folder on the desktop
+    Shortcut {
+        /// app or notes; both if omitted
+        #[arg(value_name = "WHAT")]
+        what: Option<String>,
+        /// Where to put it (default: your desktop)
+        #[arg(long, value_name = "PATH")]
+        at: Option<PathBuf>,
+    },
+    /// Fetch the current release and replace this machine's binaries
+    Upgrade,
+    /// Show or change per-machine preferences
+    Settings {
+        /// theme=system|light|dark, verbose=on|off
+        #[arg(value_name = "KEY=VALUE")]
+        assignment: Option<String>,
+    },
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+
+    // Handled before discovery: the whole point is that there is no vault yet.
+    if let Some(Command::Init { create, clone, adopt, at }) = &cli.command {
+        return match cmd_init(cli.json, create.clone(), clone.clone(), adopt.clone(), at.clone()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                render::error(&e.to_string());
+                ExitCode::FAILURE
+            }
+        };
+    }
+
+    let jotbay = match Jotbay::discover(cli.jotbay.as_deref()) {
+        Ok(v) => v,
+        Err(e) => {
+            render::error(&e.to_string());
+            return ExitCode::FAILURE;
+        }
+    };
+
+    let result = match cli.command.unwrap_or(Command::Status { offline: false }) {
+        Command::Status { offline } => cmd_status(&jotbay, cli.json, !offline),
+        Command::Sync => cmd_sync(&jotbay, cli.json),
+        Command::Nodes { forget } => cmd_nodes(&jotbay, cli.json, forget),
+        Command::Activity { limit, offline } => cmd_activity(&jotbay, cli.json, limit, !offline),
+        Command::Log { limit } => cmd_log(&jotbay, cli.json, limit),
+        Command::Resolve { abort } => cmd_resolve(&jotbay, abort),
+        Command::Dash => dash::run(&jotbay).map_err(|e| jotbay_core::Error::Other(e.to_string())),
+        Command::Path => {
+            println!("{}", jotbay.data_dir().display());
+            Ok(())
+        }
+        Command::Init { .. } => unreachable!("handled before discovery"),
+        Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
+        Command::Upgrade => cmd_upgrade(&jotbay),
+        Command::Settings { assignment } => cmd_settings(cli.json, assignment),
+    };
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            render::error(&e.to_string());
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn cmd_status(jotbay: &Jotbay, json: bool, refresh: bool) -> jotbay_core::Result<()> {
+    let status = jotbay.status(refresh)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&status)?);
+    } else {
+        render::status(&status);
+    }
+    Ok(())
+}
+
+fn cmd_sync(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
+    if !json {
+        println!();
+    }
+    let report = jotbay.sync()?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        render::sync_report(&report);
+        println!();
+    }
+    Ok(())
+}
+
+fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core::Result<()> {
+    if let Some(host) = forget {
+        jotbay.forget_node(&host)?;
+        println!("  forgot {host}");
+        return Ok(());
+    }
+
+    let nodes = jotbay.nodes(true)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&nodes)?);
+    } else {
+        let head = jotbay.git().head().unwrap_or_default();
+        render::nodes(&nodes, &head);
+        println!();
+    }
+    Ok(())
+}
+
+fn cmd_init(
+    json: bool,
+    create: Option<String>,
+    clone: Option<String>,
+    adopt: Option<PathBuf>,
+    at: Option<PathBuf>,
+) -> jotbay_core::Result<()> {
+    use jotbay_core::setup;
+
+    // With no action given, report what this machine can do. A first-run screen
+    // asks the same question, so both surfaces read the same answer.
+    if create.is_none() && clone.is_none() && adopt.is_none() {
+        let caps = setup::capabilities();
+        if json {
+            println!("{}", serde_json::to_string_pretty(&caps)?);
+        } else {
+            render::capabilities(&caps);
+        }
+        return Ok(());
+    }
+
+    let destination = at.unwrap_or_else(jotbay_core::default_root);
+
+    let root = if let Some(name) = create {
+        println!("  creating a private repository and cloning it…");
+        setup::create_and_clone(&name, &destination)?
+    } else if let Some(url) = clone {
+        println!("  cloning…");
+        setup::clone_existing(&url, &destination)?
+    } else {
+        setup::adopt(&adopt.expect("one of the three is set"))?
+    };
+
+    let jotbay = Jotbay::open(&root)?;
+    // Record it before syncing. A GUI opened afterwards finds the vault by this
+    // setting, and it should still do so even if this first sync fails.
+    jotbay.remember()?;
+    let report = jotbay.sync()?;
+    println!();
+    render::sync_report(&report);
+    println!();
+    println!("  your notes live in {}", jotbay.data_dir().display());
+    println!();
+    Ok(())
+}
+
+/// Desktop shortcuts, for people who reach their notes through a file manager.
+///
+/// Deliberately not part of setup: making one is a preference, and doing it
+/// unasked puts an icon on someone's desktop they did not want.
+fn cmd_shortcut(
+    jotbay: &Jotbay,
+    what: Option<String>,
+    at: Option<PathBuf>,
+) -> jotbay_core::Result<()> {
+    use jotbay_core::shortcut::{self, Target};
+
+    let targets = match what.as_deref() {
+        None => vec![Target::App, Target::Notes],
+        Some(text) => vec![Target::parse(text).ok_or_else(|| {
+            jotbay_core::Error::Other(format!("don't know how to make a shortcut to '{text}'"))
+        })?],
+    };
+    let location = at.unwrap_or_else(shortcut::default_location);
+
+    println!();
+    let mut made = 0;
+    for target in targets {
+        let source = match target {
+            Target::Notes => Some(jotbay.data_dir()),
+            Target::App => shortcut::locate_app(),
+        };
+        let Some(source) = source else {
+            // Only worth a warning when the user asked for it specifically;
+            // with no argument this is just "the GUI isn't installed here".
+            if what.is_some() {
+                render::error("could not find the Jotbay application on this machine");
+            }
+            continue;
+        };
+        match shortcut::create(target, &source, &location) {
+            Ok(path) => {
+                println!("  {}", path.display());
+                made += 1;
+            }
+            Err(e) => render::error(&e.to_string()),
+        }
+    }
+
+    if made == 0 {
+        println!("  nothing to link");
+    }
+    println!();
+    Ok(())
+}
+
+fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
+    // Asking to upgrade is exactly the moment to find out what "latest" is,
+    // rather than trusting a cache that may be six hours old.
+    jotbay_core::update::refresh_remote();
+
+    let status = jotbay.update_status();
+    match (&status.latest, status.available) {
+        (None, _) => {
+            println!("  no release found — check your connection, or sync first");
+            return Ok(());
+        }
+        (Some(latest), false) => {
+            println!("  already on {} (latest is {latest})", status.current);
+            return Ok(());
+        }
+        (Some(latest), true) => {
+            println!();
+            println!("  upgrading {} → {latest}", status.current);
+        }
+    }
+
+    let replaced = jotbay.upgrade()?;
+    println!("  replaced {}", replaced.join(", "));
+    println!("  {}", "restart the app if it is running");
+    println!();
+    Ok(())
+}
+
+fn cmd_settings(json: bool, assignment: Option<String>) -> jotbay_core::Result<()> {
+    use jotbay_core::settings::{Settings, Theme};
+    let mut settings = Settings::load();
+
+    if let Some(a) = assignment {
+        let (key, value) = a
+            .split_once('=')
+            .ok_or_else(|| jotbay_core::Error::Other("expected KEY=VALUE".into()))?;
+        match key.trim() {
+            "theme" => {
+                settings.theme = Theme::parse(value).ok_or_else(|| {
+                    jotbay_core::Error::Other("theme must be system, light or dark".into())
+                })?
+            }
+            "verbose" => {
+                settings.verbose = matches!(value.trim().to_lowercase().as_str(), "on" | "true" | "yes" | "1")
+            }
+            other => {
+                return Err(jotbay_core::Error::Other(format!(
+                    "unknown setting '{other}' — try theme or verbose"
+                )))
+            }
+        }
+        settings.save()?;
+    }
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&settings)?);
+    } else {
+        render::settings(&settings);
+    }
+    Ok(())
+}
+
+fn cmd_activity(jotbay: &Jotbay, json: bool, limit: usize, refresh: bool) -> jotbay_core::Result<()> {
+    let events = jotbay.activity(refresh, limit)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&events)?);
+    } else {
+        render::activity(&events, jotbay_core::settings::Settings::load().verbose);
+    }
+    Ok(())
+}
+
+fn cmd_log(jotbay: &Jotbay, json: bool, limit: u32) -> jotbay_core::Result<()> {
+    let commits = jotbay.log(limit)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&commits)?);
+    } else {
+        render::log(&commits);
+    }
+    Ok(())
+}
+
+fn cmd_resolve(jotbay: &Jotbay, abort: bool) -> jotbay_core::Result<()> {
+    if abort {
+        jotbay.abort_rebase()?;
+        println!("  rebase aborted; the working tree is clean again");
+        return Ok(());
+    }
+
+    let status = jotbay.status(false)?;
+    if !status.rebase_in_progress {
+        println!("  nothing to resolve");
+        return Ok(());
+    }
+
+    println!("  {} conflicted file(s):", status.conflicts.len());
+    for f in &status.conflicts {
+        println!("    {f}");
+    }
+    println!();
+    println!("  `jotbay sync` applies the keep-both-sides policy automatically.");
+    println!("  `jotbay resolve --abort` discards the rebase instead.");
+    Ok(())
+}

@@ -1,0 +1,397 @@
+name: release
+
+# Tagging v* publishes binaries for every platform. The installers pull from
+# here, which is what keeps a Rust toolchain off the Windows box and the
+# headless Linux servers.
+on:
+  push:
+    tags: ["v*"]
+  # Contributions get checked. Without this the suite only ever ran on a tag,
+  # which is the last moment anyone wants to discover a Windows path bug.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # One universal macOS build rather than per-arch jobs: GitHub has
+          # retired the macos-13 (x86_64) runners, so an x86_64 job queues
+          # forever. A universal binary from an arm64 runner covers both Apple
+          # Silicon and Intel Macs in a single asset.
+          - label: macos-universal
+            runner: macos-14
+            target: aarch64-apple-darwin
+            os: macos
+            arch: universal
+          - label: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            os: linux
+            arch: x86_64
+          - label: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            os: windows
+            arch: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A tag that disagrees with the crate version ships binaries reporting
+      # the wrong number in `--version` and in every node's published status.
+      # Cheap to check, invisible until someone reads it back.
+      - name: Tag must match the crate version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          crate=$(grep -m1 '^version = ' lib/Cargo.toml | cut -d'"' -f2)
+          tag="${REF_NAME#v}"
+          echo "tag=$tag crate=$crate"
+          if [ "$tag" != "$crate" ]; then
+            echo "::error::tag v$tag does not match lib/Cargo.toml version $crate"
+            exit 1
+          fi
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Both workspaces are built with --locked, so a stale lockfile fails deep
+      # inside the Linux and Windows builds with "cannot update the lock file",
+      # which reads like a dependency problem rather than a forgotten `cargo
+      # update` after a version bump. Fail here instead, by name. `lib/release.sh`
+      # exists to stop this happening at all.
+      - name: Lockfiles must be current
+        shell: bash
+        run: |
+          for manifest in lib/Cargo.toml lib/gui-tauri/src-tauri/Cargo.toml; do
+            if ! cargo metadata --locked --format-version 1 --manifest-path "$manifest" >/dev/null 2>&1; then
+              echo "::error::$manifest has a stale Cargo.lock — run lib/release.sh <version>"
+              exit 1
+            fi
+          done
+          echo "both lockfiles current"
+
+      - name: Add the second macOS target
+        if: matrix.os == 'macos'
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            lib/target
+            lib/gui-tauri/src-tauri/target
+          key: ${{ matrix.label }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ matrix.label }}-cargo-
+
+      # Tauri's Linux backend is WebKitGTK; without these the GUI build fails
+      # with an opaque pkg-config error.
+      - name: Install Linux GUI dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf
+
+      - name: Build CLI
+        run: cargo build --release --locked --target ${{ matrix.target }} --manifest-path lib/Cargo.toml
+
+      - name: Build the universal CLI
+        if: matrix.os == 'macos'
+        run: |
+          cargo build --release --locked --target x86_64-apple-darwin --manifest-path lib/Cargo.toml
+          mkdir -p lib/target/release
+          lipo -create -output lib/target/release/jotbay \
+            lib/target/aarch64-apple-darwin/release/jotbay \
+            lib/target/x86_64-apple-darwin/release/jotbay
+          lipo -info lib/target/release/jotbay
+
+      # `cargo build` produces the executable but no installer; the bundler is
+      # a separate tool. npm is already on every runner and installs it in
+      # seconds, where `cargo install tauri-cli` is a from-source build.
+      - name: Install the Tauri bundler
+        if: matrix.os != 'macos'
+        run: npm install -g @tauri-apps/cli@^2
+
+      # The CLI is packaged inside the installer so that a user who only ever
+      # runs the installer still gets `jotbay` on PATH. Staged here because
+      # the bundler can only see files inside the crate directory.
+      - name: Stage the CLI for bundling
+        if: matrix.os != 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          staged=lib/gui-tauri/src-tauri/staged
+          mkdir -p "$staged"
+          src="lib/target/${{ matrix.target }}/release/jotbay"
+          if [ -f "$src.exe" ]; then cp "$src.exe" "$staged/jotbay.exe"; else cp "$src" "$staged/jotbay"; fi
+          ls -l "$staged"
+
+      - name: Build desktop app and installers (Windows and Linux)
+        if: matrix.os != 'macos'
+        working-directory: lib/gui-tauri/src-tauri
+        run: tauri build --target ${{ matrix.target }}
+
+      # Names the exact files that will be published. A bundler that silently
+      # produces nothing for a target looks identical to a successful build
+      # until the release page is empty.
+      - name: List the installers
+        if: matrix.os != 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
+          found=$(find "$root" -type f \
+            \( -name '*.deb' -o -name '*.AppImage' -o -name '*-setup.exe' \) || true)
+          [ -n "$found" ] || { echo "::error::the bundler produced no installers under $root"; exit 1; }
+          printf '%s\n' "$found"
+
+      # Runners can have xcode-select pointing at the Command Line Tools, where
+      # xcodebuild cannot open a project at all and reports only "Unable to read
+      # project" — which reads like a corrupt file rather than a missing Xcode.
+      - name: Select Xcode
+        if: matrix.os == 'macos'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install XcodeGen
+        if: matrix.os == 'macos'
+        run: brew install xcodegen
+
+      - name: Build macOS app
+        if: matrix.os == 'macos'
+        run: |
+          echo "xcode-select: $(xcode-select -p)"
+          xcodebuild -version
+          xcodegen --version
+          # build.sh bundles whichever CLI it finds at lib/target/release —
+          # already the universal binary produced by the lipo step above.
+          cd lib/gui-macos && JOTBAY_ARCHS="arm64 x86_64" ./build.sh Release
+          lipo -info build/Build/Products/Release/Jotbay.app/Contents/MacOS/Jotbay
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE=stage
+          mkdir -p "$STAGE"
+
+          # The installers keep their own names alongside the archive: the
+          # archive is what `install.sh`/`install.ps1` and `jotbay upgrade`
+          # fetch, the installers are what a person downloads by hand.
+          bundle="lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
+          collect() {
+            find "$bundle" -type f \( "$@" \) -exec cp {} . \; 2>/dev/null || true
+          }
+
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            cp "lib/target/${{ matrix.target }}/release/jotbay.exe" "$STAGE/"
+            cp "lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/jotbay-gui.exe" "$STAGE/" || true
+            7z a "jotbay-windows-${{ matrix.arch }}.zip" "./$STAGE/*"
+            collect -name '*-setup.exe'
+          elif [ "${{ matrix.os }}" = "macos" ]; then
+            # The universal binary, not the per-target one.
+            cp lib/target/release/jotbay "$STAGE/"
+            cp -R lib/gui-macos/build/Build/Products/Release/Jotbay.app "$STAGE/"
+            tar -czf "jotbay-macos-universal.tar.gz" -C "$STAGE" .
+          else
+            cp "lib/target/${{ matrix.target }}/release/jotbay" "$STAGE/"
+            cp "lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/jotbay-gui" "$STAGE/" || true
+            tar -czf "jotbay-${{ matrix.os }}-${{ matrix.arch }}.tar.gz" -C "$STAGE" .
+            collect -name '*.deb' -o -name '*.AppImage'
+          fi
+
+          ls -l jotbay-* ./*.deb ./*.AppImage ./*-setup.exe 2>/dev/null || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: |
+            jotbay-*.tar.gz
+            jotbay-*.zip
+            *-setup.exe
+            *.deb
+            *.AppImage
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+
+  lint-scripts:
+    name: lint installers
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            shell: bash
+          - runner: windows-2022
+            shell: powershell
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shellcheck the POSIX installers
+        if: matrix.shell == 'bash'
+        run: |
+          sudo apt-get update && sudo apt-get install -y shellcheck
+          shellcheck install/install.sh install/uninstall.sh lib/icons/generate.sh \
+                     lib/gui-macos/build.sh lib/gui-macos/package.sh lib/gui-tauri/bundle.sh
+
+      # Windows PowerShell 5.1 reads a BOM-less script as CP1252, where an em
+      # dash's third byte (0x94) becomes a double quote and breaks string
+      # parsing. This is invisible on macOS and Linux, so it is enforced here.
+      - name: Require the PowerShell installers to be pure ASCII
+        if: matrix.shell == 'bash'
+        run: |
+          status=0
+          for f in install/*.ps1; do
+            if LC_ALL=C grep -nP '[^\x00-\x7F]' "$f"; then
+              echo "::error file=$f::non-ASCII characters break PowerShell 5.1 parsing; use ASCII only"
+              status=1
+            fi
+          done
+          exit $status
+
+      # The Windows installers cannot be parsed on macOS — the `powershell`
+      # Homebrew cask is deprecated — so this runner is where they get checked.
+      - name: Parse the PowerShell installers
+        if: matrix.shell == 'powershell'
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem install/*.ps1 | ForEach-Object {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "$($_.Name): $($errors.Count) parse error(s)" -ForegroundColor Red
+              $errors | ForEach-Object { Write-Host "  line $($_.Extent.StartLineNumber): $($_.Message)" }
+            } else {
+              Write-Host "$($_.Name): OK"
+            }
+          }
+          if ($failed) { exit 1 }
+
+  # This repository is public and the tool's whole promise is that notes go to a
+  # private remote. Nothing enforces that at the moment somebody runs `git add
+  # -A` in the wrong directory, so it is enforced here instead — along with the
+  # machine names and signing material that a personal history is full of and a
+  # published one must not be.
+  no-leaks:
+    name: nothing personal
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: data/ must be empty
+        run: |
+          stray=$(git ls-files -- data | grep -v '^data/.gitkeep$' || true)
+          if [ -n "$stray" ]; then
+            echo "::error::notes were committed to the public repository:"
+            printf '%s\n' "$stray"
+            exit 1
+          fi
+          echo "data/ holds only .gitkeep"
+
+      - name: no signing material
+        run: |
+          bad=$(git ls-files | grep -E '\.(p8|p12|pfx|cer|mobileprovision|keychain)$|(^|/)signing\.env$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::signing material is committed:"; printf '%s\n' "$bad"; exit 1
+          fi
+          echo "no certificates or signing.env"
+
+      # Deliberately not a search for the author's name: it is in the repository
+      # URL and the copyright line, and a check that has to allow those teaches
+      # people to add exceptions. Machine names have no such excuse.
+      # Deployment runbooks written for three specific machines, naming them
+      # throughout. Useful privately, meaningless publicly, and the single
+      # densest source of hostnames in the project.
+      - name: no deployment runbooks
+        run: |
+          if git ls-files -- install/agent | grep -q .; then
+            echo "::error::install/agent/ is private; it must not be in the public repository"
+            exit 1
+          fi
+          echo "install/agent/ absent"
+
+      # A rename is only done when the old name cannot come back. The
+      # exceptions are deliberate: the uninstall paths must name the previous
+      # launchd label, systemd unit and scheduled task verbatim, or a leftover
+      # scheduler keeps firing against a binary that is gone.
+      - name: the old name is gone
+        run: |
+          hits=$(git grep -n -I -i inkway -- . \
+                 ':!install/uninstall.sh' ':!install/uninstall.ps1' \
+                 ':!install/install.sh' ':!install/install.ps1' \
+                 ':!lib/core/src/settings.rs' ':!lib/docs/publishing.md' \
+                 ':!.github/workflows' || true)
+          if [ -n "$hits" ]; then
+            echo "::error::the previous name survives outside the migration paths:"
+            printf '%s\n' "$hits"
+            exit 1
+          fi
+          echo "no stray references to the previous name"
+
+      - name: no machine names
+        run: |
+          if git grep -n -I -E 'MacBook-Pro-385|DESKTOP-01GMHU4|glazkov-A5-K1|ur10-super-server' \
+             -- . ':!.github/workflows'; then
+            echo "::error::a real machine name is committed; use a generic example"
+            exit 1
+          fi
+          echo "no machine names"
+
+  # The suite runs on both Unix and Windows because it had never executed on
+  # Windows until a deployment there found a real fixture bug: Git for Windows
+  # defaults to core.autocrlf=true, so a test repo without .gitattributes
+  # checked files out with CRLF and a content assertion missed. Anything that
+  # touches paths, line endings or process spawning can only be caught here.
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Configure git
+        # The integration tests drive real repositories, which need an identity.
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.com"
+          git config --global init.defaultBranch main
+      - run: cargo test --locked --manifest-path lib/Cargo.toml

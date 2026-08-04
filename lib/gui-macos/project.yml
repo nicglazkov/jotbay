@@ -1,0 +1,49 @@
+name: Jotbay
+
+options:
+  # Substituted from signing.env at build time; com.example is the fallback
+  # so a fresh clone builds without needing anyone's Apple account.
+  bundleIdPrefix: ${JOTBAY_BUNDLE_PREFIX}
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    # Swift 5 language mode: this app is a thin front end over a CLI, and
+    # Swift 6's strict concurrency checking buys nothing here beyond noise.
+    SWIFT_VERSION: "5.0"
+    PRODUCT_BUNDLE_IDENTIFIER: ${JOTBAY_BUNDLE_PREFIX}.jotbay
+    MARKETING_VERSION: "1.3.4"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGNING_REQUIRED: "NO"
+    ENABLE_HARDENED_RUNTIME: "NO"
+
+targets:
+  Jotbay:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      # XcodeGen has no `resources:` key — non-code files are declared as
+      # sources with an explicit build phase, or they are silently omitted
+      # from the bundle and the app launches with no icon and no CLI.
+      - path: Resources
+        buildPhase: resources
+    info:
+      path: Info.plist
+      properties:
+        CFBundleName: Jotbay
+        CFBundleDisplayName: Jotbay
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleIconFile: jotbay
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSMinimumSystemVersion: "14.0"
+        NSHighResolutionCapable: true
+        # The menu bar agent is the primary surface; the window is opened from
+        # it. LSUIElement would hide the Dock icon entirely, but the app also
+        # has a real management window, so it stays a normal app.
+        LSApplicationCategoryType: public.app-category.productivity

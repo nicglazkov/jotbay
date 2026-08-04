@@ -1,0 +1,49 @@
+# --- build output -----------------------------------------------------------
+# Bare `target/` rather than specific paths: every Rust crate gets its own
+# target directory, and the Tauri crate is a separate workspace whose 1.2GB of
+# build output is not under lib/target/. Naming paths individually meant the
+# first release build tried to commit all of it.
+target/
+node_modules/
+lib/gui-tauri/dist/
+# tauri-build regenerates this on every build. It is not under target/, so
+# without this line a source build inside the synced folder quietly commits
+# 2500 lines of generated JSON to everyone else's machines.
+lib/gui-tauri/src-tauri/gen/schemas/
+lib/gui-macos/build/
+lib/gui-macos/*.xcodeproj/
+# The CLI copied in for the bundler to package. Rebuilt by bundle.sh; the same
+# binary is already published as a release asset.
+lib/gui-tauri/src-tauri/staged/
+
+# lib/icons/generated/ is deliberately NOT ignored. The release workflow builds
+# on Linux and Windows runners, which have no `iconutil`, so the .icns has to
+# be produced on a Mac and committed.
+
+# --- machine-generated launchers --------------------------------------------
+# Each machine's installer creates only the launcher for its own platform, so
+# these must never be committed or a Mac would carry a stray .lnk.
+/Jotbay.app
+/Jotbay.lnk
+/jotbay.desktop
+/jotbay.command
+
+# --- runtime state ----------------------------------------------------------
+.jotbay-lock/
+.jotbay/local.json
+
+# --- editor and OS noise ----------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.obsidian/workspace*.json
+lib/gui-macos/Resources/
+lib/gui-macos/build.log
+
+# Notarized artifacts, rebuilt on demand by lib/gui-macos/package.sh
+lib/gui-macos/dist/
+
+# Who signs the macOS app: certificate name, Team ID, bundle prefix. Identifies
+# the publisher rather than the project, so it stays out of the repository.
+lib/gui-macos/signing.env

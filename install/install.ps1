@@ -1,0 +1,295 @@
+<#
+.SYNOPSIS
+  Jotbay installer for Windows.
+
+.DESCRIPTION
+  Installs the Jotbay CLI and desktop app, schedules background sync, creates the
+  launcher in the repository root, and puts a shortcut to the synced folder on the
+  Desktop. Run from an ordinary PowerShell - no elevation needed, because
+  everything lands under your own profile.
+
+.PARAMETER Source
+  Always build from source instead of downloading a published release.
+
+.PARAMETER NoGui
+  Install the CLI and scheduler only.
+#>
+[CmdletBinding()]
+param([switch]$Source, [switch]$NoGui)
+
+$ErrorActionPreference = 'Stop'
+
+$JotbayDir  = Split-Path -Parent $PSScriptRoot
+
+# Derived from the clone's own origin rather than hardcoded, so a fork or a
+# repo made from the template pulls its own releases with no edits.
+$Repo = (& git -C $JotbayDir remote get-url origin 2>$null) `
+  -replace '^git@[^:]+:', '' -replace '^https?://[^/]+/', '' -replace '\.git$', ''
+$BinDir    = Join-Path $env:LOCALAPPDATA 'Programs\jotbay'
+$IntervalM = 10
+
+function Say  { param($m) Write-Host "==> $m" -ForegroundColor White }
+function Info { param($m) Write-Host "    $m" }
+function Warn { param($m) Write-Host "    warning: $m" -ForegroundColor Yellow }
+function Die  { param($m) Write-Host "error: $m" -ForegroundColor Red; exit 1 }
+function Have { param($c) [bool](Get-Command $c -ErrorAction SilentlyContinue) }
+
+if (-not (Test-Path (Join-Path $JotbayDir '.git'))) {
+  Die "$JotbayDir is not a git clone of Jotbay"
+}
+
+$arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64') { 'aarch64' } else { 'x86_64' }
+Say "installing for windows/$arch from $JotbayDir"
+New-Item -ItemType Directory -Force -Path $BinDir | Out-Null
+
+# --- binaries ---------------------------------------------------------------
+
+function Install-FromRelease {
+  $asset = "jotbay-windows-$arch.zip"
+  if (-not (Have gh)) { return $false }
+  gh auth status 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { return $false }
+
+  $tmp = Join-Path $env:TEMP ("jotbay-" + [guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $tmp | Out-Null
+
+  Info "downloading $asset"
+  gh release download --repo $Repo --pattern $asset --dir $tmp --clobber 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { Remove-Item -Recurse -Force $tmp; return $false }
+
+  Expand-Archive -Path (Join-Path $tmp $asset) -DestinationPath $tmp -Force
+  Copy-Item (Join-Path $tmp 'jotbay.exe') $BinDir -Force
+  $gui = Join-Path $tmp 'jotbay-gui.exe'
+  if ((-not $NoGui) -and (Test-Path $gui)) { Copy-Item $gui $BinDir -Force }
+
+  Remove-Item -Recurse -Force $tmp
+  return $true
+}
+
+function Install-FromSource {
+  if (-not (Have cargo)) {
+    Die 'cargo not found - install Rust from https://rustup.rs, or wait for a published release'
+  }
+
+  Info 'building the CLI (this takes a minute)'
+  Push-Location (Join-Path $JotbayDir 'lib')
+  cargo build --release --quiet
+  Pop-Location
+  Copy-Item (Join-Path $JotbayDir 'lib\target\release\jotbay.exe') $BinDir -Force
+
+  if (-not $NoGui) {
+    Info 'building the desktop app'
+    Push-Location (Join-Path $JotbayDir 'lib\gui-tauri\src-tauri')
+    cargo build --release --quiet
+    $ok = ($LASTEXITCODE -eq 0)
+    Pop-Location
+    if ($ok) {
+      Copy-Item (Join-Path $JotbayDir 'lib\gui-tauri\src-tauri\target\release\jotbay-gui.exe') $BinDir -Force
+    } else {
+      Warn 'skipping the GUI - Tauri needs the WebView2 runtime and MSVC build tools'
+    }
+  }
+}
+
+Say 'installing binaries'
+if ($Source) { Install-FromSource }
+elseif (Install-FromRelease) { Info 'installed from the latest release' }
+else { Info 'no published release available, building from source'; Install-FromSource }
+
+$JotbayExe = Join-Path $BinDir 'jotbay.exe'
+if (-not (Test-Path $JotbayExe)) { Die 'installation produced no jotbay.exe' }
+Info "jotbay -> $JotbayExe"
+
+# --- git identity -----------------------------------------------------------
+#
+# Without user.name/user.email git cannot commit, and the failure is invisible
+# until the first time the user actually changes a file: installing, scheduling
+# and even a pull/push all succeed with no identity, so everything reports
+# healthy right up to the moment their data starts mattering. `gh auth
+# setup-git` configures credentials but NOT identity, so authenticating with gh
+# is not enough. Found during a Linux deployment.
+
+$IdentityOk = $true
+
+function Initialize-GitIdentity {
+  $name  = (& git -C $JotbayDir config --get user.name  2>$null)
+  $email = (& git -C $JotbayDir config --get user.email 2>$null)
+  if ($name -and $email) { return $true }
+
+  # gh already knows who you are, so borrow it rather than asking. The noreply
+  # address is the one GitHub itself hands out, and keeps a private email private.
+  if (Have gh) {
+    gh auth status 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      $login = (& gh api user --jq '.login' 2>$null)
+      $id    = (& gh api user --jq '.id'    2>$null)
+      if ($login -and $id) {
+        if (-not $name)  { $name  = (& gh api user --jq '.name // .login' 2>$null); if (-not $name) { $name = $login } }
+        if (-not $email) { $email = "$id+$login@users.noreply.github.com" }
+        # This clone only. An installer has no business rewriting the identity
+        # every other repository on the machine commits under.
+        & git -C $JotbayDir config user.name  $name
+        & git -C $JotbayDir config user.email $email
+        Info "commits from this machine will be authored as $name <$email>"
+        return $true
+      }
+    }
+  }
+  return $false
+}
+
+Say 'checking git can commit'
+$IdentityOk = Initialize-GitIdentity
+
+# --- scheduled sync ---------------------------------------------------------
+
+Say "scheduling background sync every $IntervalM minutes"
+
+# Launched through `conhost --headless`: a console binary started directly by
+# an interactive scheduled task flashes a console window at every run - here,
+# every ten minutes, stealing focus each time. Headless conhost gives the
+# process its console without ever creating a window, and unlike a hidden
+# PowerShell wrapper nothing flashes first. S4U ("run whether user is logged
+# on or not") would also be windowless but moves the sync into a session where
+# the credential manager is not guaranteed to open.
+$action = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
+  -Argument "--headless `"$JotbayExe`" sync --jotbay `"$JotbayDir`""
+# Omitting RepetitionDuration is what the Task Scheduler UI calls
+# "Indefinitely". Do NOT pass [TimeSpan]::MaxValue: it serialises to
+# P99999999DT23H59M59S, which the scheduler rejects outright with "the task XML
+# contains a value which is incorrectly formatted or out of range", aborting the
+# install before the launcher, the shortcuts and the first sync. [TimeSpan]::Zero
+# is rejected too. Verified on Windows 11 (26200): a trigger started two days ago
+# with no Duration still reports a NextRunTime ten minutes out, where the same
+# trigger with an explicit one-day Duration reports none at all - so "forever" is
+# the absence of the element, not a very large value in it.
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) `
+  -RepetitionInterval (New-TimeSpan -Minutes $IntervalM)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable `
+  -DontStopIfGoingOnBatteries -AllowStartIfOnBatteries -MultipleInstances IgnoreNew
+
+# Historical task name; a leftover one keeps invoking a binary that is gone.
+Unregister-ScheduledTask -TaskName 'inkway-sync' -Confirm:$false -ErrorAction SilentlyContinue
+
+Register-ScheduledTask -TaskName 'jotbay-sync' -Action $action -Trigger $trigger `
+  -Settings $settings -Description 'Sync the markdown jotbay' -Force | Out-Null
+Info 'scheduled task "jotbay-sync" registered'
+
+# --- launcher and shortcuts -------------------------------------------------
+
+$shell = New-Object -ComObject WScript.Shell
+
+if (-not $NoGui) {
+  $guiExe = Join-Path $BinDir 'jotbay-gui.exe'
+  if (Test-Path $guiExe) {
+    Say 'creating the launcher'
+    $lnk = $shell.CreateShortcut((Join-Path $JotbayDir 'Jotbay.lnk'))
+    $lnk.TargetPath       = $guiExe
+    $lnk.WorkingDirectory = $JotbayDir
+    $lnk.IconLocation     = Join-Path $JotbayDir 'lib\icons\generated\jotbay.ico'
+    $lnk.Description      = 'Manage the synced markdown jotbay'
+    $lnk.Save()
+    Info '"Jotbay.lnk" is in the repository root - double-click it'
+  }
+}
+
+Say 'putting a shortcut to the synced folder on your Desktop'
+$desktop = [Environment]::GetFolderPath('Desktop')
+if ($desktop) {
+  $s = $shell.CreateShortcut((Join-Path $desktop 'Jotbay.lnk'))
+  $s.TargetPath   = Join-Path $JotbayDir 'data'
+  $s.IconLocation = Join-Path $JotbayDir 'lib\icons\generated\jotbay.ico'
+  $s.Save()
+  Info "Desktop\Jotbay -> $JotbayDir\data"
+}
+
+# --- PATH -------------------------------------------------------------------
+
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($userPath -notlike "*$BinDir*") {
+  [Environment]::SetEnvironmentVariable('Path', "$userPath;$BinDir", 'User')
+  Info "added $BinDir to your PATH (restart your terminal to pick it up)"
+}
+
+Say 'running the first sync'
+
+# Echo the sync live but keep a copy, so the specific failures worth explaining
+# can be recognised instead of leaving the user with raw git stderr. EAP is
+# relaxed for the call because native stderr merged with 2>&1 under
+# 'Stop' terminates the script.
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$syncOut = & $JotbayExe sync --jotbay $JotbayDir 2>&1 |
+  ForEach-Object { $line = "$_"; Write-Host $line; $line }
+$syncOk = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $prevEap
+
+# GitHub refuses a push carrying any commit whose author email is private, when
+# "Block command line pushes that expose my email" is on - error GH007. The
+# identity check above only proves user.name/user.email are *set*, so an
+# ordinary global identity sails through it and then cannot push: the same
+# silent wall that check exists to prevent, moved one step later. The address
+# gh hands out is public by construction, which is why it is the one to use.
+$EmailBlocked = (-not $syncOk) -and (($syncOut -join "`n") -match 'GH007|publish a private email')
+
+$NoReply = $null
+if ($EmailBlocked -and (Have gh)) {
+  $login = (& gh api user --jq '.login' 2>$null)
+  $id    = (& gh api user --jq '.id'    2>$null)
+  if ($login -and $id) {
+    # This clone only, as above.
+    $NoReply = "$id+$login@users.noreply.github.com"
+    & git -C $JotbayDir config user.email $NoReply
+  }
+}
+
+# On a reinstall the scheduled task is already live, so its ten-minute run can
+# land on top of this one. The lock then does exactly its job and this sync
+# exits having done nothing - correct, but "another sync is already running" is
+# the last thing the installer says, which reads like a failure.
+$LockHit = ($syncOut -join "`n") -match 'another sync is already running'
+
+if ($LockHit) {
+  Info 'that was the scheduled sync already in flight; it finishes on its own'
+} elseif ((-not $syncOk) -and (-not $EmailBlocked)) {
+  Warn "first sync did not complete - run 'jotbay status' to see why"
+}
+
+Write-Host ''
+Say 'done'
+Info 'jotbay status   - see every machine'
+Info 'jotbay dash     - live dashboard'
+Info 'jotbay sync     - sync right now'
+
+if (-not $IdentityOk) {
+  Write-Host ''
+  Warn 'git has no user.name or user.email on this machine, so Jotbay cannot commit.'
+  Warn 'Sync will look healthy until the first time you change a file, and then fail.'
+  Write-Host ''
+  Write-Host '        git config --global user.name  "Your Name"'
+  Write-Host '        git config --global user.email "you@example.com"'
+  Write-Host ''
+}
+
+if ($EmailBlocked) {
+  Write-Host ''
+  Warn 'GitHub refused the push: your commits carry a private email address.'
+  Warn 'Until that is fixed, nothing you write will ever leave this machine.'
+  Write-Host ''
+  if ($NoReply) {
+    Info "this clone will now commit as $NoReply"
+    Write-Host ''
+    Write-Host '        The commit already made still carries the old address.'
+    Write-Host '        Re-author it and sync again:'
+    Write-Host ''
+    Write-Host "        git -C `"$JotbayDir`" commit --amend --reset-author --no-edit"
+    Write-Host '        jotbay sync'
+  } else {
+    Write-Host '        Find your noreply address at https://github.com/settings/emails, then:'
+    Write-Host ''
+    Write-Host "        git -C `"$JotbayDir`" config user.email `"ID+USER@users.noreply.github.com`""
+    Write-Host "        git -C `"$JotbayDir`" commit --amend --reset-author --no-edit"
+    Write-Host '        jotbay sync'
+  }
+  Write-Host ''
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <!--
+    macOS menu bar template. Pure black plus alpha only: the system inverts and
+    tints template images itself, so any colour here would break dark mode and
+    menu-bar highlighting. Drawn on a 44px grid = 22pt @2x.
+  -->
+  <g fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round">
+    <circle cx="22" cy="22" r="12.5"/>
+    <line x1="17.8" y1="17.8" x2="15.1" y2="15.1"/>
+    <line x1="26.2" y1="17.8" x2="28.9" y2="15.1"/>
+    <line x1="26.2" y1="26.2" x2="28.9" y2="28.9"/>
+    <line x1="17.8" y1="26.2" x2="15.1" y2="28.9"/>
+  </g>
+  <circle cx="22" cy="22" r="4.2" fill="#000000"/>
+</svg>

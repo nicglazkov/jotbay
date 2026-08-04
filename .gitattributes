@@ -1,0 +1,44 @@
+# Normalize line endings for text. Without this, editing the same file on
+# Windows and Linux produces whole-file diffs on every commit.
+#
+# `text=auto` only converts files git detects as text — verified: a file whose
+# body is high-byte data is left untouched even when its first 8KB look like
+# ASCII. What it does NOT protect is a genuinely-ASCII file where CRLF is
+# load-bearing, so those are listed explicitly below.
+* text=auto eol=lf
+*.md text eol=lf
+
+# --- CRLF is significant here; never convert -------------------------------
+# Verified by test: without these, a .bat or .pem loses its carriage returns
+# in transit between machines and arrives subtly broken.
+*.bat  -text
+*.cmd  -text
+*.ps1  -text
+*.reg  -text
+*.pem  -text
+*.crt  -text
+*.cer  -text
+*.key  -text
+
+# --- always binary ---------------------------------------------------------
+# Git's auto-detection already handles these, but stating it removes any doubt
+# and stops a diff tool from trying to render them.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.heic binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.7z   binary
+*.mp4  binary
+*.mov  binary
+*.mp3  binary
+*.m4a  binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
+*.sqlite binary
+*.db   binary

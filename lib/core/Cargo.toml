@@ -1,0 +1,17 @@
+[package]
+name = "jotbay-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Sync engine for Jotbay: git operations, conflict policy, node status refs"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+time.workspace = true
+gethostname.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+  <!-- Syncing: the dial opens into two chasing arcs. -->
+  <g fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round">
+    <path d="M 34.5 22 A 12.5 12.5 0 0 1 14.6 32.1"/>
+    <path d="M 9.5 22 A 12.5 12.5 0 0 1 29.4 11.9"/>
+  </g>
+  <path d="M 14.6 32.1 l 5.6 0.6 l -2.4 -5.1 z" fill="#000000"/>
+  <path d="M 29.4 11.9 l -5.6 -0.6 l 2.4 5.1 z" fill="#000000"/>
+  <circle cx="22" cy="22" r="4.2" fill="#000000"/>
+</svg>

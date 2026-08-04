@@ -1,0 +1,248 @@
+import Foundation
+
+// Mirrors of the JSON emitted by `jotbay --json`. The CLI is the single source
+// of truth for sync behaviour; these types exist only to read its output.
+
+struct NodeStatus: Codable, Identifiable, Hashable {
+    var id: String { hostname }
+
+    let hostname: String
+    let os: String
+    let arch: String
+    let agentVersion: String
+    let lastSync: Date
+    let head: String
+    let ahead: Int
+    let behind: Int
+    let dirty: Int
+    let conflictsResolved: Int
+    let lastError: String?
+    /// Strictly behind the local head. Optional so a node still running an
+    /// older agent, whose published status lacks the field, still decodes.
+    let behindLocal: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case hostname, os, arch, head, ahead, behind, dirty
+        case agentVersion = "agent_version"
+        case lastSync = "last_sync"
+        case conflictsResolved = "conflicts_resolved"
+        case behindLocal = "behind_local"
+        case lastError = "last_error"
+    }
+
+    /// Kept in step with `NodeHealth::health` in the Rust core.
+    ///
+    /// "Diverged" used to cover every head mismatch, which overstated the
+    /// common case: right after this machine pushes, every peer shows a
+    /// different head purely because it has not pulled yet. `behindLocal` is
+    /// computed remotely by `git merge-base --is-ancestor`.
+    func health(localHead: String, interval: TimeInterval = 600) -> NodeHealth {
+        if lastError != nil { return .error }
+        if Date().timeIntervalSince(lastSync) > interval * 3 { return .stale }
+        if head != localHead { return (behindLocal ?? false) ? .behind : .diverged }
+        return .healthy
+    }
+
+    var shortHead: String { String(head.prefix(7)) }
+}
+
+enum NodeHealth {
+    case healthy, behind, diverged, stale, error
+
+    var label: String {
+        switch self {
+        case .healthy: return "in sync"
+        case .behind: return "behind"
+        case .diverged: return "diverged"
+        case .stale: return "stale"
+        case .error: return "error"
+        }
+    }
+}
+
+/// A file that will not sync, or that will cost more than the user expects.
+struct FileWarning: Codable, Identifiable, Hashable {
+    var id: String { path }
+
+    let path: String
+    let bytes: Int64
+    let severity: Severity
+
+    /// Sent by `jotbay_core::limits`, so this window and the CLI always give
+    /// the same advice about the same file. Optional only so an older `jotbay`
+    /// binary that predates the field still decodes.
+    let advice: String?
+
+    var humanSize: String {
+        let mb = Double(bytes) / (1024 * 1024)
+        if mb >= 1024 { return String(format: "%.1f GB", mb / 1024) }
+        if mb >= 1 { return String(format: "%.0f MB", mb) }
+        return String(format: "%.0f KB", Double(bytes) / 1024)
+    }
+
+    var filename: String { (path as NSString).lastPathComponent }
+}
+
+enum Severity: String, Codable {
+    case blocked, warning, advisory
+}
+
+struct JotbayStatus: Codable {
+    let root: String
+    let branch: String
+    let head: String
+    let headShort: String
+    let ahead: Int
+    let behind: Int
+    let dirtyFiles: [String]
+    let rebaseInProgress: Bool
+    let conflicts: [String]
+    let dataFiles: Int
+    let warnings: [FileWarning]
+    let updateAvailable: String?
+    let nodes: [NodeStatus]
+
+    enum CodingKeys: String, CodingKey {
+        case root, branch, head, ahead, behind, conflicts, nodes
+        case headShort = "head_short"
+        case dirtyFiles = "dirty_files"
+        case rebaseInProgress = "rebase_in_progress"
+        case dataFiles = "data_files"
+        case warnings
+        case updateAvailable = "update_available"
+    }
+
+    var isClean: Bool {
+        dirtyFiles.isEmpty && ahead == 0 && behind == 0 && !rebaseInProgress
+    }
+
+    static let empty = JotbayStatus(
+        root: "", branch: "", head: "", headShort: "",
+        ahead: 0, behind: 0, dirtyFiles: [], rebaseInProgress: false,
+        conflicts: [], dataFiles: 0, warnings: [], updateAvailable: nil, nodes: []
+    )
+}
+
+struct ConflictResolution: Codable, Hashable {
+    let path: String
+    let keptCopy: String?
+    let kind: String
+
+    enum CodingKeys: String, CodingKey {
+        case path, kind
+        case keptCopy = "kept_copy"
+    }
+}
+
+struct SyncReport: Codable {
+    let committed: Bool
+    let commitMessage: String?
+    let pulled: Int
+    let pushed: Bool
+    let conflicts: [ConflictResolution]
+    let headShort: String
+    let skippedLocked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case committed, pulled, pushed, conflicts
+        case commitMessage = "commit_message"
+        case headShort = "head_short"
+        case skippedLocked = "skipped_locked"
+    }
+
+    var didNothing: Bool { !committed && pulled == 0 && !pushed && conflicts.isEmpty }
+
+    /// A one-line description for the menu bar and toasts.
+    var summary: String {
+        if skippedLocked { return "Another sync is already running" }
+        if didNothing { return "Already in sync" }
+
+        var parts: [String] = []
+        if committed { parts.append("committed") }
+        if pulled > 0 { parts.append("pulled \(pulled)") }
+        if !conflicts.isEmpty {
+            parts.append("\(conflicts.count) conflict\(conflicts.count == 1 ? "" : "s") — both versions kept")
+        }
+        if pushed { parts.append("pushed") }
+        return parts.joined(separator: " · ").capitalizedFirst
+    }
+}
+
+/// One thing that happened on one machine. Distinct from `CommitInfo`: a
+/// commit says what changed, an event says what a machine *did* — including
+/// failing, which leaves no commit behind.
+struct ActivityEvent: Codable, Identifiable, Hashable {
+    var id: String { "\(hostname)-\(at.timeIntervalSince1970)-\(summary)" }
+
+    let at: Date
+    let hostname: String
+    let kind: EventKind
+    let summary: String
+    /// Paths this event touched, so a row can answer "pushed 2 files — which?"
+    let files: [String]?
+    /// Raw underlying text. Shown only in verbose mode; a push rejected for a
+    /// private email is five lines of git stderr that helps almost nobody.
+    let detail: String?
+    let head: String
+
+    var id2: String { "\(hostname)-\(at.timeIntervalSince1970)" }
+}
+
+/// What `jotbay init --json` reports a machine can offer, so the first-run
+/// screen can disable a route rather than let someone pick one that fails.
+struct SetupCapabilities: Codable {
+    let git: Bool
+    let gh: Bool
+    let ghAuthenticated: Bool
+    let login: String?
+    let defaultLocation: String
+    let appInstalled: Bool
+    let desktop: String
+
+    enum CodingKeys: String, CodingKey {
+        case git, gh, login, desktop
+        case ghAuthenticated = "gh_authenticated"
+        case defaultLocation = "default_location"
+        case appInstalled = "app_installed"
+    }
+}
+
+/// Per-machine preferences, read from the same file the CLI writes.
+struct AppSettings: Codable {
+    var theme: String
+    var verbose: Bool
+
+    static let fallback = AppSettings(theme: "system", verbose: false)
+}
+
+enum EventKind: String, Codable {
+    case changed
+    case conflict
+    case error
+
+    var symbol: String {
+        switch self {
+        case .changed: return "arrow.up.arrow.down"
+        case .conflict: return "exclamationmark.triangle.fill"
+        case .error: return "xmark.octagon.fill"
+        }
+    }
+}
+
+struct CommitInfo: Codable, Identifiable, Hashable {
+    var id: String { sha }
+
+    let sha: String
+    let short: String
+    let subject: String
+    let author: String
+    let timestamp: String
+    let node: String?
+}
+
+extension String {
+    var capitalizedFirst: String {
+        guard let first else { return self }
+        return first.uppercased() + dropFirst()
+    }
+}

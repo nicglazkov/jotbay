@@ -1,0 +1,384 @@
+/* Jotbay — Windows and Linux.
+   Mirrors the macOS app's information design so the two never feel like
+   different products. Colours come from the app icon's indigo/violet. */
+
+:root {
+  --bg: #ffffff;
+  --bg-raised: #f6f6f9;
+  --bg-header: #fbfbfd;
+  --border: #e3e3ea;
+  --text: #16161d;
+  --text-dim: #61616e;
+  --text-faint: #9797a4;
+  --accent: #5B4FE0;
+  --accent-hover: #4c41c9;
+  --ok: #2e9e5b;
+  --info: #2b7fbf;
+  --warn: #d08a1f;
+  --bad: #d4453f;
+  --radius: 7px;
+}
+
+/* The dark palette is declared twice on purpose.
+   The media query is the correct mechanism and is what WebKitGTK honours. The
+   attribute selector is set by app.js from `matchMedia`, because WebView2 does
+   not re-evaluate the media query when Windows switches theme while the window
+   is open — so on Windows this is the copy that actually repaints.
+   `data-theme="light"` must also win, or a machine that starts dark and
+   switches to light would keep the dark media query. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17171d;
+    --bg-raised: #1e1e26;
+    --bg-header: #1b1b22;
+    --border: #2c2c37;
+    --text: #ececf2;
+    --text-dim: #9a9aa8;
+    --text-faint: #6b6b7a;
+    --accent: #7D72FF;
+    --accent-hover: #8f85ff;
+    --ok: #5ec27f;
+    --info: #6cb2e0;
+    --warn: #e0af68;
+    --bad: #e06c76;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #17171d;
+  --bg-raised: #1e1e26;
+  --bg-header: #1b1b22;
+  --border: #2c2c37;
+  --text: #ececf2;
+  --text-dim: #9a9aa8;
+  --text-faint: #6b6b7a;
+  --accent: #7D72FF;
+  --accent-hover: #8f85ff;
+  --ok: #5ec27f;
+  --info: #6cb2e0;
+  --warn: #e0af68;
+  --bad: #e06c76;
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-raised: #f6f6f9;
+  --bg-header: #fbfbfd;
+  --border: #e3e3ea;
+  --text: #16161d;
+  --text-dim: #61616e;
+  --text-faint: #9797a4;
+  --accent: #5B4FE0;
+  --accent-hover: #4c41c9;
+  --ok: #2e9e5b;
+  --info: #2b7fbf;
+  --warn: #d08a1f;
+  --bad: #d4453f;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Any author `display` rule outranks the user agent's `[hidden] { display:
+   none }`, so `el.hidden = true` silently does nothing to an element whose
+   class sets a display — which is how both banners ended up permanently on
+   screen. Restore the attribute's meaning once, here, rather than remembering
+   it at every call site. */
+[hidden] { display: none !important; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Ubuntu, Cantarell, sans-serif;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- summary bar ---------------------------------------------------------- */
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 14px 20px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.summary-main { flex: 1; min-width: 0; }
+
+.headline-row { display: flex; align-items: center; gap: 9px; }
+
+h1 { font-size: 15px; font-weight: 600; white-space: nowrap; }
+
+.path {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--text-faint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+}
+.dot[data-health="healthy"]  { background: var(--ok);   color: var(--ok); }
+.dot[data-health="behind"]   { background: var(--info); color: var(--info); }
+.dot[data-health="diverged"] { background: var(--warn); color: var(--warn); }
+.dot[data-health="stale"]    { background: var(--text-faint); color: var(--text-faint); }
+.dot[data-health="error"]    { background: var(--bad);  color: var(--bad); }
+
+.spinner {
+  width: 12px; height: 12px;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.metrics { display: flex; gap: 20px; }
+.metric { display: flex; flex-direction: column; align-items: flex-end; }
+.metric-value { font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.metric-label { font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+
+.actions { display: flex; gap: 7px; }
+
+button {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 13px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+button:hover:not(:disabled) { background: var(--bg-raised); border-color: var(--text-faint); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+button.link {
+  background: none; border: none; color: var(--accent);
+  padding: 0 4px; text-decoration: underline; font-size: 11px;
+}
+
+/* --- banners and toasts --------------------------------------------------- */
+
+.banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 20px;
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+#limit-banner {
+  display: block;
+  padding: 11px 20px;
+}
+#limit-banner[data-kind="blocked"] { background: color-mix(in srgb, var(--bad) 13%, transparent); }
+#limit-banner[data-kind="large"]   { background: color-mix(in srgb, var(--warn) 13%, transparent); }
+
+.limit-group + .limit-group { margin-top: 10px; }
+.limit-group strong { font-size: 12px; display: block; margin-bottom: 4px; }
+.limit-group[data-kind="blocked"] strong { color: var(--bad); }
+.limit-group[data-kind="large"] strong { color: var(--warn); }
+.limit-group p { font-size: 11px; color: var(--text-dim); margin-top: 5px; max-width: 70ch; }
+
+.limit-row { display: flex; gap: 8px; align-items: baseline; font-size: 11px; }
+.limit-name { font-weight: 500; }
+.limit-size { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+.toast {
+  padding: 8px 20px;
+  font-size: 12px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.toast[data-kind="error"] { color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent); }
+
+/* --- panes ---------------------------------------------------------------- */
+
+main { flex: 1; display: flex; min-height: 0; }
+
+.pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.pane + .pane { border-left: 1px solid var(--border); flex: 1 1 auto; }
+/* Machines holds a handful of rows; Activity holds dozens. Give Activity the
+   room and stop Machines from reserving a screenful of blank space. */
+.pane:first-child { flex: 0 0 clamp(260px, 32%, 380px); }
+
+.pane-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 20px;
+  font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-dim);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.count { font-weight: 400; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+.pane-body { flex: 1; overflow-y: auto; }
+
+/* --- rows ----------------------------------------------------------------- */
+
+.node {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 11px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.node-dot { margin-top: 5px; }
+.node-main { flex: 1; min-width: 0; }
+.node-name { display: flex; align-items: center; gap: 6px; }
+.node-name strong { font-size: 13px; font-weight: 500; }
+
+.tag {
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.node-detail { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+.node-error { font-size: 11px; color: var(--bad); margin-top: 3px; word-break: break-word; }
+.node-right { text-align: right; flex-shrink: 0; }
+.node-age { font-size: 11px; color: var(--text-dim); }
+.node-head { font-size: 10px; color: var(--text-faint); font-family: ui-monospace, monospace; margin-top: 3px; }
+
+.event {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.event-glyph { font-size: 12px; line-height: 1.3; width: 14px; flex-shrink: 0; text-align: center; }
+.event-glyph[data-kind="changed"]  { color: var(--accent); }
+.event-glyph[data-kind="conflict"] { color: var(--warn); }
+.event-glyph[data-kind="error"]    { color: var(--bad); }
+
+.event-main { flex: 1; min-width: 0; }
+.event-summary { font-size: 12px; line-height: 1.35; word-break: break-word; }
+.event-summary[data-kind="error"] { color: var(--bad); }
+
+.event-meta { display: flex; gap: 7px; align-items: center; margin-top: 3px; font-size: 10px; color: var(--text-faint); }
+.event-meta .who { color: var(--text-dim); }
+.event-meta .when { margin-left: auto; }
+
+.empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; gap: 6px; padding: 30px; text-align: center;
+}
+.empty-title { font-size: 13px; font-weight: 500; color: var(--text-dim); }
+.empty-detail { font-size: 11px; color: var(--text-faint); }
+
+
+/* --- settings ------------------------------------------------------------- */
+
+#settings-panel {
+  display: block;
+  padding: 14px 20px 16px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.setting + .setting { margin-top: 14px; }
+.setting > label { display: block; font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim);
+  margin-bottom: 5px; }
+.setting select { font: inherit; font-size: 12px; padding: 4px 8px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); }
+.setting .check { display: flex; align-items: center; gap: 6px; font-size: 12px;
+  font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--text); }
+.setting p { font-size: 11px; color: var(--text-faint); margin-top: 5px; max-width: 62ch; }
+
+/* --- activity rows -------------------------------------------------------- */
+
+/* The timestamp used to float to the far right, stranded from the row it
+   belonged to on a wide window. It now sits with the machine name. */
+.event-meta .when { margin-left: 0; }
+.event-repeat { font-size: 10px; color: var(--text-faint); }
+
+.event-toggle {
+  background: none; border: none; padding: 0 4px; cursor: pointer;
+  color: var(--text-faint); font-size: 10px; line-height: 1;
+}
+.event-toggle:hover { color: var(--text); background: none; border: none; }
+
+.event-files { margin-top: 6px; padding-left: 2px; }
+.event-files div { font-size: 11px; color: var(--text-dim);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; line-height: 1.5; }
+.event-detail {
+  margin-top: 6px; padding: 8px 10px; border-radius: var(--radius);
+  background: var(--bg-raised); border: 1px solid var(--border);
+  font-family: ui-monospace, monospace; font-size: 10.5px; color: var(--text-dim);
+  white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow-y: auto;
+}
+
+#update-banner { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+#update-banner strong { font-weight: 500; }
+
+
+/* --- first run ------------------------------------------------------------ */
+
+#firstrun, #done { flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 32px; overflow-y: auto; }
+#firstrun[hidden], #done[hidden] { display: none !important; }
+.done-checks { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.check input { margin: 0; }
+.fr-hint { margin-top: 8px; font-size: 11px; color: var(--text-faint); }
+.fr-hint:empty { display: none; }
+#done-path { font-family: ui-monospace, monospace; font-size: 12px;
+  background: var(--bg-raised); padding: 1px 5px; border-radius: 4px; }
+.fr-inner { max-width: 520px; width: 100%; }
+.fr-icon { width: 64px; height: 64px; display: block; margin-bottom: 14px; }
+.fr-inner h2 { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+.fr-lede { font-size: 13px; color: var(--text-dim); margin-bottom: 20px; line-height: 1.5; }
+
+.fr-options { display: flex; flex-direction: column; gap: 8px; }
+.fr-option { display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  text-align: left; padding: 13px 15px; width: 100%; }
+.fr-option strong { font-size: 13px; font-weight: 600; }
+.fr-option span { font-size: 11.5px; color: var(--text-dim); line-height: 1.45; }
+.fr-option:disabled span { color: var(--text-faint); }
+.fr-option[aria-selected="true"] { border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+#fr-detail { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+#fr-detail[hidden] { display: none !important; }
+#fr-detail label { font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-dim); }
+#fr-detail input { font: inherit; font-size: 12.5px; padding: 7px 10px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  background: var(--bg); color: var(--text); width: 100%; }
+/* Label above, like the field before it — an inline label put the two rows on
+   different left edges, which read as a mistake. */
+.fr-row { display: flex; gap: 8px; align-items: center; }
+.fr-row input { flex: 1; }
+.fr-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
+
+.fr-status { margin-top: 14px; font-size: 12px; color: var(--text-dim); }
+.fr-status[hidden] { display: none !important; }
+.fr-status[data-kind="error"] { color: var(--bad); }
+.fr-foot { margin-top: 22px; font-size: 11.5px; color: var(--text-faint); }
+.fr-foot code { font-family: ui-monospace, monospace; background: var(--bg-raised);
+  padding: 1px 5px; border-radius: 4px; }

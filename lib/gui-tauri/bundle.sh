@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# Build the native installers for this platform.
+#
+#   lib/gui-tauri/bundle.sh [target-triple]
+#
+# Produces -setup.exe on Windows, .deb and .AppImage on Linux. macOS is not
+# built here: its GUI is the native Swift app, packaged by lib/gui-macos/package.sh.
+#
+# NSIS only on Windows, deliberately. The WiX/MSI bundle installs per-machine
+# (ALLUSERS=1) — it prompts for UAC, registers under HKLM, and an unelevated
+# uninstall fails with error 1730 — while the NSIS installer is currentUser and
+# is the only one that puts the CLI on PATH. Two installers with different
+# elevation semantics and different outcomes is worse than one that works.
+#
+# The CLI is staged into src-tauri/staged first, because the bundler can only
+# package files that sit inside the crate. Both installers place it where a
+# terminal can reach it — /usr/bin on Linux, the install directory plus a PATH
+# entry on Windows — so installing the app does not leave a CLI user stranded.
+
+set -euo pipefail
+cd "$(dirname "$0")"
+
+TARGET="${1:-}"
+STAGED="src-tauri/staged"
+
+say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
+die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+case "$(uname -s)" in
+  Darwin) die "macOS ships the Swift app; run lib/gui-macos/package.sh instead" ;;
+esac
+
+command -v cargo >/dev/null || die "cargo not found"
+command -v tauri >/dev/null || die "tauri CLI not found (npm i -g @tauri-apps/cli@^2)"
+
+# --- stage the CLI ----------------------------------------------------------
+
+say "building the CLI"
+if [ -n "$TARGET" ]; then
+  ( cd .. && cargo build --release --locked --target "$TARGET" )
+  BUILT_DIR="../target/$TARGET/release"
+else
+  ( cd .. && cargo build --release --locked )
+  BUILT_DIR="../target/release"
+fi
+
+rm -rf "$STAGED"
+mkdir -p "$STAGED"
+if [ -f "$BUILT_DIR/jotbay.exe" ]; then
+  cp "$BUILT_DIR/jotbay.exe" "$STAGED/jotbay.exe"
+else
+  cp "$BUILT_DIR/jotbay" "$STAGED/jotbay"
+fi
+say "staged $(ls "$STAGED")"
+
+# --- bundle -----------------------------------------------------------------
+
+# A bundle identifier belongs to whoever publishes the app. The committed value
+# is this project's; a fork sets JOTBAY_BUNDLE_PREFIX and gets its own without
+# editing tracked files. It must stay stable across releases — an installer
+# whose identifier changed reads as a different product and installs alongside
+# the old one instead of upgrading it.
+say "bundling"
+ARGS=()
+[ -n "$TARGET" ] && ARGS+=(--target "$TARGET")
+if [ -n "${JOTBAY_BUNDLE_PREFIX:-}" ]; then
+  say "identifier: $JOTBAY_BUNDLE_PREFIX.jotbay"
+  ARGS+=(--config "{\"identifier\":\"$JOTBAY_BUNDLE_PREFIX.jotbay\"}")
+fi
+( cd src-tauri && tauri build ${ARGS[@]+"${ARGS[@]}"} )
+
+BUNDLE_ROOT="src-tauri/target/${TARGET:+$TARGET/}release/bundle"
+[ -d "$BUNDLE_ROOT" ] || die "no bundle directory at $BUNDLE_ROOT"
+
+echo
+say "built"
+find "$BUNDLE_ROOT" -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*-setup.exe' \) \
+  -exec printf '    %s\n' {} \;

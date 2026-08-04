@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jotbay</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Shown when no vault exists. An installed app always starts here. -->
+  <section id="firstrun" hidden>
+    <div class="fr-inner">
+      <img class="fr-icon" src="icon.png" alt="">
+      <h2>Welcome to Jotbay</h2>
+      <p class="fr-lede">Your notes sync between machines through a private git
+        repository. Choose how to set this one up.</p>
+
+      <div class="fr-options">
+        <button class="fr-option" id="fr-create" data-mode="create">
+          <strong>Create one for me</strong>
+          <span id="fr-create-note">Makes a new private repository on GitHub and starts syncing.</span>
+        </button>
+        <button class="fr-option" id="fr-clone" data-mode="clone">
+          <strong>I already have one</strong>
+          <span>Clone a repository you or another machine already set up.</span>
+        </button>
+        <button class="fr-option" id="fr-adopt" data-mode="adopt">
+          <strong>Use a folder on this machine</strong>
+          <span>Point Jotbay at a clone that is already here.</span>
+        </button>
+      </div>
+
+      <div id="fr-detail" hidden>
+        <label id="fr-label" for="fr-value"></label>
+        <input id="fr-value" type="text" spellcheck="false">
+        <label id="fr-location-label" for="fr-location">Location</label>
+        <div class="fr-row">
+          <input id="fr-location" type="text" spellcheck="false">
+          <button id="fr-browse">Choose…</button>
+        </div>
+        <div class="fr-actions">
+          <button id="fr-back">Back</button>
+          <button id="fr-go" class="primary">Set up Jotbay</button>
+        </div>
+      </div>
+
+      <p id="fr-status" class="fr-status" hidden></p>
+      <p class="fr-foot">Prefer a terminal? <code>jotbay init</code> does the same thing.</p>
+    </div>
+  </section>
+
+  <!-- Shown once, immediately after setup. Shortcuts are offered here rather
+       than by the installer because neither target exists until now. -->
+  <section id="done" hidden>
+    <div class="fr-inner">
+      <img class="fr-icon" src="icon.png" alt="">
+      <h2>Jotbay is ready</h2>
+      <p class="fr-lede">Your notes live in <code id="done-path"></code>. Anything you put
+        there reaches your other machines on the next sync.</p>
+
+      <div class="done-checks">
+        <label class="check"><input type="checkbox" id="done-notes" checked>
+          <span>Put a shortcut to my notes on the desktop</span></label>
+        <label class="check" id="done-app-row"><input type="checkbox" id="done-app" checked>
+          <span>Put a shortcut to Jotbay on the desktop</span></label>
+      </div>
+
+      <p id="done-desktop" class="fr-hint"></p>
+      <p id="done-status" class="fr-status" hidden></p>
+      <div class="fr-actions">
+        <button id="done-go" class="primary">Continue</button>
+      </div>
+      <p class="fr-foot">You can do this later with <code>jotbay shortcut</code></p>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+  <header class="summary">
+    <div class="summary-main">
+      <div class="headline-row">
+        <span id="overall-dot" class="dot" data-health="healthy"></span>
+        <h1 id="headline">Loading…</h1>
+        <span id="spinner" class="spinner" hidden></span>
+      </div>
+      <p id="repo-path" class="path"></p>
+    </div>
+
+    <div class="metrics">
+      <div class="metric"><span id="m-files" class="metric-value">—</span><span class="metric-label">Files</span></div>
+      <div class="metric"><span id="m-nodes" class="metric-value">—</span><span class="metric-label">Machines</span></div>
+      <div class="metric"><span id="m-commit" class="metric-value mono">—</span><span class="metric-label">Commit</span></div>
+    </div>
+
+    <div class="actions">
+      <button id="btn-sync" class="primary">Sync</button>
+      <button id="btn-refresh">Refresh</button>
+      <button id="btn-folder">Open Folder</button>
+      <button id="btn-settings" title="Settings">Settings</button>
+    </div>
+  </header>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <div id="conflict-banner" class="banner" hidden>
+    <strong id="conflict-count"></strong>
+    <span>Running Sync keeps both versions automatically.</span>
+    <button id="btn-abort" class="link">Abort rebase</button>
+  </div>
+
+  <div id="update-banner" class="banner" hidden>
+    <strong id="update-text"></strong>
+    <button id="btn-upgrade" class="link">Update now</button>
+  </div>
+
+  <div id="limit-banner" class="banner" hidden></div>
+
+  <section id="settings-panel" hidden>
+    <div class="setting">
+      <label for="set-theme">Appearance</label>
+      <select id="set-theme">
+        <option value="system">Match system</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+      <p>Applies to this machine only — settings never sync.</p>
+    </div>
+    <div class="setting">
+      <label for="set-verbose">Advanced</label>
+      <label class="check"><input type="checkbox" id="set-verbose"> Verbose activity</label>
+      <p>Show the raw underlying detail, including full git output on failures.</p>
+    </div>
+  </section>
+
+  <main>
+    <section class="pane">
+      <div class="pane-header"><span>Machines</span><span id="nodes-count" class="count">0</span></div>
+      <div id="nodes" class="pane-body"></div>
+    </section>
+
+    <section class="pane">
+      <div class="pane-header"><span>Activity</span><span id="log-count" class="count">0</span></div>
+      <div id="log" class="pane-body"></div>
+    </section>
+  </main>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

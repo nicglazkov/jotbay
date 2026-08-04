@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Jotbay",
+  "version": "1.3.4",
+  "identifier": "com.glazkov.jotbay",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Jotbay",
+        "width": 940,
+        "height": 620,
+        "minWidth": 760,
+        "minHeight": 480,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage", "nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Keep your markdown notes in sync across machines",
+    "longDescription": "Keeps your markdown notes in sync across machines through a private git remote, with per-machine status and automatic conflict handling that never discards a version.",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

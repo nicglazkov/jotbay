@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Linux/Windows tray icon — idle (everything in sync).
+
+    Not a template image like menubar-*.svg. Those are black-plus-alpha because
+    AppKit inverts and tints them itself; handed to an AppIndicator unchanged
+    they would be a black smudge on Ubuntu's black top panel.
+
+    So state is carried by the PLATE colour, not the glyph. Recolouring the
+    whole 22px square reads instantly at tray size and stays legible on a light
+    panel or a dark one, whereas a small corner badge disappears below about
+    24px and a tinted glyph has to fight the plate behind it. The white dial is
+    identical across all three states, so the silhouette stays recognisably
+    Jotbay while the colour does the talking.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%"   stop-color="#6D7CFF"/>
+      <stop offset="55%"  stop-color="#5B4FE0"/>
+      <stop offset="100%" stop-color="#7B3FD4"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="45%"  stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- No drop shadow: at 22px it renders as a grey fringe, not depth. -->
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#bg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#sheen)"/>
+
+  <circle cx="512" cy="512" r="286" fill="none" stroke="#FFFFFF" stroke-width="46" stroke-opacity="0.96"/>
+  <g stroke="#FFFFFF" stroke-width="48" stroke-linecap="round" stroke-opacity="0.96">
+    <line x1="420" y1="420" x2="356" y2="356"/>
+    <line x1="604" y1="420" x2="668" y2="356"/>
+    <line x1="604" y1="604" x2="668" y2="668"/>
+    <line x1="420" y1="604" x2="356" y2="668"/>
+  </g>
+  <circle cx="512" cy="512" r="96" fill="#FFFFFF"/>
+</svg>

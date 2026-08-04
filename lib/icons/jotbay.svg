@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Jotbay app icon.
+
+    A safe dial: instantly legible as "jotbay", and geometric enough to survive
+    being scaled to a 16px favicon. The spokes sit on the diagonals so the
+    strongest strokes never collide with the horizontal/vertical pixel grid at
+    small sizes, which is where a 4-spoke cross turns to mush.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%"   stop-color="#6D7CFF"/>
+      <stop offset="55%"  stop-color="#5B4FE0"/>
+      <stop offset="100%" stop-color="#7B3FD4"/>
+    </linearGradient>
+
+    <!-- Top-edge sheen, the cue that reads as "physical object" on a desktop. -->
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="45%"  stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#1A1140" flood-opacity="0.30"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded-square plate, inset so the icon breathes inside its bounding box. -->
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#bg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#sheen)"/>
+
+  <g filter="url(#dropShadow)">
+    <!-- Dial face -->
+    <circle cx="512" cy="512" r="286" fill="none" stroke="#FFFFFF" stroke-width="46" stroke-opacity="0.96"/>
+
+    <!-- Spokes on the diagonals -->
+    <g stroke="#FFFFFF" stroke-width="48" stroke-linecap="round" stroke-opacity="0.96">
+      <line x1="420" y1="420" x2="356" y2="356"/>
+      <line x1="604" y1="420" x2="668" y2="356"/>
+      <line x1="604" y1="604" x2="668" y2="668"/>
+      <line x1="420" y1="604" x2="356" y2="668"/>
+    </g>
+
+    <!-- Hub -->
+    <circle cx="512" cy="512" r="96" fill="#FFFFFF"/>
+  </g>
+</svg>

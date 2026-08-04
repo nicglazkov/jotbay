@@ -1,0 +1,21 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "linux": {
+      "deb": {
+        "depends": [
+          "git"
+        ],
+        "files": {
+          "/usr/bin/jotbay": "staged/jotbay"
+        },
+        "postInstallScript": "installer/deb-postinst.sh"
+      },
+      "appimage": {
+        "files": {
+          "/usr/bin/jotbay": "staged/jotbay"
+        }
+      }
+    }
+  }
+}

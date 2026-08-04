@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "resources": {
+      "staged/jotbay.exe": "jotbay.exe"
+    },
+    "windows": {
+      "nsis": {
+        "installerHooks": "installer/hooks.nsh"
+      }
+    }
+  }
+}

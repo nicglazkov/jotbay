@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = ["core", "cli"]
+
+# The Tauri app is a member too, but it is added by its own manifest so that
+# `cargo build` here does not require the Tauri system dependencies (WebKitGTK
+# etc.) on machines that only need the CLI — notably the headless servers.
+
+[workspace.package]
+version = "1.3.4"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+time = { version = "0.3", features = ["formatting", "parsing", "macros", "serde"] }
+gethostname = "1"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"

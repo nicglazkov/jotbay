@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!--
+    Linux/Windows tray icon — syncing.
+
+    Amber plate, identical dial. See tray-idle.svg for why state lives in the
+    plate colour rather than in the glyph.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%"   stop-color="#F5BC5A"/>
+      <stop offset="55%"  stop-color="#D9901E"/>
+      <stop offset="100%" stop-color="#B87512"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#FFFFFF" stop-opacity="0.26"/>
+      <stop offset="45%"  stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#bg)"/>
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#sheen)"/>
+
+  <circle cx="512" cy="512" r="286" fill="none" stroke="#FFFFFF" stroke-width="46" stroke-opacity="0.96"/>
+  <g stroke="#FFFFFF" stroke-width="48" stroke-linecap="round" stroke-opacity="0.96">
+    <line x1="420" y1="420" x2="356" y2="356"/>
+    <line x1="604" y1="420" x2="668" y2="356"/>
+    <line x1="604" y1="604" x2="668" y2="668"/>
+    <line x1="420" y1="604" x2="356" y2="668"/>
+  </g>
+  <circle cx="512" cy="512" r="96" fill="#FFFFFF"/>
+</svg>
