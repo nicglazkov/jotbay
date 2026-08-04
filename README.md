@@ -26,6 +26,10 @@ first screen asks where your notes should live: it can create the private
 repository for you, clone one you already have, or adopt a folder that is
 already a clone.
 
+The Windows installer is not code-signed yet, so SmartScreen stops it with
+*"Windows protected your PC"* — click **More info**, then **Run anyway**. It
+needs no administrator rights and installs under your own profile.
+
 **Or use the terminal** and never see a window:
 
 ```bash

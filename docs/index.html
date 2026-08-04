@@ -170,7 +170,8 @@ the command line tool.</p>
 <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash</code></pre>
 <p class="faint">Windows: download the release zip, or build from
 <a href="https://github.com/nicglazkov/jotbay">source</a>. The Windows installer
-is unsigned for now, so SmartScreen will ask — More&nbsp;info → Run&nbsp;anyway.</p>
+is unsigned for now, so SmartScreen stops it: <strong>More&nbsp;info</strong>,
+then <strong>Run&nbsp;anyway</strong>. It needs no administrator rights.</p>
 
 <h2>Questions you should ask</h2>
 
@@ -212,9 +213,14 @@ is unsigned for now, so SmartScreen will ask — More&nbsp;info → Run&nbsp;any
 </details>
 <details>
   <summary>Why does Windows warn me about the installer?</summary>
-  <p>The Windows build is not yet code-signed, so SmartScreen shows "Windows
-  protected your PC" — More&nbsp;info, then Run&nbsp;anyway. Signing is coming;
-  the macOS build is already signed and notarized.</p>
+  <p>The Windows build is not yet code-signed, so Microsoft Defender SmartScreen
+  stops it. The dialog says <em>"Windows protected your PC — Microsoft Defender
+  SmartScreen prevented an unrecognized app from starting"</em>, and at first the
+  only button is <strong>Don't run</strong>. Click <strong>More info</strong> and
+  it names the app and shows <em>Publisher: Unknown publisher</em>, with a
+  <strong>Run anyway</strong> button. Nothing else objects — no browser warning
+  and no elevation prompt, because Jotbay installs entirely under your own
+  profile. Signing is coming; the macOS build is already signed and notarized.</p>
 </details>
 
 <h2>The command line</h2>
