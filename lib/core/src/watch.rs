@@ -173,7 +173,15 @@ fn report(label: &str, files: usize, scan: Duration, sync: Duration, total: Dura
 }
 
 pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> Result<()> {
-    let data = jotbay.data_dir();
+    // The whole vault, not just `data/`. `sync` commits the repository with
+    // `git add -A`, so watching a subdirectory of it meant the watcher's idea
+    // of "changed" was narrower than git's — a report written to
+    // `install/agent/` sat for eight minutes and never committed, because
+    // nothing that fires the fast path had happened inside `data/`.
+    //
+    // `.git` is excluded for free: the walk skips dotfiles, which is also why
+    // its own churn cannot self-trigger.
+    let data = jotbay.git().root().to_path_buf();
     let mut seen = fingerprint(&data);
     let mut dirty_since: Option<Instant> = None;
     let mut last_remote = Instant::now();
@@ -234,23 +242,14 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
             let probe = crate::sync::remote_fingerprint(jotbay.git());
             let probe_cost = probe_started.elapsed();
 
-            // And the free one: are we holding commits the remote lacks? This
-            // reads local refs only, so it costs nothing, and it is what stops
-            // a failed push from being forgotten until the next local edit.
+            // And the free ones, both local. `ahead` stops a failed push from
+            // being forgotten until the next edit; `dirty` catches everything
+            // the folder scan cannot see — the whole vault outside `data/`,
+            // and every dotfile.
             let ahead = jotbay.git().ahead_behind().map(|(a, _)| a).unwrap_or(0);
+            let dirty = jotbay.git().is_dirty().unwrap_or(false);
 
-            let worth_syncing = match (&probe, &remote_seen) {
-                (Some(now), Some(before)) => now != before,
-                // No baseline yet — establish one by doing the real thing.
-                (Some(_), None) => true,
-                // Unreachable. Back off rather than retry hard: an outage is
-                // exactly when hammering someone's host helps least, and the
-                // startup sync plus any local edit will still force a real
-                // attempt. Pending work is covered by `ahead` below.
-                (None, _) => false,
-            } || ahead > 0;
-
-            if worth_syncing {
+            if worth_syncing(probe.as_deref(), remote_seen.as_deref(), ahead, dirty) {
                 let sync_started = Instant::now();
                 sync_now(jotbay, Event::Remote, &mut on_event);
                 report("remote", files, probe_cost, sync_started.elapsed(), probe_started.elapsed());
@@ -280,6 +279,45 @@ fn backed_off(current: Duration) -> Duration {
     (current * 2).min(POLL_REMOTE_MAX)
 }
 
+/// Whether a poll should pay for a full sync, or stop at the cheap probe.
+///
+/// Pure so the rule can be asserted rather than inferred from a loop, because
+/// getting it wrong is silent: nothing errors, nothing logs, work simply stops
+/// leaving the machine.
+///
+/// `dirty` is the one that matters and the one 1.7.3 shipped without. The
+/// watcher fingerprints `data/`, but `sync` commits the whole repository with
+/// `git add -A`, so anything in the vault outside `data/` — and anything
+/// dotfiled, which the scan skips — is invisible to the watcher and still
+/// perfectly visible to git. Before the poll became conditional this never
+/// showed, because a full sync ran every twenty seconds regardless and swept
+/// those files up as a side effect. Making the poll conditional removed the
+/// accident that was carrying them, and edits outside `data/` silently stopped
+/// syncing: no error, no log line, the file just never left the machine.
+///
+/// `git status` is local, so asking costs nothing on the wire.
+fn worth_syncing(
+    remote_now: Option<&str>,
+    remote_seen: Option<&str>,
+    ahead: u32,
+    dirty: bool,
+) -> bool {
+    // Local work always wins: it is ours to publish and no remote answer
+    // changes that.
+    if ahead > 0 || dirty {
+        return true;
+    }
+    match (remote_now, remote_seen) {
+        (Some(now), Some(before)) => now != before,
+        // No baseline yet — establish one by doing the real thing.
+        (Some(_), None) => true,
+        // Unreachable. Back off rather than retry hard: an outage is exactly
+        // when hammering someone's host helps least, and there is nothing of
+        // ours waiting to go out.
+        (None, _) => false,
+    }
+}
+
 fn sync_now(jotbay: &Jotbay, kind: Event, on_event: &mut impl FnMut(Event, Option<String>)) {
     match jotbay.sync() {
         // A sync that changed nothing is the common case and says nothing
@@ -304,6 +342,55 @@ mod tests {
         std::fs::write(dir.join("a.md"), "one").unwrap();
         std::fs::write(dir.join("sub/b.md"), "two").unwrap();
         dir
+    }
+
+    const A: &str = "aaa\trefs/heads/main";
+    const B: &str = "bbb\trefs/heads/main";
+
+    #[test]
+    fn a_quiet_machine_with_nothing_of_its_own_does_not_sync() {
+        assert!(!worth_syncing(Some(A), Some(A), 0, false));
+    }
+
+    #[test]
+    fn local_work_outside_the_data_folder_still_syncs() {
+        // The 1.7.3 regression, in one line. `dirty` is true and everything
+        // else says "nothing to do": the remote has not moved and there is no
+        // commit waiting, because the edit was never committed in the first
+        // place. Return false here and the file silently never leaves the
+        // machine — no error, no log, nothing to notice.
+        assert!(
+            worth_syncing(Some(A), Some(A), 0, true),
+            "an uncommitted local change must force a sync, wherever in the \
+             vault it lives"
+        );
+    }
+
+    #[test]
+    fn a_commit_the_remote_lacks_still_syncs() {
+        // A push that failed earlier must not wait for the next edit.
+        assert!(worth_syncing(Some(A), Some(A), 1, false));
+    }
+
+    #[test]
+    fn a_moved_remote_syncs_and_an_unmoved_one_does_not() {
+        assert!(worth_syncing(Some(B), Some(A), 0, false));
+        assert!(!worth_syncing(Some(A), Some(A), 0, false));
+    }
+
+    #[test]
+    fn no_baseline_means_do_the_real_thing() {
+        assert!(worth_syncing(Some(A), None, 0, false));
+    }
+
+    #[test]
+    fn an_unreachable_remote_backs_off_unless_we_are_holding_work() {
+        // Nothing of ours is waiting, so retrying hard during an outage only
+        // hurts whoever is hosting the repository.
+        assert!(!worth_syncing(None, Some(A), 0, false));
+        // But our own work still has to get out when the network returns.
+        assert!(worth_syncing(None, Some(A), 1, false));
+        assert!(worth_syncing(None, Some(A), 0, true));
     }
 
     #[test]
