@@ -81,13 +81,37 @@ fn origin_with_history(tmp: &Path) -> PathBuf {
     origin
 }
 
+/// Hide any git identity this machine already has.
+///
+/// Without this the test asserts nothing on a machine with a global
+/// `user.email` — which is every developer's laptop and every GitHub runner.
+/// `ensure_identity` legitimately accepts a global identity and returns
+/// success without writing anything locally, and that outcome is *identical*
+/// to the bug, where it was never called at all.
+///
+/// Missing this shipped a test that passed on my machine and failed on both CI
+/// platforms, which is the exact failure mode the test was written to prevent,
+/// arriving one level up. `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` point
+/// git at an empty file, so the only identity that can exist is one the code
+/// under test put there.
+///
+/// One shared path rather than a per-test temporary: these run in parallel in
+/// one process, and every caller writing the same value makes the race
+/// harmless.
+fn hide_ambient_git_identity() {
+    let empty = std::env::temp_dir().join("jotbay-tests-empty.gitconfig");
+    let _ = std::fs::write(&empty, "");
+    std::env::set_var("GIT_CONFIG_GLOBAL", &empty);
+    std::env::set_var("GIT_CONFIG_SYSTEM", &empty);
+}
+
 /// Whichever way it goes, prove the identity step was not skipped.
 ///
-/// The outcome legitimately differs by environment — with `gh` signed in the
-/// route writes a noreply address, without it the route gives up and says so —
-/// and asserting either one alone would test the machine rather than the code.
-/// What cannot happen is the third outcome: returning success having neither
-/// set an identity nor complained. That is precisely what the bug did, on the
+/// With ambient identity hidden, exactly two honest outcomes remain: `gh` is
+/// signed in and the route writes a noreply address, or it is not and the
+/// route refuses and says so. Asserting either alone would test the machine
+/// rather than the code. What cannot happen is returning success having
+/// neither set an identity nor complained — precisely what the bug did, on the
 /// route a user with existing notes actually picks.
 fn assert_identity_was_settled(outcome: &Result<PathBuf, jotbay_core::Error>, repo: &Path) {
     let email = local_config(repo, "user.email");
@@ -101,6 +125,7 @@ fn assert_identity_was_settled(outcome: &Result<PathBuf, jotbay_core::Error>, re
 
 #[test]
 fn cloning_an_existing_repository_settles_the_git_identity() {
+    hide_ambient_git_identity();
     let tmp = std::env::temp_dir().join("jotbay-route-clone");
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).unwrap();
@@ -126,6 +151,7 @@ fn cloning_an_existing_repository_settles_the_git_identity() {
 
 #[test]
 fn adopting_an_existing_clone_settles_the_git_identity() {
+    hide_ambient_git_identity();
     let tmp = std::env::temp_dir().join("jotbay-route-adopt");
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).unwrap();
@@ -143,6 +169,7 @@ fn adopting_an_existing_clone_settles_the_git_identity() {
 
 #[test]
 fn every_route_seeds_the_vault_layout() {
+    hide_ambient_git_identity();
     // Shared tail, separately reachable. `seed` is what puts data/ and the
     // normalisation attributes in place, and a route that skipped it would
     // produce a vault whose line endings differ per platform — the failure the

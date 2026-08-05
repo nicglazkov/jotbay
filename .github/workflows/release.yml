@@ -346,8 +346,14 @@ jobs:
             *.AppImage
           if-no-files-found: error
 
+  # Everything that can say "no" must run before anything is published.
+  #
+  # This depended on `build` alone, so v1.7.2 shipped to the release page while
+  # the test job was failing on both Linux and Windows — the run was red and the
+  # artifacts went out anyway. A gate that only checks whether the code compiles
+  # is not a gate.
   publish:
-    needs: build
+    needs: [build, test, lint-scripts, no-leaks]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     # id-token and attestations are for the provenance step below; contents
