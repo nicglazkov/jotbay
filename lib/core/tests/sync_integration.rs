@@ -81,6 +81,86 @@ fn sync_is_a_noop_when_nothing_changed() {
 }
 
 #[test]
+fn the_remote_fingerprint_moves_only_when_the_remote_does() {
+    // The watcher leans on this to decide whether a full sync is worth three
+    // round trips. If it reported a change on every call, the backoff would
+    // never take hold and the polling would be exactly as heavy as before —
+    // silently, because everything would still work.
+    let f = fixture();
+    let a = Jotbay::open(&f.a).unwrap();
+
+    let first = jotbay_core::sync::remote_fingerprint(a.git()).expect("remote is reachable");
+    assert!(!first.is_empty(), "a seeded remote has refs");
+
+    let again = jotbay_core::sync::remote_fingerprint(a.git()).expect("remote is reachable");
+    assert_eq!(first, again, "an untouched remote must fingerprint the same");
+
+    // Somebody else pushes.
+    std::fs::write(f.b.join("data/from-b.md"), "hello\n").unwrap();
+    Jotbay::open(&f.b).unwrap().sync().expect("b syncs");
+
+    let after = jotbay_core::sync::remote_fingerprint(a.git()).expect("remote is reachable");
+    assert_ne!(
+        first, after,
+        "the remote moved and the fingerprint did not — the watcher would \
+         never notice another machine's work"
+    );
+}
+
+#[test]
+fn the_fingerprint_ignores_status_refs() {
+    // The subtle one. Every sync republishes its node's status with a fresh
+    // last_sync, so those refs move constantly and for reasons nobody needs to
+    // act on. Watch them here and each machine's sync wakes every other
+    // machine, whose syncs wake it back: the backoff never engages and the
+    // polling costs more than the fixed interval it replaced. Nothing would
+    // look broken — it would just quietly be worse.
+    let f = fixture();
+    let a = Jotbay::open(&f.a).unwrap();
+
+    let before = jotbay_core::sync::remote_fingerprint(a.git()).unwrap();
+
+    // b does a pure no-op sync: no content, but it still publishes status.
+    Jotbay::open(&f.b).unwrap().sync().expect("b syncs");
+    let status_refs = git(&f.b, &["ls-remote", "origin", "refs/jotbay-status/*"]);
+    assert!(
+        !status_refs.is_empty(),
+        "the fixture never published a status ref, so this proves nothing"
+    );
+
+    let after = jotbay_core::sync::remote_fingerprint(a.git()).unwrap();
+    assert_eq!(
+        before, after,
+        "a status-only change moved the fingerprint — every machine will now \
+         wake every other machine indefinitely"
+    );
+}
+
+#[test]
+fn a_sync_with_nothing_to_send_does_not_push() {
+    // The push used to run unconditionally, which on a twenty-second timer was
+    // a third of all the traffic this program made, every byte of it spent
+    // saying nothing. Proven by the remote's own reflog: a push that sends no
+    // objects still updates nothing, so the check is that the remote is
+    // untouched across a sync that had no work.
+    let f = fixture();
+    let jotbay = Jotbay::open(&f.a).unwrap();
+
+    let before = jotbay_core::sync::remote_fingerprint(jotbay.git()).unwrap();
+    let report = jotbay.sync().expect("sync should succeed");
+    assert!(!report.pushed, "there was nothing to push");
+    let after = jotbay_core::sync::remote_fingerprint(jotbay.git()).unwrap();
+    assert_eq!(before, after, "an empty sync moved a ref on the remote");
+
+    // And the converse, so this cannot pass by never pushing at all.
+    std::fs::write(f.a.join("data/real-work.md"), "content\n").unwrap();
+    let report = jotbay.sync().expect("sync should succeed");
+    assert!(report.pushed, "real work must still reach the remote");
+    let moved = jotbay_core::sync::remote_fingerprint(jotbay.git()).unwrap();
+    assert_ne!(after, moved, "the commit never arrived");
+}
+
+#[test]
 fn local_edits_reach_the_other_clone() {
     let f = fixture();
 

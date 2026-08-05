@@ -22,6 +22,50 @@ fn fetch(git: &Git) -> Result<()> {
     Ok(())
 }
 
+/// The cheapest question you can ask a remote: what do your refs point at?
+///
+/// One round trip, no object negotiation, no pack. It exists so the watcher can
+/// find out that nothing has changed without paying for a fetch, a status fetch
+/// and a push to discover the same thing — which is what it used to do, every
+/// twenty seconds, forever. On an idle machine that was roughly thirteen
+/// thousand git operations a day against someone's git host.
+///
+/// Branches only. **Status refs are deliberately excluded, and that is load
+/// bearing.**
+///
+/// Every sync republishes this node's status with a fresh `last_sync`, so its
+/// ref moves every single time. Include those here and one machine's sync
+/// changes what every other machine is watching: B and C wake because A
+/// synced, their own syncs move their status refs, which wakes A, forever. The
+/// backoff would never engage and the whole exercise would cost more than the
+/// fixed interval it replaced.
+///
+/// Watching branches asks the question that actually has consequences — has
+/// the content moved, do I need to pull — and that settles after one round,
+/// because a machine that only pulls pushes nothing back. Status is telemetry;
+/// `sync` already fetches it, and the interface refreshes it on demand.
+///
+/// Tags and pull-request refs are excluded for a duller reason: on a busy
+/// repository they make the answer large without making it more useful.
+///
+/// Returns None when the remote could not be reached, which is deliberately
+/// *not* an error: a probe is an optimisation, and a machine that cannot reach
+/// its remote should fall through to a real sync and report the failure from
+/// there, where the reporting already exists.
+pub fn remote_fingerprint(git: &Git) -> Option<String> {
+    let (out, stdout) = git
+        .run_networked_out(&["ls-remote", "origin", "refs/heads/*"], NETWORK_TIMEOUT)
+        .ok()?;
+    if !out.success {
+        return None;
+    }
+    // Sorted: ls-remote's order is the server's, and a server that reorders
+    // refs between calls would otherwise look like a change every time.
+    let mut lines: Vec<&str> = stdout.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
+    lines.sort_unstable();
+    Some(lines.join("\n"))
+}
+
 pub fn run(jotbay: &Jotbay) -> Result<SyncReport> {
     let git = jotbay.git();
 
@@ -142,19 +186,30 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
         .trim()
         .parse()
         .unwrap_or(0);
-    let branch = git.current_branch()?;
-    let first = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
-    if first.timed_out {
-        return Err(Error::Other(first.describe("push")));
-    }
-    if !first.success {
-        fetch(git)?;
-        integrate(jotbay, hostname, report)?;
-        let retry = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
-        if !retry.success {
-            // The first rejection is expected — someone else pushed between our
-            // fetch and ours. A second one is not, and carries the reason.
-            return Err(Error::Other(retry.describe("push")));
+    // Nothing to send, so nothing is sent. `ahead` was already computed for
+    // the report; the push ran regardless of it, which meant every poll opened
+    // a connection, authenticated, exchanged a ref advertisement and pushed
+    // zero objects. On a twenty-second timer that was a third of all the
+    // traffic this program generated, and all of it was to say nothing.
+    //
+    // Skipping it cannot lose work: with `ahead == 0` there is no local commit
+    // the remote lacks, and the next sync recomputes this from scratch.
+    if ahead > 0 {
+        let branch = git.current_branch()?;
+        let first = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
+        if first.timed_out {
+            return Err(Error::Other(first.describe("push")));
+        }
+        if !first.success {
+            fetch(git)?;
+            integrate(jotbay, hostname, report)?;
+            let retry =
+                git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
+            if !retry.success {
+                // The first rejection is expected — someone else pushed between
+                // our fetch and ours. A second one is not, and carries why.
+                return Err(Error::Other(retry.describe("push")));
+            }
         }
     }
     report.pushed = ahead > 0;

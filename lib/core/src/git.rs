@@ -147,13 +147,52 @@ impl Git {
     ///
     /// This gives network calls a deadline and keeps what they said.
     pub fn run_networked(&self, args: &[&str], timeout: Duration) -> Result<NetOutcome> {
+        self.networked(args, timeout, false).map(|(o, _)| o)
+    }
+
+    /// The same, keeping stdout — for a call whose answer *is* its output.
+    ///
+    /// `ls-remote` is the reason this exists: it is the cheapest question you
+    /// can ask a remote, and the watcher asks it constantly to avoid asking
+    /// expensive ones.
+    pub fn run_networked_out(
+        &self,
+        args: &[&str],
+        timeout: Duration,
+    ) -> Result<(NetOutcome, String)> {
+        self.networked(args, timeout, true)
+    }
+
+    fn networked(
+        &self,
+        args: &[&str],
+        timeout: Duration,
+        capture_stdout: bool,
+    ) -> Result<(NetOutcome, String)> {
         let mut child = self
             .command(args)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdout(if capture_stdout {
+                Stdio::piped()
+            } else {
+                Stdio::null()
+            })
             .stderr(Stdio::piped())
             .spawn()
             .map_err(Error::GitMissing)?;
+
+        // Drained on its own thread for the same reason stderr is: a full pipe
+        // blocks the writer forever. `ls-remote` on a repository with many refs
+        // produces more than enough to fill one.
+        let mut out_pipe = child.stdout.take();
+        let out_reader = std::thread::spawn(move || {
+            let mut buf = String::new();
+            if let Some(p) = out_pipe.as_mut() {
+                use std::io::Read;
+                let _ = p.read_to_string(&mut buf);
+            }
+            buf
+        });
 
         // Drained on its own thread. A full pipe blocks the writer forever,
         // which would be the same hang this exists to prevent, arriving by a
@@ -172,20 +211,26 @@ impl Git {
         loop {
             match child.try_wait().map_err(Error::GitMissing)? {
                 Some(status) => {
-                    return Ok(NetOutcome {
-                        success: status.success(),
-                        stderr: reader.join().unwrap_or_default().trim().to_string(),
-                        timed_out: false,
-                    })
+                    return Ok((
+                        NetOutcome {
+                            success: status.success(),
+                            stderr: reader.join().unwrap_or_default().trim().to_string(),
+                            timed_out: false,
+                        },
+                        out_reader.join().unwrap_or_default(),
+                    ))
                 }
                 None if Instant::now() >= deadline => {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return Ok(NetOutcome {
-                        success: false,
-                        stderr: reader.join().unwrap_or_default().trim().to_string(),
-                        timed_out: true,
-                    });
+                    return Ok((
+                        NetOutcome {
+                            success: false,
+                            stderr: reader.join().unwrap_or_default().trim().to_string(),
+                            timed_out: true,
+                        },
+                        out_reader.join().unwrap_or_default(),
+                    ));
                 }
                 None => std::thread::sleep(Duration::from_millis(50)),
             }

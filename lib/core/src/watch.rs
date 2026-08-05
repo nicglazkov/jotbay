@@ -41,13 +41,30 @@ pub const SETTLE: Duration = Duration::from_secs(2);
 /// How often the folder is inspected for local edits.
 pub const SCAN_EVERY: Duration = Duration::from_secs(1);
 
-/// How often the remote is checked for other machines' work.
+/// How soon the remote is checked after anything happens.
 ///
 /// The other half of the promise: pushing quickly is worth little if the
-/// machine you walk over to is still ten minutes behind. A fetch against an
-/// unchanged remote is one small round trip, so this is affordable in a way
-/// that a full sync at the same cadence would not be.
+/// machine you walk over to is still ten minutes behind.
+///
+/// This used to be a fixed interval, on the belief — written down, never
+/// measured — that checking an unchanged remote was "one small round trip". It
+/// was three: a fetch, a status fetch, and a push that had nothing to send.
+/// Four thousand times a day, on a machine nobody was using, against somebody
+/// else's git host. A self-hosted Gitea or a small Codeberg account would feel
+/// that; so, eventually, would GitHub.
 pub const POLL_REMOTE: Duration = Duration::from_secs(20);
+
+/// The slowest the remote is checked once nothing has happened for a while.
+///
+/// The interval doubles from `POLL_REMOTE` on every check that finds nothing,
+/// so a machine reaches this after roughly ten minutes of total quiet — every
+/// machine idle, nobody editing. Five minutes of staleness on a machine nobody
+/// has touched in ten is a fair trade for cutting idle traffic by ninety-odd
+/// percent, and any local edit drops it straight back to `POLL_REMOTE`.
+///
+/// Deliberately not larger. The failure this must never produce is walking over
+/// to a laptop, opening it, and reading yesterday's note.
+pub const POLL_REMOTE_MAX: Duration = Duration::from_secs(300);
 
 /// A fingerprint of the notes folder: path, size and modification time.
 ///
@@ -160,10 +177,15 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
     let mut seen = fingerprint(&data);
     let mut dirty_since: Option<Instant> = None;
     let mut last_remote = Instant::now();
-
+    // Grows while nothing happens, resets the moment anything does.
+    let mut poll_every = POLL_REMOTE;
     // One at startup, so a machine that was asleep while another pushed is
     // current by the time anyone looks at it.
     sync_now(jotbay, Event::Remote, &mut on_event);
+
+    // What the remote looked like when we last agreed with it. None means "no
+    // idea", which always resolves to doing the real work.
+    let mut remote_seen: Option<String> = crate::sync::remote_fingerprint(jotbay.git());
 
     loop {
         std::thread::sleep(SCAN_EVERY);
@@ -192,6 +214,10 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
                 // than corrected: the wall-clock a user perceives starts at the
                 // save, and this cannot see that moment.
                 report("local", files, scan_cost, sync_started.elapsed(), since.elapsed());
+                // Somebody is working. Whatever backoff had accumulated is
+                // wrong now — the other machines are about to matter again.
+                poll_every = POLL_REMOTE;
+                remote_seen = crate::sync::remote_fingerprint(jotbay.git());
                 // The sync writes status refs and may pull; re-read so its own
                 // work is never mistaken for the user's.
                 seen = fingerprint(&data);
@@ -199,20 +225,59 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
             }
         }
 
-        if last_remote.elapsed() >= POLL_REMOTE {
+        if last_remote.elapsed() >= poll_every {
             last_remote = Instant::now();
-            let sync_started = Instant::now();
-            sync_now(jotbay, Event::Remote, &mut on_event);
-            report(
-                "remote",
-                files,
-                scan_cost,
-                sync_started.elapsed(),
-                sync_started.elapsed(),
-            );
-            seen = fingerprint(&data);
+
+            // Ask the cheap question first. One round trip, no pack, no
+            // negotiation — against the three operations a full sync costs.
+            let probe_started = Instant::now();
+            let probe = crate::sync::remote_fingerprint(jotbay.git());
+            let probe_cost = probe_started.elapsed();
+
+            // And the free one: are we holding commits the remote lacks? This
+            // reads local refs only, so it costs nothing, and it is what stops
+            // a failed push from being forgotten until the next local edit.
+            let ahead = jotbay.git().ahead_behind().map(|(a, _)| a).unwrap_or(0);
+
+            let worth_syncing = match (&probe, &remote_seen) {
+                (Some(now), Some(before)) => now != before,
+                // No baseline yet — establish one by doing the real thing.
+                (Some(_), None) => true,
+                // Unreachable. Back off rather than retry hard: an outage is
+                // exactly when hammering someone's host helps least, and the
+                // startup sync plus any local edit will still force a real
+                // attempt. Pending work is covered by `ahead` below.
+                (None, _) => false,
+            } || ahead > 0;
+
+            if worth_syncing {
+                let sync_started = Instant::now();
+                sync_now(jotbay, Event::Remote, &mut on_event);
+                report("remote", files, probe_cost, sync_started.elapsed(), probe_started.elapsed());
+                // Re-read after the sync rather than reusing the pre-sync
+                // probe: our own push moved the remote, and storing the older
+                // answer would make the next poll see a phantom change.
+                remote_seen = crate::sync::remote_fingerprint(jotbay.git());
+                poll_every = POLL_REMOTE;
+                seen = fingerprint(&data);
+            } else {
+                if remote_seen.is_none() {
+                    remote_seen = probe;
+                }
+                poll_every = backed_off(poll_every);
+                report("idle", files, probe_cost, Duration::ZERO, probe_started.elapsed());
+            }
         }
     }
+}
+
+/// The next polling interval after a check that found nothing.
+///
+/// Doubling rather than a fixed ladder so the ramp is short while someone is
+/// working and long once they clearly are not, and capped so that "idle"
+/// never becomes "asleep".
+fn backed_off(current: Duration) -> Duration {
+    (current * 2).min(POLL_REMOTE_MAX)
 }
 
 fn sync_now(jotbay: &Jotbay, kind: Event, on_event: &mut impl FnMut(Event, Option<String>)) {
@@ -239,6 +304,36 @@ mod tests {
         std::fs::write(dir.join("a.md"), "one").unwrap();
         std::fs::write(dir.join("sub/b.md"), "two").unwrap();
         dir
+    }
+
+    #[test]
+    fn backoff_ramps_from_the_base_and_stops_at_the_cap() {
+        // Short enough that a machine somebody is using stays responsive, long
+        // enough that an idle one stops asking. Ten minutes of total quiet to
+        // reach the cap, which is the number the doubling was chosen for.
+        let mut d = POLL_REMOTE;
+        let mut elapsed = Duration::ZERO;
+        let mut steps = 0;
+        while d < POLL_REMOTE_MAX {
+            elapsed += d;
+            d = backed_off(d);
+            steps += 1;
+            assert!(steps < 20, "backoff is not converging on the cap");
+        }
+        assert_eq!(d, POLL_REMOTE_MAX);
+        assert!(
+            elapsed <= Duration::from_secs(15 * 60),
+            "took {elapsed:?} of quiet to reach the slowest interval, which is \
+             long enough that the cap stops doing anything useful"
+        );
+
+        // And it stays there rather than growing without bound — an unclamped
+        // doubling reaches hours before the day is out, and a machine that
+        // checks once an hour is one somebody will call broken.
+        for _ in 0..40 {
+            d = backed_off(d);
+            assert_eq!(d, POLL_REMOTE_MAX);
+        }
     }
 
     #[test]
