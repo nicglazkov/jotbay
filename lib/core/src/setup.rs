@@ -147,8 +147,18 @@ pub fn clone_existing(url: &str, destination: &Path) -> Result<PathBuf> {
     guard_destination(destination)?;
     run("git", &["clone", url, &destination.to_string_lossy()], None)?;
     // An existing vault is left exactly as it is. Seeding only fills gaps.
-    seed(destination)?;
-    publish_initial(destination)?;
+    let finish = seed(destination).and_then(|()| publish_initial(destination));
+    if let Err(e) = finish {
+        // Undo the clone. Without this a setup that got past `git clone` and
+        // failed afterwards — on a missing git identity, say — left a
+        // half-made vault behind, and the retry the error message invites was
+        // then refused with "already exists and is not empty". A dead end
+        // reached by following our own instructions. Only ever removes the
+        // directory this call created; `guard_destination` has already
+        // established it was not there before.
+        let _ = std::fs::remove_dir_all(destination);
+        return Err(e);
+    }
     Ok(destination.to_path_buf())
 }
 
@@ -307,11 +317,29 @@ fn ensure_identity(root: &Path) -> Result<()> {
             if have_any("user.name") && have_any("user.email") {
                 return Ok(());
             }
-            return Err(Error::Other(
-                "git has no user.name/user.email and gh cannot supply one — \
-                 set them with `git config --global user.name` and `user.email`"
-                    .into(),
-            ));
+            // Nothing to inherit and nobody to ask. Refusing here was a dead
+            // end on exactly the machine this route exists for: a fresh Mac
+            // with no git config and no gh, where setup stopped and told the
+            // user to go and run two terminal commands. The graphical path
+            // exists for people least likely to do that.
+            //
+            // So name the machine instead. Git only needs *an* identity, and
+            // an address that belongs to no account cannot trip GH007 — that
+            // rejection is specifically for an email marked private on the
+            // account being pushed to. `.invalid` is reserved by RFC 2606 and
+            // can never resolve, so this is honestly a placeholder rather
+            // than something pretending to be a mailbox.
+            //
+            // Local, not global: this is a fallback for one vault, not an
+            // opinion about the user's other repositories.
+            let host = crate::Jotbay::hostname();
+            run("git", &["config", "user.name", &host], Some(root))?;
+            run(
+                "git",
+                &["config", "user.email", &format!("jotbay@{host}.invalid")],
+                Some(root),
+            )?;
+            return Ok(());
         }
     };
     let id = run("gh", &["api", "user", "--jq", ".id"], None)?;

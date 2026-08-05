@@ -263,6 +263,19 @@ fn cmd_init(
     // Record it before syncing. A GUI opened afterwards finds the vault by this
     // setting, and it should still do so even if this first sync fails.
     jotbay.remember()?;
+
+    // A machine set up here must sync by itself afterwards. This lived only in
+    // `cmd_sync`, so setting up through `init` — the route the install scripts
+    // tell people to run — produced a vault with no background sync at all,
+    // and nothing said so. Verified absent on a fresh macOS VM: `init`
+    // reported success and `~/Library/LaunchAgents` did not exist. The same
+    // shape as issue #3 on Windows, on a third path.
+    match jotbay_core::schedule::ensure() {
+        Ok(true) => println!("  background sync set up"),
+        Ok(false) => {}
+        Err(e) => render::error(&format!("could not set up background sync: {e}")),
+    }
+
     let report = jotbay.sync()?;
     println!();
     render::sync_report(&report);
