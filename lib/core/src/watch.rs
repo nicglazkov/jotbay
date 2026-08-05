@@ -117,6 +117,44 @@ pub enum Event {
 /// belongs to the operating system — launchd, systemd, Task Scheduler — all of
 /// which restart a process that dies and log what it printed. A hand-rolled
 /// daemon would reimplement that badly.
+/// Whether to report where the seconds go, via `JOTBAY_TIMING`.
+///
+/// Off by default: the watcher's log should stay quiet enough that a line in it
+/// means something. Turn it on for a foreground run — `JOTBAY_TIMING=1 jotbay
+/// watch` — when a machine seems slow.
+///
+/// It exists because a fresh install measured 18.7 s from writing a file to it
+/// reaching the remote on Windows, against 5–7 s on macOS and 8 s on Linux, and
+/// nobody could say which part was slow. The module docs above claim a scan
+/// costs "single-digit milliseconds"; that was measured on one platform and
+/// asserted for three. This is how that claim gets checked rather than
+/// repeated.
+fn timing_enabled() -> bool {
+    match std::env::var("JOTBAY_TIMING") {
+        Ok(v) => !v.is_empty() && v != "0",
+        Err(_) => false,
+    }
+}
+
+/// One line per sync, breaking the wait into the parts we control and the part
+/// we do not.
+///
+/// `scan` is our directory walk, `settle` is the deliberate quiet period, and
+/// `sync` is git — add, commit, push, fetch, and the network. Only the first is
+/// a thing this code could make faster; if Windows is slow in `sync`, the cause
+/// is git or the network and no amount of tuning here will touch it.
+fn report(label: &str, files: usize, scan: Duration, sync: Duration, total: Duration) {
+    if !timing_enabled() {
+        return;
+    }
+    eprintln!(
+        "timing {label}: files={files} scan={:.3}s sync={:.2}s total={:.2}s",
+        scan.as_secs_f64(),
+        sync.as_secs_f64(),
+        total.as_secs_f64(),
+    );
+}
+
 pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> Result<()> {
     let data = jotbay.data_dir();
     let mut seen = fingerprint(&data);
@@ -130,7 +168,11 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
     loop {
         std::thread::sleep(SCAN_EVERY);
 
+        let scan_started = Instant::now();
         let current = fingerprint(&data);
+        let scan_cost = scan_started.elapsed();
+        let files = current.len();
+
         if current != seen {
             seen = current;
             // Restarted on every change, so a burst of saves collapses into a
@@ -143,7 +185,13 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
             if since.elapsed() >= SETTLE {
                 dirty_since = None;
                 last_remote = Instant::now();
+                let sync_started = Instant::now();
                 sync_now(jotbay, Event::Local, &mut on_event);
+                // `since` is when the change was noticed, so this total omits
+                // the up-to-SCAN_EVERY wait before noticing it. Stated rather
+                // than corrected: the wall-clock a user perceives starts at the
+                // save, and this cannot see that moment.
+                report("local", files, scan_cost, sync_started.elapsed(), since.elapsed());
                 // The sync writes status refs and may pull; re-read so its own
                 // work is never mistaken for the user's.
                 seen = fingerprint(&data);
@@ -153,7 +201,15 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
 
         if last_remote.elapsed() >= POLL_REMOTE {
             last_remote = Instant::now();
+            let sync_started = Instant::now();
             sync_now(jotbay, Event::Remote, &mut on_event);
+            report(
+                "remote",
+                files,
+                scan_cost,
+                sync_started.elapsed(),
+                sync_started.elapsed(),
+            );
             seen = fingerprint(&data);
         }
     }

@@ -87,6 +87,38 @@ jobs:
         if: matrix.os == 'macos'
         run: rustup target add x86_64-apple-darwin
 
+      # Absolute build paths reach the shipped binary through `file!()`, which
+      # every panic message and assertion carries — 128 of them in the 1.7.1
+      # CLI, naming the runner's checkout and, in a local build, the builder's
+      # home directory. Two builds of one commit could therefore never match,
+      # which is what left "did CI build what I think it built?" unanswerable
+      # from the artifact alone when Defender flagged the installer.
+      #
+      # `--remap-path-prefix` rather than the profile's `trim-paths`, which is
+      # still nightly-only in cargo 1.97 and fails the build outright if set.
+      # Both prefixes are needed: the workspace for our own code, the registry
+      # for every dependency. Measured locally at 128 embedded paths before and
+      # 0 after.
+      #
+      # Computed here rather than in a job-level `env:` because the registry
+      # lives under HOME, which GitHub expressions cannot reach, and because
+      # rustc on Windows sees backslashed paths that bash spells differently.
+      #
+      # This changes the build fingerprint, so the first run after it recompiles
+      # everything even on a cache hit. One-time, per platform.
+      - name: Make builds path-independent
+        shell: bash
+        run: |
+          set -euo pipefail
+          ws="$(pwd)"
+          cargo_home="${CARGO_HOME:-$HOME/.cargo}"
+          if command -v cygpath >/dev/null 2>&1; then
+            ws="$(cygpath -w "$ws")"
+            cargo_home="$(cygpath -w "$cargo_home")"
+          fi
+          echo "remapping workspace $ws and registry $cargo_home/registry"
+          echo "RUSTFLAGS=--remap-path-prefix=$ws=/jotbay --remap-path-prefix=$cargo_home/registry=/cargo-registry" >> "$GITHUB_ENV"
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:

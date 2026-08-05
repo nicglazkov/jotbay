@@ -34,6 +34,23 @@ esac
 command -v cargo >/dev/null || die "cargo not found"
 command -v tauri >/dev/null || die "tauri CLI not found (npm i -g @tauri-apps/cli@^2)"
 
+# Strip absolute build paths, matching what release.yml does, so a binary built
+# here and one built by CI can be compared at all. `file!()` puts the path of
+# every panic site into the binary — 128 of them in the 1.7.1 CLI — which
+# otherwise embeds this machine's home directory in anything shipped from it.
+#
+# Exported rather than passed per-command so the tauri bundler's own cargo
+# invocation picks it up too. Set RUSTFLAGS yourself to override.
+if [ -z "${RUSTFLAGS:-}" ]; then
+  _ws="$(cd .. && pwd)"
+  _registry="${CARGO_HOME:-$HOME/.cargo}/registry"
+  if command -v cygpath >/dev/null 2>&1; then
+    _ws="$(cygpath -w "$_ws")"
+    _registry="$(cygpath -w "$_registry")"
+  fi
+  export RUSTFLAGS="--remap-path-prefix=$_ws=/jotbay --remap-path-prefix=$_registry=/cargo-registry"
+fi
+
 # --- stage the CLI ----------------------------------------------------------
 
 say "building the CLI"
