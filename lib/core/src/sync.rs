@@ -53,17 +53,54 @@ fn fetch(git: &Git) -> Result<()> {
 /// its remote should fall through to a real sync and report the failure from
 /// there, where the reporting already exists.
 pub fn remote_fingerprint(git: &Git) -> Option<String> {
+    probe(git).map(|p| p.heads)
+}
+
+/// What one probe learned, split by what it means.
+///
+/// Two very different questions come back in the same round trip, and they
+/// deserve different answers: content moving is worth a full sync, somebody
+/// asking who is alive is worth a status publish and nothing more.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Probe {
+    /// Branch tips, sorted. Changes mean there is content to pull.
+    pub heads: String,
+    /// The roll-call ref, when one exists. Changes mean a person opened a
+    /// window somewhere and wants to know who is out there.
+    pub rollcall: Option<String>,
+}
+
+/// One `ls-remote`, answering both questions at once.
+///
+/// Adding the roll-call ref costs nothing: this round trip already happens on
+/// every poll, and asking for one more ref does not make it a second one.
+pub fn probe(git: &Git) -> Option<Probe> {
     let (out, stdout) = git
-        .run_networked_out(&["ls-remote", "origin", "refs/heads/*"], NETWORK_TIMEOUT)
+        .run_networked_out(
+            &["ls-remote", "origin", "refs/heads/*", crate::presence::ROLLCALL_REF],
+            NETWORK_TIMEOUT,
+        )
         .ok()?;
     if !out.success {
         return None;
     }
+
+    let mut heads: Vec<&str> = Vec::new();
+    let mut rollcall = None;
+    for line in stdout.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        if line.ends_with(crate::presence::ROLLCALL_REF) {
+            rollcall = Some(line.to_string());
+        } else {
+            heads.push(line);
+        }
+    }
     // Sorted: ls-remote's order is the server's, and a server that reorders
     // refs between calls would otherwise look like a change every time.
-    let mut lines: Vec<&str> = stdout.lines().map(str::trim).filter(|l| !l.is_empty()).collect();
-    lines.sort_unstable();
-    Some(lines.join("\n"))
+    heads.sort_unstable();
+    Some(Probe {
+        heads: heads.join("\n"),
+        rollcall,
+    })
 }
 
 pub fn run(jotbay: &Jotbay) -> Result<SyncReport> {
@@ -401,6 +438,18 @@ fn summarise_error(raw: &str) -> String {
     } else {
         first.to_string()
     }
+}
+
+/// Publish this machine's status without doing any of the rest of a sync.
+///
+/// What answering a roll call costs: one small force-push of our own status
+/// ref, no fetch, no push of `main`, no lock contention with the watcher. A
+/// full sync would answer the same question for roughly three times the
+/// traffic and would also wake every other machine, which is the loop this
+/// design exists to avoid.
+pub fn announce_presence(jotbay: &Jotbay) -> Result<()> {
+    let hostname = Jotbay::hostname();
+    publish_status(jotbay, &hostname, &SyncReport::default(), None)
 }
 
 fn publish_status(

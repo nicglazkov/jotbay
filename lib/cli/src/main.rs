@@ -209,6 +209,12 @@ fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core
         return Ok(());
     }
 
+    // Ask before reading. This is the command whose entire purpose is "who is
+    // out there", and without it the answer is only ever "who last had
+    // something to sync" — which on a quiet fleet is nobody at all.
+    // Best-effort: a remote we cannot reach still has local answers worth
+    // showing.
+    let _ = jotbay_core::presence::request(jotbay.git());
     let nodes = jotbay.nodes(true)?;
     if json {
         println!("{}", serde_json::to_string_pretty(&nodes)?);

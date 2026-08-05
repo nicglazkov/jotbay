@@ -12,6 +12,7 @@ pub mod git;
 pub mod limits;
 pub mod lock;
 pub mod model;
+pub mod presence;
 pub mod proc;
 pub mod schedule;
 pub mod settings;
@@ -30,9 +31,17 @@ use std::path::{Path, PathBuf};
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// How often the scheduler is expected to run a sync. Used only to decide when
-/// a node counts as stale.
-pub const SYNC_INTERVAL_SECS: i64 = 600;
+/// How long a machine may reasonably take to answer a roll call. Used only to
+/// decide when a node counts as absent, at three times this value.
+///
+/// Matches `watch::POLL_REMOTE_MAX`: a machine that has been quiet for a while
+/// checks the remote every five minutes, so it can take that long to notice it
+/// was asked. Three of those — fifteen minutes of being asked and not
+/// answering — is a machine that is genuinely not there.
+///
+/// Was 600, from when every machine synced on a ten-minute timer. Nothing has
+/// run on that schedule since 1.6.0.
+pub const SYNC_INTERVAL_SECS: i64 = 300;
 
 pub struct Jotbay {
     git: Git,

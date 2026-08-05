@@ -194,6 +194,11 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
     // What the remote looked like when we last agreed with it. None means "no
     // idea", which always resolves to doing the real work.
     let mut remote_seen: Option<String> = crate::sync::remote_fingerprint(jotbay.git());
+    // The roll-call ref as we last saw it, and how long to stay responsive
+    // after somebody asks. Both start empty: whatever is already on the remote
+    // at startup is not a request aimed at us.
+    let mut rollcall_seen: Option<Option<String>> = None;
+    let mut attentive_until: Option<Instant> = None;
 
     loop {
         std::thread::sleep(SCAN_EVERY);
@@ -239,8 +244,32 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
             // Ask the cheap question first. One round trip, no pack, no
             // negotiation — against the three operations a full sync costs.
             let probe_started = Instant::now();
-            let probe = crate::sync::remote_fingerprint(jotbay.git());
+            let answer = crate::sync::probe(jotbay.git());
             let probe_cost = probe_started.elapsed();
+            let probe = answer.as_ref().map(|p| p.heads.clone());
+
+            // Somebody opened a window and wants to know who is out there.
+            // Answering costs one small force-push of our own status ref — no
+            // fetch, no push of main. A full sync would answer the same
+            // question for three times the traffic *and* move a branch tip,
+            // waking every other machine into doing the same.
+            let asked = answer.as_ref().map(|p| p.rollcall.clone());
+            let rollcall_moved = match (&asked, &rollcall_seen) {
+                (Some(now), Some(before)) => now != before,
+                // First sight of a roll call after starting up is not a
+                // request: it is whatever was already on the remote.
+                (Some(_), None) => false,
+                (None, _) => false,
+            };
+            if asked.is_some() {
+                rollcall_seen = asked;
+            }
+            if rollcall_moved {
+                let _ = crate::sync::announce_presence(jotbay);
+                // Somebody is looking. Stay responsive while they are, so
+                // presence does not decay in front of them.
+                attentive_until = Some(Instant::now() + crate::presence::ATTENTION);
+            }
 
             // And the free ones, both local. `ahead` stops a failed push from
             // being forgotten until the next edit; `dirty` catches everything
@@ -263,7 +292,11 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
                 if remote_seen.is_none() {
                     remote_seen = probe;
                 }
-                poll_every = backed_off(poll_every);
+                // Hold the base interval while somebody has a window open,
+                // so presence stays current in front of them rather than
+                // decaying to five-minute granularity.
+                let watched = attentive_until.map(|t| Instant::now() < t).unwrap_or(false);
+                poll_every = if watched { POLL_REMOTE } else { backed_off(poll_every) };
                 report("idle", files, probe_cost, Duration::ZERO, probe_started.elapsed());
             }
         }

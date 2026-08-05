@@ -223,7 +223,17 @@ async fn create_shortcuts(app: bool, notes: bool) -> Result<Vec<String>, String>
 #[tauri::command]
 async fn get_status(refresh: bool) -> Result<JotbayStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        jotbay()?.status(refresh).map_err(|e| e.to_string())
+        let v = jotbay()?;
+        // A window is open, so ask the other machines to report in. Only on a
+        // refresh that already talks to the remote — the offline path exists
+        // precisely so opening the app costs nothing when there is no network.
+        //
+        // Best-effort and ignored: presence is a courtesy to whoever is
+        // looking, and must never be why a window fails to load.
+        if refresh {
+            let _ = jotbay_core::presence::request(v.git());
+        }
+        v.status(refresh).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?

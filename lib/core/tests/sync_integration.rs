@@ -404,3 +404,82 @@ fn oversized_files_are_never_staged_and_are_reported() {
         "blocked files must appear in the feed: {events:?}"
     );
 }
+
+#[test]
+fn a_roll_call_is_visible_to_other_machines_and_answering_does_not_move_it() {
+    // The whole design rests on this asymmetry. Asking moves the roll-call ref;
+    // answering moves only a status ref. Get it wrong and every machine's
+    // answer is another machine's question, forever — the same loop that made
+    // watching status refs untenable.
+    let f = fixture();
+    let a = Jotbay::open(&f.a).unwrap();
+    let b = Jotbay::open(&f.b).unwrap();
+
+    let before = jotbay_core::sync::probe(a.git()).expect("remote reachable");
+    assert!(before.rollcall.is_none(), "the fixture starts with no roll call");
+
+    // A asks.
+    jotbay_core::presence::request(a.git()).expect("a asks");
+    let asked = jotbay_core::sync::probe(b.git()).expect("remote reachable");
+    assert!(
+        asked.rollcall.is_some(),
+        "b cannot see that anybody asked, so it will never report in"
+    );
+    assert_eq!(
+        asked.heads, before.heads,
+        "asking moved a branch tip — that would make a roll call trigger a full \
+         sync on every machine instead of a status publish"
+    );
+
+    // B answers.
+    jotbay_core::sync::announce_presence(&b).expect("b reports in");
+    let after = jotbay_core::sync::probe(a.git()).expect("remote reachable");
+    assert_eq!(
+        after.rollcall, asked.rollcall,
+        "answering the roll call moved it — every answer is now a new question \
+         and the fleet will never go quiet"
+    );
+    assert_eq!(after.heads, before.heads, "answering moved a branch tip");
+}
+
+#[test]
+fn asking_twice_is_seen_as_two_distinct_requests() {
+    // Watchers detect a roll call by the ref *changing*. If two requests
+    // produced the same value the second would be invisible, so a machine that
+    // missed the first would stay unlit no matter how often you asked.
+    let f = fixture();
+    let a = Jotbay::open(&f.a).unwrap();
+
+    jotbay_core::presence::request(a.git()).expect("first ask");
+    let first = jotbay_core::sync::probe(a.git()).unwrap().rollcall;
+    jotbay_core::presence::request(a.git()).expect("second ask");
+    let second = jotbay_core::sync::probe(a.git()).unwrap().rollcall;
+
+    assert!(first.is_some() && second.is_some());
+    assert_ne!(first, second, "two roll calls were indistinguishable");
+}
+
+#[test]
+fn announcing_presence_refreshes_last_sync_without_syncing() {
+    // What answering costs, and what it achieves: this machine's last_sync
+    // moves forward so peers can see it is alive, and nothing else happens.
+    let f = fixture();
+    let a = Jotbay::open(&f.a).unwrap();
+
+    a.sync().expect("establish a status ref");
+    let before = a.nodes(true).unwrap();
+    let mine = jotbay_core::Jotbay::hostname();
+    let first = before.iter().find(|n| n.hostname == mine).map(|n| n.last_sync);
+    assert!(first.is_some(), "this machine published no status to begin with");
+
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    jotbay_core::sync::announce_presence(&a).expect("announce");
+
+    let after = a.nodes(true).unwrap();
+    let second = after.iter().find(|n| n.hostname == mine).map(|n| n.last_sync);
+    assert!(
+        second > first,
+        "announcing presence did not move last_sync, so peers still cannot \
+         tell this machine is alive"
+    );
+}

@@ -36,7 +36,7 @@ struct NodeStatus: Codable, Identifiable, Hashable {
     /// common case: right after this machine pushes, every peer shows a
     /// different head purely because it has not pulled yet. `behindLocal` is
     /// computed remotely by `git merge-base --is-ancestor`.
-    func health(localHead: String, interval: TimeInterval = 600) -> NodeHealth {
+    func health(localHead: String, interval: TimeInterval = 300) -> NodeHealth {
         if lastError != nil { return .error }
         if Date().timeIntervalSince(lastSync) > interval * 3 { return .stale }
         if head != localHead { return (behindLocal ?? false) ? .behind : .diverged }
@@ -54,7 +54,7 @@ enum NodeHealth {
         case .healthy: return "in sync"
         case .behind: return "behind"
         case .diverged: return "diverged"
-        case .stale: return "stale"
+        case .stale: return "not answering"
         case .error: return "error"
         }
     }

@@ -27,9 +27,18 @@ pub struct NodeStatus {
 }
 
 impl NodeStatus {
-    /// A node is stale once it has missed several sync intervals. Derived at
-    /// read time rather than stored, so the threshold can change without
-    /// rewriting what every node published.
+    /// A node counts as absent once it has missed several roll calls.
+    ///
+    /// Derived at read time rather than stored, so the threshold can change
+    /// without rewriting what every node published.
+    ///
+    /// This is a weaker claim than it used to be, and deliberately so. It once
+    /// meant "has not synced recently", which worked only because every machine
+    /// synced on a fixed timer whether or not it had anything to do. Idle
+    /// machines no longer sync, so absence of syncing stopped meaning absence
+    /// of machine — a healthy fleet with nothing to do reported itself
+    /// entirely offline. Opening a window now asks the others to report in, so
+    /// what this measures is a machine that was asked and did not answer.
     pub fn is_stale(&self, interval_secs: i64) -> bool {
         let age = (OffsetDateTime::now_utc() - self.last_sync).whole_seconds();
         age > interval_secs * 3
@@ -87,7 +96,7 @@ impl NodeHealth {
             NodeHealth::Healthy => "in sync",
             NodeHealth::Behind => "behind",
             NodeHealth::Diverged => "diverged",
-            NodeHealth::Stale => "stale",
+            NodeHealth::Stale => "not answering",
             NodeHealth::Error => "error",
         }
     }
