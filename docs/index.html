@@ -159,19 +159,25 @@ adopt a folder that is already a clone. Prefer a terminal?
 <h3>Download</h3>
 <p>Grab the installer for your platform from the
 <a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a> —
-a notarized <code>.dmg</code> for macOS, <code>-setup.exe</code> for Windows,
-<code>.deb</code> or <code>.AppImage</code> for Linux. Every installer includes
-the command line tool.</p>
+a notarized <code>.dmg</code> for macOS, <code>.deb</code> or
+<code>.AppImage</code> for Linux. Every installer includes the command line
+tool.</p>
+<p class="faint"><strong>Windows has no installer at the moment.</strong>
+Microsoft Defender flagged the unsigned one as malware, so it was withdrawn
+rather than ask anyone to click past a malware warning. Use the terminal command
+below, or the <code>jotbay-windows-x86_64.zip</code> on the release page — those
+binaries scan clean. <a href="#windows">Details.</a></p>
 
 <h3>Homebrew</h3>
 <pre><code>brew install --cask nicglazkov/tap/jotbay</code></pre>
 
 <h3>Terminal</h3>
+<p class="faint">macOS and Linux:</p>
 <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash</code></pre>
-<p class="faint">Windows: download the release zip, or build from
-<a href="https://github.com/nicglazkov/jotbay">source</a>. The Windows installer
-is unsigned for now, so SmartScreen stops it: <strong>More&nbsp;info</strong>,
-then <strong>Run&nbsp;anyway</strong>. It needs no administrator rights.</p>
+<p class="faint">Windows, in PowerShell — this is the recommended route until the
+build is signed. It needs no administrator rights:</p>
+<pre><code>irm https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.ps1 -OutFile "$env:TEMP\jotbay-install.ps1"
+powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></pre>
 
 <h2>Questions you should ask</h2>
 
@@ -211,16 +217,26 @@ then <strong>Run&nbsp;anyway</strong>. It needs no administrator rights.</p>
   need to be on the next machine you sit at, not for two people typing in one
   document.</p>
 </details>
-<details>
-  <summary>Why does Windows warn me about the installer?</summary>
-  <p>The Windows build is not yet code-signed, so Microsoft Defender SmartScreen
-  stops it. The dialog says <em>"Windows protected your PC — Microsoft Defender
-  SmartScreen prevented an unrecognized app from starting"</em>, and at first the
-  only button is <strong>Don't run</strong>. Click <strong>More info</strong> and
-  it names the app and shows <em>Publisher: Unknown publisher</em>, with a
-  <strong>Run anyway</strong> button. Nothing else objects — no browser warning
-  and no elevation prompt, because Jotbay installs entirely under your own
-  profile. Signing is coming; the macOS build is already signed and notarized.</p>
+<details id="windows">
+  <summary>Why is there no Windows installer?</summary>
+  <p>Because Microsoft Defender flagged the last one as
+  <code>Trojan:Win32/Wacatac.C!ml</code> and quarantined it. We withdrew it
+  rather than ask anyone to click past a malware warning — telling users to
+  override their antivirus is not advice worth giving, and a habit worth
+  building even less.</p>
+  <p>We investigated before pulling it. The application binaries in that same
+  release scan clean. Building the same tag from source produces an installer
+  that scans clean. The published file's checksum matched what GitHub recorded
+  for it, so nothing was tampered with after the build. The <code>!ml</code>
+  suffix marks a machine-learning verdict rather than a match against known
+  malware, and an unsigned installer with no download history is exactly the
+  profile those models distrust.</p>
+  <p>So the honest summary is that this is a false positive we cannot fix by
+  changing the code, because the code is not what it objects to. The real fix is
+  a code-signing certificate, which is coming. Until then, install with the
+  PowerShell command above — those binaries are the same ones the installer
+  would have placed, and they scan clean. The macOS build is signed and
+  notarized, and Linux is unaffected.</p>
 </details>
 
 <h2>The command line</h2>
