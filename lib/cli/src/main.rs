@@ -339,7 +339,10 @@ fn cmd_watch(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     use jotbay_core::watch::{self, Event};
 
     println!();
-    println!("  watching {}", jotbay.data_dir().display());
+    // The vault root, matching what the watcher actually walks. This printed
+    // `data/` while core watched the whole repository, so the log said the
+    // watcher was ignoring exactly the files it had just been fixed to see.
+    println!("  watching {}", jotbay.git().root().display());
     println!("  edits sync automatically; press ctrl-c to stop");
     println!();
 
