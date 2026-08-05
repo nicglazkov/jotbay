@@ -159,14 +159,12 @@ adopt a folder that is already a clone. Prefer a terminal?
 <h3>Download</h3>
 <p>Grab the installer for your platform from the
 <a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a> —
-a notarized <code>.dmg</code> for macOS, <code>.deb</code> or
-<code>.AppImage</code> for Linux. Every installer includes the command line
-tool.</p>
-<p class="faint"><strong>Windows has no installer at the moment.</strong>
-Microsoft Defender flagged the unsigned one as malware, so it was withdrawn
-rather than ask anyone to click past a malware warning. Use the terminal command
-below, or the <code>jotbay-windows-x86_64.zip</code> on the release page — those
-binaries scan clean. <a href="#windows">Details.</a></p>
+a notarized <code>.dmg</code> for macOS, <code>-setup.exe</code> for Windows,
+<code>.deb</code> or <code>.AppImage</code> for Linux. Every installer includes
+the command line tool.</p>
+<p class="faint">The Windows installer is unsigned, so SmartScreen stops it:
+<strong>More&nbsp;info</strong>, then <strong>Run&nbsp;anyway</strong>. It needs
+no administrator rights. <a href="#windows">Why that happens.</a></p>
 
 <h3>Homebrew</h3>
 <pre><code>brew install --cask nicglazkov/tap/jotbay</code></pre>
@@ -218,25 +216,23 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
   document.</p>
 </details>
 <details id="windows">
-  <summary>Why is there no Windows installer?</summary>
-  <p>Because Microsoft Defender flagged the last one as
-  <code>Trojan:Win32/Wacatac.C!ml</code> and quarantined it. We withdrew it
-  rather than ask anyone to click past a malware warning — telling users to
-  override their antivirus is not advice worth giving, and a habit worth
-  building even less.</p>
-  <p>We investigated before pulling it. The application binaries in that same
-  release scan clean. Building the same tag from source produces an installer
-  that scans clean. The published file's checksum matched what GitHub recorded
-  for it, so nothing was tampered with after the build. The <code>!ml</code>
-  suffix marks a machine-learning verdict rather than a match against known
-  malware, and an unsigned installer with no download history is exactly the
-  profile those models distrust.</p>
-  <p>So the honest summary is that this is a false positive we cannot fix by
-  changing the code, because the code is not what it objects to. The real fix is
-  a code-signing certificate, which is coming. Until then, install with the
-  PowerShell command above — those binaries are the same ones the installer
-  would have placed, and they scan clean. The macOS build is signed and
-  notarized, and Linux is unaffected.</p>
+  <summary>Why does Windows warn me about the installer?</summary>
+  <p>Because it is not code-signed yet. Microsoft Defender SmartScreen stops
+  unrecognized apps, and says <em>"Windows protected your PC — Microsoft
+  Defender SmartScreen prevented an unrecognized app from starting"</em>. At
+  first the only button is <strong>Don't run</strong>; click
+  <strong>More info</strong> and it shows <em>Publisher: Unknown publisher</em>
+  with a <strong>Run anyway</strong> button. There is no browser warning and no
+  elevation prompt, because Jotbay installs entirely under your own profile.
+  Signing is coming. The macOS build is already signed and notarized.</p>
+  <p>For a day, this installer was also flagged as
+  <code>Trojan:Win32/Wacatac.C!ml</code> and quarantined outright. We withdrew
+  it rather than ask anyone to click past a malware warning. It turned out to be
+  a false positive in Defender's machine-learning model, which Microsoft
+  corrected in a definition update — the identical file, byte for byte, is clean
+  on current definitions. Nothing in the code was involved or changed. The
+  installer is back, and it is recorded here because a project that quietly
+  deletes its own incidents is not one worth trusting with your notes.</p>
 </details>
 
 <h2>The command line</h2>

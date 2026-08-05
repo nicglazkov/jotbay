@@ -20,19 +20,15 @@ here, and in no commit log anywhere.*
 ## Install
 
 **Download an installer** if you would rather not open a terminal — a notarized
-`.dmg` for macOS, `.deb` or `.AppImage` for Linux, both on the
-[releases page](../../releases/latest). Open Jotbay and the first screen asks
-where your notes should live: it can create the private repository for you,
-clone one you already have, or adopt a folder that is already a clone.
+`.dmg` for macOS, `-setup.exe` for Windows, `.deb` or `.AppImage` for
+Linux, all on the [releases page](../../releases/latest). Open Jotbay and the
+first screen asks where your notes should live: it can create the private
+repository for you, clone one you already have, or adopt a folder that is
+already a clone.
 
-> **Windows has no installer at the moment.** Microsoft Defender flagged the
-> unsigned `-setup.exe` as `Trojan:Win32/Wacatac.C!ml`, so it was withdrawn
-> rather than ask anyone to click past a malware warning. The application
-> binaries scan clean, and building the same tag from source produces an
-> installer that scans clean — it is a machine-learning verdict on an unsigned
-> file with no reputation, not something in the code. Use the PowerShell command
-> below until there is a signing certificate; it installs the same binaries the
-> installer would have. `jotbay upgrade` is unaffected.
+The Windows installer is not code-signed yet, so SmartScreen stops it with
+*"Windows protected your PC"* — click **More info**, then **Run anyway**. It
+needs no administrator rights and installs under your own profile.
 
 **Or use the terminal** and never see a window:
 

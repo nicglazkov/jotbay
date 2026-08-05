@@ -235,18 +235,21 @@ jobs:
           ls -l jotbay-* ./*.deb ./*.AppImage ./*-setup.exe 2>/dev/null || true
 
       # v1.7.1 shipped a -setup.exe that Defender quarantined as
-      # Trojan:Win32/Wacatac.C!ml the moment anybody downloaded it. The code was
-      # not the problem: the binaries inside that same release scanned clean,
-      # and the identical tag built elsewhere — same rustc 1.97.1, same
-      # tauri-cli 2.11.4 — produced an installer that scanned clean too. The
-      # only thing separating them was which bytes fell out of which build,
-      # because Rust builds are not reproducible across environments and an ML
-      # verdict on an unsigned, zero-reputation NSIS bundle is partly a coin
-      # toss on compressed-payload entropy.
+      # Trojan:Win32/Wacatac.C!ml the moment anybody downloaded it. It was a
+      # false positive in Defender's ML model, and Microsoft corrected it in a
+      # definition update: the identical file, verified by SHA-256, is clean on
+      # 1.455.509.0 and was quarantined on 1.455.499.0. No code was involved.
       #
-      # A coin toss we cannot win by writing better code, we can at least
-      # observe before publishing. This is the gate that turns "a user finds it"
-      # into "the release never happens".
+      # The lesson is about timing rather than content. A freshly published,
+      # unsigned installer with no download reputation, scanned against ML
+      # definitions hours old, is the single riskiest moment for a generic !ml
+      # verdict — and we published straight into it. This gate is that check,
+      # moved to before anybody can download the file instead of after.
+      #
+      # The -SignatureUpdate below is not a formality: scanning against stale
+      # definitions is how the original verdict happened, so a gate running on
+      # whatever the runner image shipped with would reproduce the problem
+      # rather than catch it.
       #
       # It FAILS when Defender is unavailable rather than skipping. A gate that
       # silently passes when it could not check is worse than no gate, because
