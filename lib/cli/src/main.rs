@@ -187,6 +187,18 @@ fn cmd_sync(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
         render::sync_report(&report);
         println!();
     }
+
+    // A sync that never ran must not exit 0. The watcher holds the lock most of
+    // the time, so `jotbay sync` frequently did nothing at all and still
+    // reported success — and a script checking the exit code could not tell
+    // "synced" from "did not sync". Found during the Windows fresh install,
+    // where a runbook step depended on this command actually pushing.
+    //
+    // 75 rather than 1: distinguishable from a real failure, and the
+    // conventional "temporary failure, try again" code.
+    if report.skipped_locked {
+        std::process::exit(75);
+    }
     Ok(())
 }
 
@@ -365,7 +377,35 @@ fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     }
 
     let replaced = jotbay.upgrade()?;
-    println!("  replaced {}", replaced.join(", "));
+    // Name the directory, not just the files. An upgrade that wrote to the
+    // wrong place used to print exactly this line and look identical to one
+    // that worked.
+    let target = jotbay_core::update::install_target()
+        .map(|d| d.display().to_string())
+        .unwrap_or_default();
+    if target.is_empty() {
+        println!("  replaced {}", replaced.join(", "));
+    } else {
+        println!("  replaced {} in {}", replaced.join(", "), target);
+    }
+
+    // A second copy on PATH is what a split install looks like from outside,
+    // and it is invisible until the two disagree: PATH answers with one, the
+    // scheduler runs the other, and the version you are shown is not the
+    // version doing the work.
+    if let Ok(dir) = jotbay_core::update::install_target() {
+        let others = jotbay_core::update::other_copies_on_path(&dir);
+        if !others.is_empty() {
+            println!();
+            println!("  warning: other copies of jotbay are also on PATH:");
+            for o in &others {
+                println!("    {}", o.display());
+            }
+            println!("  only the one above was upgraded. Remove the others, or the");
+            println!("  background watcher may keep running an older build.");
+        }
+    }
+
     println!("  {}", "restart the app if it is running");
     println!();
     Ok(())

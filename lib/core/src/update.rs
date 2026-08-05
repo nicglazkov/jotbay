@@ -213,7 +213,11 @@ pub fn asset_name() -> &'static str {
     }
 }
 
-/// Where the installed binaries live.
+/// Where a script install puts the binaries — the only layout `upgrade` can
+/// safely write to without being told.
+///
+/// Kept as the fallback for when the running executable cannot be located at
+/// all. It is *not* the answer on its own: see `install_target`.
 pub fn bin_dir() -> std::path::PathBuf {
     if cfg!(target_os = "windows") {
         std::env::var_os("LOCALAPPDATA")
@@ -223,6 +227,102 @@ pub fn bin_dir() -> std::path::PathBuf {
     } else {
         crate::home().join(".local/bin")
     }
+}
+
+/// Where to write the new binaries: beside the ones that are running.
+///
+/// This used to be `bin_dir()` unconditionally, which is right for a script
+/// install and wrong for every native installer we ship. On a `.deb` machine
+/// the binaries live in `/usr/bin`, so `upgrade` wrote a *second* copy to
+/// `~/.local/bin`, reported success, and left the watcher — started from an
+/// absolute `/usr/bin/jotbay` in its unit file — running the old version
+/// forever. `jotbay --version` then answered for PATH, which preferred the new
+/// copy, so every check a human could run said the upgrade had worked. The
+/// component with the bug was the one thing never touched.
+///
+/// The same mismatch existed on Windows (`…\Jotbay` from the installer versus
+/// `…\Programs\jotbay` here) and on macOS, where the CLI lives inside
+/// `Jotbay.app`.
+///
+/// So: resolve from the running executable, and refuse when that location is
+/// not ours to replace. Refusing is the honest outcome — a package manager
+/// owns those files, and writing a shadow copy somewhere else only recreates
+/// the split.
+pub fn install_target() -> Result<std::path::PathBuf> {
+    let exe = match std::env::current_exe() {
+        Ok(p) => p.canonicalize().unwrap_or(p),
+        // Nothing to reason from; the script layout is the best guess left.
+        Err(_) => return Ok(bin_dir()),
+    };
+
+    // Inside a macOS app bundle. Replacing a binary in there breaks the code
+    // signature, and Gatekeeper then refuses to launch the app at all — a far
+    // worse outcome than not upgrading.
+    if exe.components().any(|c| c.as_os_str().to_string_lossy().ends_with(".app")) {
+        return Err(Error::Other(
+            "this copy lives inside Jotbay.app, which is managed by its installer. \
+             Upgrade with `brew upgrade --cask jotbay`, or download the latest .dmg."
+                .into(),
+        ));
+    }
+
+    let dir = exe
+        .parent()
+        .ok_or_else(|| Error::Other("could not tell where jotbay is installed".into()))?
+        .to_path_buf();
+
+    if !is_writable(&dir) {
+        return Err(Error::Other(format!(
+            "jotbay is installed at {}, which this account cannot write to — \
+             it came from a system package. Upgrade it the way it was installed: \
+             download the latest .deb from the releases page and open it, or run \
+             `sudo apt install ./Jotbay_<version>_amd64.deb`.",
+            dir.display()
+        )));
+    }
+
+    Ok(dir)
+}
+
+/// Whether we could actually replace a file in this directory.
+///
+/// Probes by creating a file rather than reading permission bits: the bits lie
+/// under root-squashed mounts, immutable flags, and read-only filesystems, and
+/// the only answer that matters is whether the write will succeed.
+fn is_writable(dir: &std::path::Path) -> bool {
+    let probe = dir.join(".jotbay-write-probe");
+    match std::fs::write(&probe, b"") {
+        Ok(()) => {
+            let _ = std::fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// Other `jotbay` executables on PATH, which are what a split install looks
+/// like from the outside.
+///
+/// Reported after an upgrade because a second copy is invisible until it
+/// disagrees: PATH answers with one, the scheduler runs the other, and the
+/// version you are shown is not the version doing the work.
+pub fn other_copies_on_path(installed: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let name = if cfg!(target_os = "windows") { "jotbay.exe" } else { "jotbay" };
+    let Some(path) = std::env::var_os("PATH") else {
+        return Vec::new();
+    };
+    let mut found = Vec::new();
+    for dir in std::env::split_paths(&path) {
+        let candidate = dir.join(name);
+        if !candidate.is_file() {
+            continue;
+        }
+        let real = candidate.canonicalize().unwrap_or(candidate);
+        if real.parent() != Some(installed) && !found.contains(&real) {
+            found.push(real);
+        }
+    }
+    found
 }
 
 /// Fetch the current release and replace the installed binaries.
@@ -296,7 +396,9 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
         return Err(Error::Other("could not unpack the release".into()));
     }
 
-    let dir = bin_dir();
+    // Resolved before anything is written, so a packaged install fails with an
+    // instruction rather than quietly growing a second copy.
+    let dir = install_target()?;
     std::fs::create_dir_all(&dir)?;
     let mut replaced = Vec::new();
 
@@ -517,5 +619,51 @@ mod tests {
         write_marker(&tmp, "0.0.1").unwrap();
         assert!(!check(&tmp).available);
         let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn a_writable_directory_is_writable_and_a_missing_one_is_not() {
+        let dir = std::env::temp_dir().join("jotbay-writable-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(is_writable(&dir));
+        // The probe must clean up after itself, or every upgrade leaves litter
+        // in the install directory.
+        assert!(
+            !dir.join(".jotbay-write-probe").exists(),
+            "the write probe left its file behind"
+        );
+
+        assert!(
+            !is_writable(&dir.join("does-not-exist")),
+            "a directory that is not there cannot be written to"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_copy_in_the_install_directory_is_not_reported_as_a_rival() {
+        // other_copies_on_path exists to surface split installs. Reporting the
+        // binary we just upgraded would make the warning fire on every healthy
+        // machine, and a warning that always fires is one nobody reads.
+        let dir = std::env::temp_dir().join("jotbay-copies-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let name = if cfg!(target_os = "windows") { "jotbay.exe" } else { "jotbay" };
+        std::fs::write(dir.join(name), b"").unwrap();
+
+        let canonical = dir.canonicalize().unwrap_or(dir.clone());
+        let saved = std::env::var_os("PATH");
+        std::env::set_var("PATH", &canonical);
+        let found = other_copies_on_path(&canonical);
+        if let Some(p) = saved {
+            std::env::set_var("PATH", p);
+        }
+
+        assert!(
+            found.is_empty(),
+            "the installed copy was reported as a rival: {found:?}"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

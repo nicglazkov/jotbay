@@ -154,19 +154,41 @@ fn linux_desktop_entry(source: &Path, location: &Path) -> Result<PathBuf> {
          Name=Jotbay\n\
          Comment=Keep your notes in sync across machines\n\
          Exec={}\n\
-         Icon=Jotbay\n\
+         Icon=jotbay-gui\n\
          Terminal=false\n\
          Categories=Utility;\n",
         source.display()
     );
     std::fs::write(&file, contents)?;
 
+    // `jotbay-gui`, not `Jotbay`. Icon names are looked up as filenames in the
+    // theme directories, and the package installs
+    // `/usr/share/icons/hicolor/*/apps/jotbay-gui.png`. `Icon=Jotbay` matched
+    // nothing, so the launcher drew with no icon at all — the system menu entry
+    // had it right and only this hand-written copy was wrong.
+    //
     // Without the executable bit GNOME shows "Untrusted application launcher"
     // and refuses to run it, which looks like the shortcut simply not working.
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755))?;
+    }
+
+    // And the executable bit is not enough on its own. Since GNOME 42 a
+    // `.desktop` file on the desktop also needs `metadata::trusted`, or the
+    // shell renders it as what it literally is — a text file called
+    // "jotbay.desktop", with a generic icon — instead of a launcher. Seen on
+    // Ubuntu after a clean install: the shortcut we had just offered to create
+    // appeared broken.
+    //
+    // Best-effort: `gio` is part of glib and present on any GNOME system, and
+    // on desktops that do not use this convention its absence costs nothing.
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let _ = crate::proc::quiet("gio")
+            .args(["set", &file.to_string_lossy(), "metadata::trusted", "true"])
+            .output();
     }
     Ok(file)
 }
