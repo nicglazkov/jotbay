@@ -173,6 +173,21 @@ pub fn adopt(path: &Path) -> Result<PathBuf> {
 /// moment a commit is attempted on a new machine, which is precisely where a
 /// missing git identity strands people, so both are settled here.
 fn publish_initial(root: &Path) -> Result<()> {
+    // Identity first, and above the early return below. Whether this machine
+    // can commit at all has nothing to do with whether the branch has an
+    // upstream, and putting it after that check meant only the "create one for
+    // me" route ever reached it: `gh repo create` makes an empty repository, so
+    // the clone has no upstream and falls through. Cloning an existing
+    // repository always has one, and adopting a folder normally does too, so
+    // both returned here untouched.
+    //
+    // The 1.7.1 fix to ensure_identity itself was correct and completely
+    // unreachable on two of the three first-run routes — including the one
+    // anybody with existing notes picks. Setup succeeded, the watcher
+    // committed, and the first push died on GH007 exactly as it had before.
+    // Found by a fresh install, which is the only place it is visible.
+    ensure_identity(root)?;
+
     let has_upstream = crate::proc::quiet("git")
         .args(["rev-parse", "--abbrev-ref", "@{u}"])
         .current_dir(root)
@@ -182,8 +197,6 @@ fn publish_initial(root: &Path) -> Result<()> {
     if has_upstream {
         return Ok(());
     }
-
-    ensure_identity(root)?;
 
     // A clone of an empty repository can land on whatever default the server
     // advertises; name it explicitly so every machine agrees.
