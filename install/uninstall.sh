@@ -129,14 +129,42 @@ for LAUNCHER in "$HOME/Desktop/jotbay.desktop" "$HOME/Desktop/inkway.desktop" \
 done
 
 # --- 5. preferences --------------------------------------------------------
-CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/jotbay"
-[ "$OS" = macos ] && CONFIG="$HOME/.config/jotbay"
-LEGACY="${XDG_CONFIG_HOME:-$HOME/.config}/inkway"
+# Mirrors settings::config_dir() exactly. This used to say ~/.config/jotbay on
+# macOS, which is not where the app stores anything, so --all removed nothing
+# and every "fresh" install on a Mac silently started with the previous vault
+# path already recorded. That is the same failure that made both agent runs'
+# first-run tests meaningless, in the tool that exists to prevent it.
+if [ "$OS" = macos ]; then
+  CONFIG="$HOME/Library/Application Support/Jotbay"
+  LEGACY="$HOME/Library/Application Support/Inkway"
+else
+  CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/jotbay"
+  LEGACY="${XDG_CONFIG_HOME:-$HOME/.config}/inkway"
+fi
 
 if [ "$ALL" = 1 ]; then
   say "removing preferences"
   rm -rf "$CONFIG" "$LEGACY"
-  rm -f "$HOME/Library/Logs/jotbay-sync.log" 2>/dev/null
+  if [ "$OS" = macos ]; then
+    # State the apps create for themselves, which no installer ever wrote and
+    # so nothing was ever removing: window positions, the webview's storage,
+    # caches, and crash reports. Harmless to keep, but "wipe this machine"
+    # should mean it.
+    rm -f "$HOME/Library/Logs/jotbay-sync.log" "$HOME/Library/Logs/inkway-sync.log"
+    rm -rf "$HOME/Library/Caches/jotbay-gui" "$HOME/Library/Caches/inkway-gui" \
+           "$HOME/Library/WebKit/jotbay-gui" "$HOME/Library/WebKit/inkway-gui" \
+           "$HOME/Library/HTTPStorages/com.glazkov.jotbay" \
+           "$HOME/Library/Saved Application State/com.glazkov.jotbay.savedState" \
+           "$HOME/Library/Saved Application State/com.example.jotbay.savedState"
+    # com.example is the Tauri default identifier, which shipped before the
+    # real one was set. A machine from that era still carries it.
+    for ID in com.glazkov.jotbay com.glazkov.inkway com.example.jotbay; do
+      rm -f "$HOME/Library/Preferences/$ID.plist"
+      defaults delete "$ID" 2>/dev/null
+    done
+    rm -f "$HOME"/Library/Application\ Support/CrashReporter/jotbay_*.plist \
+          "$HOME"/Library/Application\ Support/CrashReporter/inkway_*.plist
+  fi
   info "removed. The next install starts from the first-run screen"
 elif [ -d "$CONFIG" ]; then
   say "keeping your preferences"
@@ -155,7 +183,8 @@ LEFT=0
 for P in "$HOME/.local/bin/jotbay" "/usr/bin/jotbay" "/usr/local/bin/jotbay" \
          "/Applications/Jotbay.app" \
          "$HOME/Library/LaunchAgents/com.jotbay.sync.plist" \
-         "$HOME/.config/systemd/user/jotbay-sync.service"; do
+         "$HOME/.config/systemd/user/jotbay-sync.service" \
+         "$CONFIG"; do
   if [ -e "$P" ]; then warn "still present: $P"; LEFT=1; fi
 done
 if command -v jotbay >/dev/null 2>&1; then
