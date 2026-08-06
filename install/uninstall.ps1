@@ -46,3 +46,15 @@ if (($userPath -like "*$BinDir*") -or ($userPath -like "*$LegacyBin*")) {
 
 Write-Host ''
 Say "done - your notes in $JotbayDir\data were not touched"
+
+# Preferences are kept. The NSIS uninstaller offers a "Delete the application
+# data" checkbox for the same directory, unchecked by default and with nothing
+# explaining what it covers; this script says it out loud instead. Keeping it
+# means a reinstall remembers where the notes live, and also means a reinstall
+# is not a clean one - setup finds a vault already configured and never shows
+# the first-run screen.
+$config = Join-Path $env:APPDATA 'Jotbay'
+if (Test-Path $config) {
+  Write-Host "    kept your preferences in $config"
+  Write-Host "    remove that folder as well before testing a fresh install"
+}

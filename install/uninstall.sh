@@ -2,6 +2,9 @@
 #
 # Remove everything install.sh created. Leaves the Jotbay repository and your
 # notes completely untouched — this uninstalls the tooling, not the data.
+#
+#   install/uninstall.sh          keep preferences (settings.json)
+#   install/uninstall.sh --all    remove them as well
 
 set -euo pipefail
 
@@ -55,6 +58,31 @@ if [ -L "$HOME/Desktop/Jotbay" ]; then
   rm -f "$HOME/Desktop/Jotbay"
   # shellcheck disable=SC2088  # display text, not a path to be expanded
   info "~/Desktop/Jotbay removed"
+fi
+# The launcher `jotbay shortcut app` writes. It is a file rather than a symlink,
+# so the check above never covered it, and it survived every uninstall as a
+# desktop icon pointing at a binary that had just been deleted.
+for LAUNCHER in "$HOME/Desktop/jotbay.desktop" "$HOME/Desktop/inkway.desktop"; do
+  if [ -f "$LAUNCHER" ] && grep -q "^Exec=.*jotbay-gui\|^Exec=.*inkway-gui" "$LAUNCHER" 2>/dev/null; then
+    rm -f "$LAUNCHER"
+    info "$(basename "$LAUNCHER") removed"
+  fi
+done
+
+# Preferences are kept unless asked. Reinstalling then remembers where the
+# notes live, which is what somebody uninstalling to fix something wants — and
+# it is exactly what makes a "clean reinstall" not clean, because setup finds a
+# vault already configured and never shows the first-run screen. Both agent
+# runs had to work this out and remove it by hand before their tests meant
+# anything. Saying so is the least this can do.
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/jotbay"
+if [ "${1:-}" = "--all" ]; then
+  rm -rf "$CONFIG_DIR"
+  say "removed your preferences too"
+elif [ -d "$CONFIG_DIR" ]; then
+  say "kept your preferences in $CONFIG_DIR"
+  info "re-run with --all to remove them, which is what you want before"
+  info "testing a genuinely fresh install"
 fi
 
 echo

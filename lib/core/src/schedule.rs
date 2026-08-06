@@ -99,12 +99,26 @@ fn install_candidates() -> Vec<PathBuf> {
             local.join(r"Programs\jotbay\jotbay.exe"),
         ]
     } else {
-        vec![
+        let mut candidates = vec![
             home.join(".local/bin/jotbay"),
             PathBuf::from("/usr/local/bin/jotbay"),
             PathBuf::from("/opt/homebrew/bin/jotbay"),
             PathBuf::from("/usr/bin/jotbay"),
-        ]
+        ];
+        // The app bundle is an install location like any other, and it was the
+        // one missing. A fresh macOS VM reached this list — nothing else on it
+        // had a jotbay — and `schedule::ensure` failed with "could not find the
+        // jotbay command to schedule" while the CLI sat in Resources the whole
+        // time. Harmless in the shipped layout, where the earlier
+        // beside-current_exe branch matches first, and not harmless for
+        // anything calling the core from elsewhere.
+        if cfg!(target_os = "macos") {
+            candidates.push(PathBuf::from(
+                "/Applications/Jotbay.app/Contents/Resources/jotbay",
+            ));
+            candidates.push(home.join("Applications/Jotbay.app/Contents/Resources/jotbay"));
+        }
+        candidates
     }
 }
 

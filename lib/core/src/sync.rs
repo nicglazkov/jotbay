@@ -238,14 +238,32 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
             return Err(Error::Other(first.describe("push")));
         }
         if !first.success {
-            fetch(git)?;
-            integrate(jotbay, hostname, report)?;
-            let retry =
-                git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
-            if !retry.success {
-                // The first rejection is expected — someone else pushed between
-                // our fetch and ours. A second one is not, and carries why.
-                return Err(Error::Other(retry.describe("push")));
+            // A rejection means somebody pushed between our fetch and our push.
+            // With two machines that is rare and one retry always sufficed.
+            // With ten it stops being rare: every retry is itself a race, and
+            // losing twice in a row only needs a third editor. Attempts are
+            // cheap — integrate is local once the fetch is done — and the cost
+            // of running out is a sync that reports failure for a reason that
+            // would have resolved itself.
+            //
+            // Bounded rather than looping: a rejection that is *not* a race
+            // (no write access, a protected branch) would otherwise retry
+            // forever against a remote that will never accept it.
+            const ATTEMPTS: u32 = 3;
+            let mut last = first;
+            for _ in 0..ATTEMPTS {
+                fetch(git)?;
+                integrate(jotbay, hostname, report)?;
+                last = git.run_networked(&["push", "--quiet", "origin", &branch], NETWORK_TIMEOUT)?;
+                if last.success {
+                    break;
+                }
+                if last.timed_out {
+                    break;
+                }
+            }
+            if !last.success {
+                return Err(Error::Other(last.describe("push")));
             }
         }
     }

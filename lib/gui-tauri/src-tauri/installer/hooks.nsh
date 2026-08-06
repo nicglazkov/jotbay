@@ -29,6 +29,32 @@
   ${EndIf}
 !macroend
 
+; Take the background sync out before the binaries go, or the machine is left
+; with a logon task pointing at an executable that no longer exists. It then
+; fires at every logon, fails, and does so silently — forever — on any machine
+; that has ever uninstalled Jotbay. uninstall.ps1 has always unregistered it;
+; the NSIS uninstaller never learned to, and Settings → Apps is the route
+; almost everybody actually takes.
+;
+; Stop first, then unregister: an unregister while the watcher is running
+; leaves the process alive until the next reboot, still holding the binaries
+; this uninstaller is about to delete.
+;
+; Both names, because a machine installed before the rename still carries the
+; old one. Failures are ignored throughout — an uninstall that cannot find a
+; task must still finish uninstalling.
+!macro NSIS_HOOK_PREUNINSTALL
+  DetailPrint "Stopping background sync"
+  nsExec::ExecToLog 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Stop-ScheduledTask -TaskName jotbay-sync -ErrorAction SilentlyContinue; Get-Process jotbay -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName jotbay-sync -Confirm:$$false -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName inkway-sync -Confirm:$$false -ErrorAction SilentlyContinue"'
+  Pop $0
+
+  DetailPrint "Removing desktop shortcuts"
+  ; Only the two this installer offers to make. Anything else on the desktop
+  ; belongs to the user.
+  Delete "$DESKTOP\Jotbay.lnk"
+  Delete "$DESKTOP\Jotbay Notes.lnk"
+!macroend
+
 !macro NSIS_HOOK_POSTUNINSTALL
   DetailPrint "Removing $INSTDIR from PATH"
   nsExec::ExecToLog 'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$$p = [Environment]::GetEnvironmentVariable($\'Path$\', $\'User$\'); if ($$p -ne $$null) { [Environment]::SetEnvironmentVariable($\'Path$\', (($$p -split $\';$\' | Where-Object { $$_ -ne $\'$INSTDIR$\' -and $$_ -ne $\'$\' }) -join $\';$\'), $\'User$\') }"'

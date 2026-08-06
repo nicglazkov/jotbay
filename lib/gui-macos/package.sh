@@ -17,6 +17,33 @@
 # which is why this is a local script and not a workflow.
 
 set -euo pipefail
+
+# Refuse to package a working tree that does not match its tag.
+#
+# This builds from whatever is checked out, and the 1.8.1 DMG therefore shipped
+# the tag plus one later commit — a Mac running the cask had code the tag did
+# not contain. Linux and Windows artifacts come from CI and can be checked with
+# `gh attestation verify`; a locally built DMG can be checked against nothing,
+# so the only thing standing between the label and the bytes is this.
+#
+# Override with JOTBAY_ALLOW_DIRTY=1 for a deliberate test build.
+if [ "${JOTBAY_ALLOW_DIRTY:-0}" != "1" ]; then
+  version=$(sed -n 's/^ *MARKETING_VERSION: *"\([^"]*\)".*/\1/p' lib/gui-macos/project.yml | head -1)
+  if [ -n "$(git status --porcelain)" ]; then
+    echo "error: the working tree is dirty — the DMG would not match any tag." >&2
+    echo "       commit first, or set JOTBAY_ALLOW_DIRTY=1 for a test build." >&2
+    exit 1
+  fi
+  if [ -n "$version" ] && git rev-parse "v$version" >/dev/null 2>&1; then
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse "v$version^{commit}")" ]; then
+      echo "error: HEAD is not v$version, so this DMG would be labelled with a" >&2
+      echo "       version it does not contain. Check out the tag first:" >&2
+      echo "         git checkout v$version" >&2
+      echo "       or set JOTBAY_ALLOW_DIRTY=1 if that is deliberate." >&2
+      exit 1
+    fi
+  fi
+fi
 cd "$(dirname "$0")"
 
 APP_NAME="Jotbay"
