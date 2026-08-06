@@ -495,7 +495,7 @@ jobs:
                  ':!install/uninstall.sh' ':!install/uninstall.ps1' \
                  ':!install/install.sh' ':!install/install.ps1' \
                  ':!lib/core/src/settings.rs' ':!lib/docs/publishing.md' \
-       ':!lib/gui-tauri/src-tauri/installer/hooks.nsh' \
+                 ':!lib/gui-tauri/src-tauri/installer/hooks.nsh' \
                  ':!.github/workflows' || true)
           if [ -n "$hits" ]; then
             echo "::error::the previous name survives outside the migration paths:"
