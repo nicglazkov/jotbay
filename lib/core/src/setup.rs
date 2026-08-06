@@ -395,6 +395,23 @@ fn seed(root: &Path) -> Result<()> {
         std::fs::write(&keep, b"")?;
     }
 
+    // A vault with no ignore rules commits whatever the operating system
+    // leaves lying in it. macOS writes .DS_Store into every folder a Finder
+    // window has touched, so without this a Mac user's notes repository fills
+    // with them and every other machine pulls them down. Windows does the same
+    // with Thumbs.db and desktop.ini.
+    //
+    // Deliberately short. This is somebody's notes folder, not a source tree,
+    // and every rule here is either operating-system noise or state this
+    // program itself creates.
+    let ignore = root.join(".gitignore");
+    if !ignore.exists() {
+        std::fs::write(
+            &ignore,
+            b"# Noise the operating system leaves in folders. Without these, a\n              # Mac fills the repository with .DS_Store files and every other\n              # machine pulls them down.\n              .DS_Store\n              Thumbs.db\n              desktop.ini\n              \n              # Editor scratch files.\n              *.swp\n              *~\n              .obsidian/workspace*.json\n              \n              # Jotbay's own working state, which belongs to this machine only.\n              .jotbay-lock/\n              .jotbay/local.json\n              \n              # Desktop launchers, which are per-machine: a Mac must never pull\n              # down a Windows .lnk.\n              /Jotbay.app\n              /Jotbay.lnk\n              /jotbay.desktop\n              /jotbay.command\n",
+        )?;
+    }
+
     let attributes = root.join(".gitattributes");
     if !attributes.exists() {
         std::fs::write(
