@@ -71,7 +71,11 @@ info "stopped"
 
 # --- 2. the package, if this machine has one -------------------------------
 if [ "$OS" = linux ] && command -v dpkg >/dev/null 2>&1; then
-  if dpkg -l 2>/dev/null | grep -q "^ii  *jotbay "; then
+  # `dpkg -s`, not `dpkg -l | grep -q`. With `pipefail` set, grep exits the
+  # moment it matches, dpkg dies of SIGPIPE, and the pipeline reports failure —
+  # so the package was silently never removed on a machine that definitely had
+  # it. The uninstaller's own closing check is what caught that.
+  if dpkg -s jotbay >/dev/null 2>&1; then
     say "removing the jotbay package"
     if sudo -n true 2>/dev/null; then
       sudo apt-get remove -y jotbay >/dev/null 2>&1 && info "removed"
