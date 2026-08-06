@@ -4,7 +4,7 @@
 //
 // Not part of the app. It compiles the real view files against a controller
 // holding fixed demo data, so a screenshot cannot drift from the UI the way a
-// hand-captured one does — regenerate it and any layout change shows up.
+// hand-captured one does, regenerate it and any layout change shows up.
 //
 // The data is invented on purpose: hostnames from a real machine would put
 // somebody's network in the README.
@@ -109,7 +109,7 @@ let demoActivity: [ActivityEvent] = [
                                                      "data/refs/postgres.md"],
                   detail: nil, head: demoHead),
     ActivityEvent(at: ago(430), hostname: "workstation", kind: .conflict,
-                  summary: "1 conflict — both versions kept",
+                  summary: "1 conflict. Both versions kept",
                   files: ["data/daily/2026-08-04.md",
                           "data/daily/2026-08-04.conflict-workstation-20260804T0212Z.md"],
                   detail: nil, head: "3ab90f2"),
@@ -164,7 +164,7 @@ let demoActivity: [ActivityEvent] = [
 
         shot("macos-menubar", MenuBarView().environmentObject(c), width: 300, height: 400)
 
-        // The file browser, against a real (temporary) notes tree — the pane
+        // The file browser, against a real (temporary) notes tree. The pane
         // reads the filesystem, so the demo has to exist on disk.
         let vault = FileManager.default.temporaryDirectory
             .appendingPathComponent("jotbay-shot-vault")
@@ -229,16 +229,16 @@ let demoActivity: [ActivityEvent] = [
 
         > Measure first. Everything above was a guess until it was not.
         """
-        // A table whose cells differ wildly in height — the case where a
+        // A table whose cells differ wildly in height. The case where a
         // short cell's border stops short of the row it is in.
         let unevenTable = """
         # Licences
 
         | Tool | Licence | Scope |
         |---|---|---|
-        | **Tailark** | **Complete — $299 one-time, lifetime** | **Unlimited projects.** Use freely on anything of mine, including client work, with no per-seat accounting and no expiry to track. |
+        | **Tailark** | **Complete, $299 one-time, lifetime** | **Unlimited projects.** Use freely on anything of mine, including client work, with no per-seat accounting and no expiry to track. |
         | shadcn/ui | MIT | Copy in |
-        | Tailwind | MIT | Everywhere, forever, on anything at all — there is no licence tier to think about here and never has been. |
+        | Tailwind | MIT | Everywhere, forever, on anything at all. There is no licence tier to think about here and never has been. |
         """
         shot("table-uneven", PreviewView(preview: Preview(
             rel: "licences.md", size: 900, text: unevenTable,

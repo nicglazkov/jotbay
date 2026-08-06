@@ -16,12 +16,12 @@ BUILD_DIR="build"
 #
 # Two reasons, and the second matters even without publishing: notarization
 # accepts nothing but Developer ID, and TCC permissions bind to bundle ID *and*
-# signing identity — an ad-hoc hash changes on every build, so macOS forgets
+# signing identity. An ad-hoc hash changes on every build, so macOS forgets
 # every granted permission each time. CI runners have no certificate, so they
 # fall through to ad hoc and keep working unchanged.
 #
 # Decided up here, before resources are staged, because the nested CLI must be
-# signed as it is copied in — Xcode signs the bundle but not what is inside it.
+# signed as it is copied in, Xcode signs the bundle but not what is inside it.
 #
 # Who signs it lives in signing.env, which is gitignored: a certificate name,
 # a Team ID and a bundle prefix all identify the publisher rather than the
@@ -40,7 +40,7 @@ if [ -n "$IDENTITY" ] && security find-identity -v -p codesigning 2>/dev/null | 
 fi
 
 if [ ! -f "$ICONS/jotbay.icns" ]; then
-  echo "error: $ICONS/jotbay.icns missing — run lib/icons/generate.sh first" >&2
+  echo "error: $ICONS/jotbay.icns missing, run lib/icons/generate.sh first" >&2
   exit 1
 fi
 
@@ -56,7 +56,7 @@ cp "$ICONS"/menubar/*.png Resources/
 # inside an app that claims to run on Intel.
 if [ "${JOTBAY_ARCHS:-}" = "arm64 x86_64" ] || [ "${JOTBAY_ARCHS:-}" = "x86_64 arm64" ]; then
   # Always rebuilt, never reused. This used to skip the build when the binary
-  # was already universal — which is a shape check, not a freshness check, and
+  # was already universal, which is a shape check, not a freshness check, and
   # a universal binary from the *previous* release satisfied it. The 1.5.0 DMG
   # shipped with 1.4.0 sealed inside its app that way. Cargo is incremental,
   # so an up-to-date rebuild costs seconds.
@@ -85,7 +85,7 @@ fi
 # A nested executable must carry its own signature. Xcode signs the bundle but
 # not arbitrary files copied into Resources, and notarization rejects the lot:
 # "The binary is not signed", "no secure timestamp", "hardened runtime not
-# enabled" — all reported against Contents/Resources/jotbay, not the app.
+# enabled", all reported against Contents/Resources/jotbay, not the app.
 # Signing it here means xcodebuild seals an already-valid binary inside.
 if [ -f Resources/jotbay ] && [ "$HAVE_IDENTITY" = yes ]; then
   codesign --force --timestamp --options runtime --sign "$IDENTITY" Resources/jotbay
@@ -99,7 +99,7 @@ echo "==> generating Xcode project"
 rm -rf Jotbay.xcodeproj
 xcodegen generate
 if [ ! -d Jotbay.xcodeproj ]; then
-  echo "error: xcodegen produced no project — see its validation output above" >&2
+  echo "error: xcodegen produced no project, see its validation output above" >&2
   exit 1
 fi
 
@@ -146,7 +146,7 @@ status=${PIPESTATUS[0]}
 set -e
 
 if [ "$status" -ne 0 ]; then
-  echo "error: xcodebuild failed (exit $status) — full log in $BUILD_DIR.log" >&2
+  echo "error: xcodebuild failed (exit $status), full log in $BUILD_DIR.log" >&2
   exit "$status"
 fi
 

@@ -8,15 +8,15 @@
 # built here: its GUI is the native Swift app, packaged by lib/gui-macos/package.sh.
 #
 # NSIS only on Windows, deliberately. The WiX/MSI bundle installs per-machine
-# (ALLUSERS=1) — it prompts for UAC, registers under HKLM, and an unelevated
-# uninstall fails with error 1730 — while the NSIS installer is currentUser and
+# (ALLUSERS=1). It prompts for UAC, registers under HKLM, and an unelevated
+# uninstall fails with error 1730, while the NSIS installer is currentUser and
 # is the only one that puts the CLI on PATH. Two installers with different
 # elevation semantics and different outcomes is worse than one that works.
 #
 # The CLI is staged into src-tauri/staged first, because the bundler can only
 # package files that sit inside the crate. Both installers place it where a
-# terminal can reach it — /usr/bin on Linux, the install directory plus a PATH
-# entry on Windows — so installing the app does not leave a CLI user stranded.
+# terminal can reach it, /usr/bin on Linux, the install directory plus a PATH
+# entry on Windows, so installing the app does not leave a CLI user stranded.
 
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -36,7 +36,7 @@ command -v tauri >/dev/null || die "tauri CLI not found (npm i -g @tauri-apps/cl
 
 # Strip absolute build paths, matching what release.yml does, so a binary built
 # here and one built by CI can be compared at all. `file!()` puts the path of
-# every panic site into the binary — 128 of them in the 1.7.1 CLI — which
+# every panic site into the binary, 128 of them in the 1.7.1 CLI, which
 # otherwise embeds this machine's home directory in anything shipped from it.
 #
 # Exported rather than passed per-command so the tauri bundler's own cargo
@@ -75,12 +75,12 @@ say "staged $(ls "$STAGED")"
 
 # A bundle identifier belongs to whoever publishes the app. The committed value
 # is this project's; a fork sets JOTBAY_BUNDLE_PREFIX and gets its own without
-# editing tracked files. It must stay stable across releases — an installer
+# editing tracked files. It must stay stable across releases. An installer
 # whose identifier changed reads as a different product and installs alongside
 # the old one instead of upgrading it.
 # Wipe previous output first. The listing at the end prints whatever is in the
-# bundle directory, so a leftover from an earlier build — including one under
-# the tool's previous name — was reported as if it had just been produced.
+# bundle directory, so a leftover from an earlier build, including one under
+# the tool's previous name, was reported as if it had just been produced.
 rm -rf "src-tauri/target/${TARGET:+$TARGET/}release/bundle"
 
 say "bundling"

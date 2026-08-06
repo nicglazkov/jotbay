@@ -17,7 +17,7 @@
 //!
 //! Upstream keeps the canonical name; the local version is written beside it as
 //! `<stem>.conflict-<hostname>-<timestamp>.<ext>`. When only one side has
-//! content — the delete/modify cases — that surviving content is kept at the
+//! content. The delete/modify cases, that surviving content is kept at the
 //! canonical path. No branch of this function can lose a byte.
 
 use crate::error::Result;

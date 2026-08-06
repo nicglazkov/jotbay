@@ -4,7 +4,7 @@ members = ["core", "cli"]
 
 # The Tauri app is a member too, but it is added by its own manifest so that
 # `cargo build` here does not require the Tauri system dependencies (WebKitGTK
-# etc.) on machines that only need the CLI — notably the headless servers.
+# etc.) on machines that only need the CLI, notably the headless servers.
 
 [workspace.package]
 version = "1.8.3"

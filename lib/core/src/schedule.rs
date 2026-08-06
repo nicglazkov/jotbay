@@ -3,7 +3,7 @@
 //! This lived only in `install.sh` and `install.ps1`, which meant it happened
 //! only for people who ran a script. Someone who downloaded the `.dmg`, dragged
 //! it to Applications, opened the app and finished setup got no background sync
-//! at all — their notes moved when they pressed a button and at no other time.
+//! at all, their notes moved when they pressed a button and at no other time.
 //! That is precisely backwards: the graphical route exists for the people least
 //! likely to go and find a shell.
 //!
@@ -11,7 +11,7 @@
 //! unit and task name the installers use, so a machine that has run both ends
 //! up with one scheduler rather than two.
 //!
-//! The watcher runs in the foreground and the OS supervises it — launchd
+//! The watcher runs in the foreground and the OS supervises it, launchd
 //! `KeepAlive`, systemd `Restart=always`, a Windows logon task with restart
 //! counts. All three restart a process that dies and capture what it printed,
 //! which is a supervisor worth more than anything this could hand-roll.
@@ -56,7 +56,7 @@ pub fn ensure() -> Result<bool> {
 /// Not `current_exe()`: the caller may be the GUI, and scheduling *that* would
 /// launch a window every ten minutes. The CLI is what runs headless.
 fn cli_path() -> Result<PathBuf> {
-    // Beside whatever is running, first — an app bundle carries its own copy,
+    // Beside whatever is running, first. An app bundle carries its own copy,
     // and a cask links that same file onto PATH.
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
@@ -106,8 +106,8 @@ fn install_candidates() -> Vec<PathBuf> {
             PathBuf::from("/usr/bin/jotbay"),
         ];
         // The app bundle is an install location like any other, and it was the
-        // one missing. A fresh macOS VM reached this list — nothing else on it
-        // had a jotbay — and `schedule::ensure` failed with "could not find the
+        // one missing. A fresh macOS VM reached this list. Nothing else on it
+        // had a jotbay, and `schedule::ensure` failed with "could not find the
         // jotbay command to schedule" while the CLI sat in Resources the whole
         // time. Harmless in the shipped layout, where the earlier
         // beside-current_exe branch matches first, and not harmless for
@@ -179,7 +179,7 @@ fn install() -> Result<()> {
         // the cmdlets.
         //
         // -User is not optional. `New-ScheduledTrigger -AtLogOn` with no user
-        // means *any* user's logon, which only an administrator may register —
+        // means *any* user's logon, which only an administrator may register
         // so the first version failed with "Access is denied" for exactly the
         // person it was meant to help, and did so silently, because the GUI
         // ignores the result. install.ps1 looked like precedent but used a time

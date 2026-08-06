@@ -36,7 +36,7 @@ impl NodeStatus {
     /// meant "has not synced recently", which worked only because every machine
     /// synced on a fixed timer whether or not it had anything to do. Idle
     /// machines no longer sync, so absence of syncing stopped meaning absence
-    /// of machine — a healthy fleet with nothing to do reported itself
+    /// of machine. A healthy fleet with nothing to do reported itself
     /// entirely offline. Opening a window now asks the others to report in, so
     /// what this measures is a machine that was asked and did not answer.
     pub fn is_stale(&self, interval_secs: i64) -> bool {
@@ -74,7 +74,7 @@ pub enum NodeHealth {
     Healthy,
     /// Strictly behind the local head; resolves itself on the node's next pull.
     Behind,
-    /// Holds commits the local head does not — needs a sync to reconcile.
+    /// Holds commits the local head does not, needs a sync to reconcile.
     Diverged,
     Stale,
     Error,
@@ -118,7 +118,7 @@ pub struct JotbayStatus {
     #[serde(default)]
     pub warnings: Vec<crate::limits::FileWarning>,
     /// Set when the repository's release marker names a newer version than
-    /// this binary. Costs nothing to compute — the marker already synced.
+    /// this binary. Costs nothing to compute. The marker already synced.
     #[serde(default)]
     pub update_available: Option<String>,
     pub nodes: Vec<NodeStatus>,
@@ -163,7 +163,7 @@ impl SyncReport {
     /// One line describing what happened, in the words a non-git user needs.
     ///
     /// Lives here rather than in each front end because it was written three
-    /// times — once per UI — and the three had already drifted apart on
+    /// times, once per UI, and the three had already drifted apart on
     /// pluralisation and on whether "committed" was a word worth showing
     /// somebody who never asked for a commit.
     pub fn summary(&self) -> String {
@@ -223,7 +223,7 @@ pub enum ConflictKind {
 
 /// One thing that happened on one machine.
 ///
-/// Recorded per sync, and only when the sync actually did something — a no-op
+/// Recorded per sync, and only when the sync actually did something. A no-op
 /// check every ten minutes on six machines would bury the events that matter.
 /// "Nothing happened but I am alive" is already carried by `NodeStatus`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -235,12 +235,12 @@ pub struct ActivityEvent {
     /// One short human sentence. Always safe to show.
     pub summary: String,
     /// The paths this event touched, so a row can be expanded to answer
-    /// "pushed 2 files — which two?" without going to the commit log.
+    /// "pushed 2 files, which two?" without going to the commit log.
     #[serde(default)]
     pub files: Vec<String>,
-    /// The raw underlying text, when there is one — full git stderr for a
+    /// The raw underlying text, when there is one, full git stderr for a
     /// failure. Shown only in verbose mode: a push rejected for a private
-    /// email produced five lines of `remote: error: …` that told a first-time
+    /// email produced five lines of `remote: error: ` that told a first-time
     /// user nothing and swamped the pane.
     #[serde(default)]
     pub detail: Option<String>,
@@ -293,6 +293,6 @@ pub struct CommitInfo {
     pub subject: String,
     pub author: String,
     pub timestamp: String,
-    /// Parsed out of automated commit subjects of the form `jotbay: <host> …`.
+    /// Parsed out of automated commit subjects of the form `jotbay: <host> `.
     pub node: Option<String>,
 }

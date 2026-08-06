@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 pub enum Target {
     /// The application itself.
     App,
-    /// The `data/` directory inside the vault — the notes, not the repository.
+    /// The `data/` directory inside the vault. The notes, not the repository.
     Notes,
 }
 
@@ -72,9 +72,9 @@ fn xdg_desktop_dir() -> Option<PathBuf> {
 
 /// Where the installed application lives on this machine, if it can be found.
 ///
-/// Every install route puts it somewhere different — a `.dmg` dragged to
+/// Every install route puts it somewhere different. A `.dmg` dragged to
 /// /Applications, an NSIS package under LocalAppData, a `.deb` in /usr/bin,
-/// `install.sh` in ~/.local/bin — so this probes rather than assumes.
+/// `install.sh` in ~/.local/bin, so this probes rather than assumes.
 pub fn locate_app() -> Option<PathBuf> {
     let home = crate::home();
     let candidates: Vec<PathBuf> = if cfg!(target_os = "macos") {
@@ -164,7 +164,7 @@ fn linux_desktop_entry(source: &Path, location: &Path) -> Result<PathBuf> {
     // `jotbay-gui`, not `Jotbay`. Icon names are looked up as filenames in the
     // theme directories, and the package installs
     // `/usr/share/icons/hicolor/*/apps/jotbay-gui.png`. `Icon=Jotbay` matched
-    // nothing, so the launcher drew with no icon at all — the system menu entry
+    // nothing, so the launcher drew with no icon at all. The system menu entry
     // had it right and only this hand-written copy was wrong.
     //
     // Without the executable bit GNOME shows "Untrusted application launcher"
@@ -177,8 +177,8 @@ fn linux_desktop_entry(source: &Path, location: &Path) -> Result<PathBuf> {
 
     // And the executable bit is not enough on its own. Since GNOME 42 a
     // `.desktop` file on the desktop also needs `metadata::trusted`, or the
-    // shell renders it as what it literally is — a text file called
-    // "jotbay.desktop", with a generic icon — instead of a launcher. Seen on
+    // shell renders it as what it literally is. A text file called
+    // "jotbay.desktop", with a generic icon, instead of a launcher. Seen on
     // Ubuntu after a clean install: the shortcut we had just offered to create
     // appeared broken.
     //

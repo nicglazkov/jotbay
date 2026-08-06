@@ -9,7 +9,7 @@ no account with the project.
 The one outbound request the tool makes on its own is to
 `api.github.com/repos/<tool repo>/releases/latest`, to notice when a newer
 version exists. It sends nothing but the request; the answer is cached for six
-hours. Set `JOTBAY_TOOL_REPO` to point it elsewhere, or block it — everything
+hours. Set `JOTBAY_TOOL_REPO` to point it elsewhere, or block it, everything
 except the update notice keeps working.
 
 Credentials are never read, stored or transmitted by Jotbay. Pushing and pulling

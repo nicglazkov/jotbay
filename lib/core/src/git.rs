@@ -150,7 +150,7 @@ impl Git {
         self.networked(args, timeout, false).map(|(o, _)| o)
     }
 
-    /// The same, keeping stdout — for a call whose answer *is* its output.
+    /// The same, keeping stdout, for a call whose answer *is* its output.
     ///
     /// `ls-remote` is the reason this exists: it is the cheapest question you
     /// can ask a remote, and the watcher asks it constantly to avoid asking
@@ -237,7 +237,7 @@ impl Git {
         }
     }
 
-    /// Raw bytes of stdout — used for blob contents, which may not be UTF-8.
+    /// Raw bytes of stdout, used for blob contents, which may not be UTF-8.
     pub fn run_bytes(&self, args: &[&str]) -> Result<Vec<u8>> {
         let out = self.command(args).output().map_err(Error::GitMissing)?;
         if !out.status.success() {

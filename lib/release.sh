@@ -26,12 +26,12 @@ say "setting version to $VERSION"
 python3 - "$VERSION" <<'PY'
 import pathlib, re, sys
 version = sys.argv[1]
-# (file, pattern, replacement) — every place the version is written.
+# (file, pattern, replacement). Every place the version is written.
 targets = [
-    ("lib/Cargo.toml",                          r'^version = "[^"]+"',         f'version = "{version}"'),
-    ("lib/gui-tauri/src-tauri/Cargo.toml",      r'^version = "[^"]+"',         f'version = "{version}"'),
-    ("lib/gui-tauri/src-tauri/tauri.conf.json", r'"version": "[^"]+"',         f'"version": "{version}"'),
-    ("lib/gui-macos/project.yml",               r'MARKETING_VERSION: "[^"]+"', f'MARKETING_VERSION: "{version}"'),
+    ("lib/Cargo.toml", r'^version = "[^"]+"', f'version = "{version}"'),
+    ("lib/gui-tauri/src-tauri/Cargo.toml", r'^version = "[^"]+"', f'version = "{version}"'),
+    ("lib/gui-tauri/src-tauri/tauri.conf.json", r'"version": "[^"]+"', f'"version": "{version}"'),
+    ("lib/gui-macos/project.yml", r'MARKETING_VERSION: "[^"]+"', f'MARKETING_VERSION: "{version}"'),
 ]
 for path, pattern, replacement in targets:
     p = pathlib.Path(path)
@@ -65,7 +65,7 @@ say "running tests"
 cargo test --quiet --manifest-path lib/Cargo.toml
 
 echo
-say "ready — commit, then tag"
+say "ready, commit, then tag"
 cat <<EOF
 
     git add -A && git commit -m "Release $VERSION"

@@ -1,7 +1,7 @@
 //! Per-node status published to `refs/jotbay-status/<hostname>`.
 //!
 //! Each machine owns exactly one ref, so two nodes can never conflict and no
-//! heartbeat ever lands on `main` — the branch carries content and nothing
+//! heartbeat ever lands on `main`. The branch carries content and nothing
 //! else. Reading every node's state costs one fetch.
 
 use crate::error::{Error, Result};
@@ -64,7 +64,7 @@ pub fn publish(git: &Git, status: &NodeStatus, events: &[ActivityEvent]) -> Resu
     git.run(&["update-ref", &refname, &commit])?;
     // Bounded: this is the exact call that once sat for four minutes inside a
     // scheduled sync. Publishing status is best-effort, so a failure here is
-    // not worth aborting over — but it must not hang the scheduler either.
+    // not worth aborting over, but it must not hang the scheduler either.
     let out = git.run_networked(
         &["push", "--quiet", "--force", "origin", &format!("{refname}:{refname}")],
         crate::git::NETWORK_TIMEOUT,

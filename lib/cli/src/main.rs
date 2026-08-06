@@ -190,7 +190,7 @@ fn cmd_sync(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
 
     // A sync that never ran must not exit 0. The watcher holds the lock most of
     // the time, so `jotbay sync` frequently did nothing at all and still
-    // reported success — and a script checking the exit code could not tell
+    // reported success, and a script checking the exit code could not tell
     // "synced" from "did not sync". Found during the Windows fresh install,
     // where a runbook step depended on this command actually pushing.
     //
@@ -211,7 +211,7 @@ fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core
 
     // Ask before reading. This is the command whose entire purpose is "who is
     // out there", and without it the answer is only ever "who last had
-    // something to sync" — which on a quiet fleet is nobody at all.
+    // something to sync", which on a quiet fleet is nobody at all.
     // Best-effort: a remote we cannot reach still has local answers worth
     // showing.
     let asked = jotbay_core::presence::request(jotbay.git()).is_ok();
@@ -223,7 +223,7 @@ fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core
         render::nodes(&nodes, &head);
         // Answers cannot arrive before they are asked for. A machine that has
         // been quiet checks the remote every few minutes, so the roll call sent
-        // a moment ago is still in flight while this table is being printed —
+        // a moment ago is still in flight while this table is being printed
         // and the first run after a quiet spell therefore shows ages, not
         // presence. Saying so beats letting the reader conclude their machines
         // are dead.
@@ -234,7 +234,7 @@ fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core
         if asked && waiting > 0 {
             println!();
             println!(
-                "  · asked {} to report in — run this again in a moment",
+                "  asked {} to report in. Run this again in a moment.",
                 if waiting == 1 { "a machine that has been quiet".to_string() }
                 else { format!("{waiting} machines that have been quiet") }
             );
@@ -268,10 +268,10 @@ fn cmd_init(
     let destination = at.unwrap_or_else(jotbay_core::default_root);
 
     let root = if let Some(name) = create {
-        println!("  creating a private repository and cloning it…");
+        println!("  Creating a private repository and cloning it.");
         setup::create_and_clone(&name, &destination)?
     } else if let Some(url) = clone {
-        println!("  cloning…");
+        println!("  Cloning.");
         setup::clone_existing(&url, &destination)?
     } else {
         setup::adopt(&adopt.expect("one of the three is set"))?
@@ -283,8 +283,8 @@ fn cmd_init(
     jotbay.remember()?;
 
     // A machine set up here must sync by itself afterwards. This lived only in
-    // `cmd_sync`, so setting up through `init` — the route the install scripts
-    // tell people to run — produced a vault with no background sync at all,
+    // `cmd_sync`, so setting up through `init`. The route the install scripts
+    // tell people to run, produced a vault with no background sync at all,
     // and nothing said so. Verified absent on a fresh macOS VM: `init`
     // reported success and `~/Library/LaunchAgents` did not exist. The same
     // shape as issue #3 on Windows, on a third path.
@@ -395,7 +395,7 @@ fn cmd_watch(jotbay: &Jotbay) -> jotbay_core::Result<()> {
 fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     // Asking to upgrade is exactly the moment to find out what "latest" is,
     // rather than trusting a cache that may be six hours old. This used to call
-    // refresh_remote(), which honours that cache — so the comment was true and
+    // refresh_remote(), which honours that cache, so the comment was true and
     // the code was not, and a machine could be unable to reach a new release
     // until the cache aged out.
     jotbay_core::update::refresh_remote_now();
@@ -403,7 +403,7 @@ fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     let status = jotbay.update_status();
     match (&status.latest, status.available) {
         (None, _) => {
-            println!("  no release found — check your connection, or sync first");
+            println!("  No release found. Check your connection, or sync first.");
             return Ok(());
         }
         (Some(latest), false) => {
@@ -470,7 +470,7 @@ fn cmd_settings(json: bool, assignment: Option<String>) -> jotbay_core::Result<(
             }
             other => {
                 return Err(jotbay_core::Error::Other(format!(
-                    "unknown setting '{other}' — try theme or verbose"
+                    "Unknown setting '{other}'. Try theme or verbose."
                 )))
             }
         }

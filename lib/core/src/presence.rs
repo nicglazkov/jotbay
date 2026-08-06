@@ -2,8 +2,8 @@
 //!
 //! Liveness used to be a side effect: every machine synced on a fixed timer, so
 //! its status ref was always fresh, and "recently published" stood in for
-//! "alive". Once polling became conditional, an idle machine stopped syncing —
-//! correctly, there was nothing to sync — and therefore stopped publishing. A
+//! "alive". Once polling became conditional, an idle machine stopped syncing
+//! correctly, there was nothing to sync, and therefore stopped publishing. A
 //! healthy fleet with nothing to do reported itself as entirely offline.
 //!
 //! The obvious repair is a heartbeat: publish every few minutes regardless. It
@@ -33,7 +33,7 @@ use time::OffsetDateTime;
 /// fetches nor overwrites it.
 ///
 /// The trailing component is not decoration. `receive-pack` rejects a ref one
-/// level under `refs/` as a "funny ref" — `refs/jotbay-rollcall` is refused
+/// level under `refs/` as a "funny ref", `refs/jotbay-rollcall` is refused
 /// remotely even though it is a perfectly good local ref, which is why the
 /// status refs have always had a hostname after them.
 pub const ROLLCALL_REF: &str = "refs/jotbay-rollcall/current";

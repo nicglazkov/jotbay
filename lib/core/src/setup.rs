@@ -2,7 +2,7 @@
 //!
 //! A native installer cannot clone a private repository, so the app has to ask
 //! where the notes live. The cheapest thing to build would be a folder picker,
-//! but that assumes the person already made a repo and knows what a remote is —
+//! but that assumes the person already made a repo and knows what a remote is
 //! which is exactly the assumption that makes "clone this and run a shell
 //! script" unusable as onboarding for anyone but its author.
 //!
@@ -11,7 +11,7 @@
 //! and clones the result. Pasting a URL and adopting an existing folder stay
 //! available for people who have their own arrangements.
 //!
-//! A vault created here holds notes and nothing else — no toolchain, no source.
+//! A vault created here holds notes and nothing else. No toolchain, no source.
 //! The program arrives from the installer; the repository is just the notes.
 
 use crate::error::{Error, Result};
@@ -31,7 +31,7 @@ pub struct SetupCapabilities {
     /// Whether the desktop app can be found, so an offer to put a shortcut to
     /// it somewhere is not made when there is nothing to point at.
     pub app_installed: bool,
-    /// Where a shortcut would go — the user's desktop, XDG setting honoured.
+    /// Where a shortcut would go. The user's desktop, XDG setting honoured.
     pub desktop: String,
 }
 
@@ -104,7 +104,7 @@ pub fn create_and_clone(name: &str, destination: &Path) -> Result<PathBuf> {
     }
     if !caps.gh_authenticated {
         return Err(Error::Other(
-            "gh is not signed in — run `gh auth login`, then try again".into(),
+            "gh isn't signed in. Run `gh auth login`, then try again.".into(),
         ));
     }
     guard_destination(destination)?;
@@ -114,8 +114,8 @@ pub fn create_and_clone(name: &str, destination: &Path) -> Result<PathBuf> {
         .ok_or_else(|| Error::Other("could not read the GitHub account name".into()))?;
     let slug = format!("{owner}/{name}");
 
-    // Check before creating. Otherwise the failure surfaces as raw GraphQL —
-    // "Name already exists on this account (createRepository)" — at the worst
+    // Check before creating. Otherwise the failure surfaces as raw GraphQL
+    // "Name already exists on this account (createRepository)", at the worst
     // possible moment, when someone is three clicks into first-run setup.
     let exists = crate::proc::quiet("gh")
         .args(["repo", "view", &slug, "--json", "name"])
@@ -150,7 +150,7 @@ pub fn clone_existing(url: &str, destination: &Path) -> Result<PathBuf> {
     let finish = seed(destination).and_then(|()| publish_initial(destination));
     if let Err(e) = finish {
         // Undo the clone. Without this a setup that got past `git clone` and
-        // failed afterwards — on a missing git identity, say — left a
+        // failed afterwards, on a missing git identity, say, left a
         // half-made vault behind, and the retry the error message invites was
         // then refused with "already exists and is not empty". A dead end
         // reached by following our own instructions. Only ever removes the
@@ -178,7 +178,7 @@ pub fn adopt(path: &Path) -> Result<PathBuf> {
 /// Give the branch a first commit and an upstream, if it has neither.
 ///
 /// `gh repo create` makes an genuinely empty repository, so cloning it yields a
-/// checkout with no commits and no upstream — and every later sync fails at
+/// checkout with no commits and no upstream, and every later sync fails at
 /// "no upstream configured" without ever explaining why. This is also the first
 /// moment a commit is attempted on a new machine, which is precisely where a
 /// missing git identity strands people, so both are settled here.
@@ -192,7 +192,7 @@ fn publish_initial(root: &Path) -> Result<()> {
     // both returned here untouched.
     //
     // The 1.7.1 fix to ensure_identity itself was correct and completely
-    // unreachable on two of the three first-run routes — including the one
+    // unreachable on two of the three first-run routes, including the one
     // anybody with existing notes picks. Setup succeeded, the watcher
     // committed, and the first push died on GH007 exactly as it had before.
     // Found by a fresh install, which is the only place it is visible.
@@ -227,7 +227,7 @@ fn publish_initial(root: &Path) -> Result<()> {
         Err(e) => {
             // GH007: the account blocks pushes that would expose a private
             // email. An identity being *present* is not the same as it being
-            // pushable, so the check above passes and the push still fails —
+            // pushable, so the check above passes and the push still fails
             // the same wall one step later. Swap in the noreply address, which
             // is public by construction, and try once more.
             let text = e.to_string();
@@ -235,7 +235,7 @@ fn publish_initial(root: &Path) -> Result<()> {
                 use_noreply_email(root)?;
                 // Changing the config does not touch the commit already made
                 // under the old address, and it is the commit the server
-                // objects to. Re-author it — safe here precisely because this
+                // objects to. Re-author it, safe here precisely because this
                 // runs once, on the very first commit of a new vault.
                 run(
                     "git",
@@ -258,7 +258,7 @@ fn use_noreply_email(root: &Path) -> Result<()> {
         .login
         .filter(|_| caps.gh_authenticated)
         .ok_or_else(|| Error::Other(
-            "push was refused for exposing a private email, and gh cannot supply the noreply address — sign in with `gh auth login`".into(),
+            "The push was refused because it would expose a private email address, and gh can't supply the noreply address. Sign in with `gh auth login`.".into(),
         ))?;
     let id = run("gh", &["api", "user", "--jq", ".id"], None)?;
     run(
@@ -272,14 +272,14 @@ fn use_noreply_email(root: &Path) -> Result<()> {
 /// Borrow the identity from `gh` when git has none.
 ///
 /// Without this the first commit fails with "Author identity unknown", and on a
-/// machine set up only through `gh auth login` that is the default state —
+/// machine set up only through `gh auth login` that is the default state
 /// authenticating configures credentials but not identity. Set on this clone
 /// only; an installer has no business rewriting what every other repository on
 /// the machine commits under.
 fn ensure_identity(root: &Path) -> Result<()> {
     // `--local`, not `--get`. The plain form reads the global config too, so a
     // machine with any global identity satisfied this check and skipped
-    // everything below — including the noreply address. The first push then
+    // everything below, including the noreply address. The first push then
     // died on GH007 ("would publish a private email"), which is the exact wall
     // install.ps1 already learned to avoid, reached through a different door:
     // setup succeeded, the watcher committed, and nothing ever left the machine.
@@ -302,7 +302,7 @@ fn ensure_identity(root: &Path) -> Result<()> {
         Some(l) if caps.gh_authenticated => l,
         _ => {
             // No gh to ask. A global identity is then the best available, and
-            // may well be fine — it is only private-email accounts that GH007
+            // may well be fine. It is only private-email accounts that GH007
             // rejects, and the failure says so clearly when it happens.
             let have_any = |key: &str| {
                 crate::proc::quiet("git")
@@ -324,7 +324,7 @@ fn ensure_identity(root: &Path) -> Result<()> {
             // exists for people least likely to do that.
             //
             // So name the machine instead. Git only needs *an* identity, and
-            // an address that belongs to no account cannot trip GH007 — that
+            // an address that belongs to no account cannot trip GH007. That
             // rejection is specifically for an email marked private on the
             // account being pushed to. `.invalid` is reserved by RFC 2606 and
             // can never resolve, so this is honestly a placeholder rather

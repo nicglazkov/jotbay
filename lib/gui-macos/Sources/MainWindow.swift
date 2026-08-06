@@ -55,7 +55,7 @@ struct MainWindow: View {
                 .disabled(controller.isSyncing)
                 // One button. Refresh used to sit beside it, which asked the
                 // user to know the difference between fetching what others did
-                // and sending what they did — a git distinction, in an app
+                // and sending what they did. A git distinction, in an app
                 // whose point is not needing one.
                 .help("Send your changes and bring in everyone else's")
             }
@@ -98,7 +98,7 @@ private struct SummaryBar: View {
                         ProgressView().controlSize(.small)
                     }
                 }
-                Text(controller.status.root.isEmpty ? "Locating Jotbay…" : controller.status.root)
+                Text(controller.status.root.isEmpty ? "Locating Jotbay" : controller.status.root)
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -107,7 +107,7 @@ private struct SummaryBar: View {
 
             Metric(value: "\(controller.status.dataFiles)", label: "files")
             Metric(value: "\(controller.status.nodes.count)", label: "machines")
-            Metric(value: controller.status.headShort.isEmpty ? "—" : controller.status.headShort,
+            Metric(value: controller.status.headShort.isEmpty ? "-" : controller.status.headShort,
                    label: "commit")
         }
         .padding(.horizontal, 20)
@@ -218,7 +218,7 @@ private struct FileLimitBanner: View {
 
     /// Whatever `jotbay_core::limits` says about these files. Holding a second
     /// copy of the wording here is what left this window recommending Git LFS
-    /// after core had stopped — and LFS corrupts files during conflict
+    /// after core had stopped, and LFS corrupts files during conflict
     /// resolution. The fallback only covers an `jotbay` binary older than the
     /// field itself.
     private func advice(for group: [FileWarning]) -> String {
@@ -337,7 +337,7 @@ private struct NodeRow: View {
 
     private var detail: String {
         // The health label used to be prepended unconditionally, which read
-        // "behind · 1 behind" — the count already says it, and says it more
+        // "behind · 1 behind". The count already says it, and says it more
         // precisely. The label is only worth showing when nothing else is.
         var parts: [String] = []
         if node.behind > 0 { parts.append("\(node.behind) behind") }
@@ -599,7 +599,7 @@ private struct SettingsPanel: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                Text("Applies to this machine only — settings never sync.")
+                Text("Applies to this machine only. Settings never sync.")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
             }

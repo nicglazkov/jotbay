@@ -8,7 +8,7 @@ pub enum Error {
     #[error("git {args}: {stderr}")]
     Git { args: String, stderr: String },
 
-    #[error("could not run git — is it installed and on PATH? ({0})")]
+    #[error("could not run git, is it installed and on PATH? ({0})")]
     GitMissing(std::io::Error),
 
     #[error(

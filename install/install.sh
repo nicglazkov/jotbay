@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Jotbay installer — macOS and Linux.
+# Jotbay installer for macOS and Linux.
 #
 #   curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
 #   ./install/install.sh              from a clone; same thing
@@ -9,11 +9,11 @@
 #
 # Installs the binaries and the background sync schedule. Where your notes live
 # is a separate question with its own answer: `jotbay init`, or the first-run
-# screen in the app — the installer does not decide that for you.
+# screen in the app. The installer does not decide that for you.
 
 set -euo pipefail
 
-# Piped through `curl | sh` there is no script file and no clone — only a
+# Piped through `curl | sh` there is no script file and no clone, only a
 # published release can supply the binaries. From a clone, source builds are
 # also on the table.
 CLONE_DIR=""
@@ -58,7 +58,7 @@ have() { command -v "$1" >/dev/null 2>&1; }
 case "$(uname -s)" in
   Darwin) OS=macos ;;
   Linux)  OS=linux ;;
-  *) die "unsupported operating system: $(uname -s) — use install.ps1 on Windows" ;;
+  *) die "Unsupported operating system: $(uname -s). Use install.ps1 on Windows." ;;
 esac
 
 case "$(uname -m)" in
@@ -80,7 +80,7 @@ mkdir -p "$BIN_DIR"
 APP_DIR="$HOME/Applications"
 
 # Binaries from before the rename. The installer replaced the *timer* but left
-# these, so `inkway` stayed on PATH — and running one would republish to
+# these, so `inkway` stayed on PATH, and running one would republish to
 # refs/inkway-status/ and recreate the orphan ref that was just deleted.
 for STALE in inkway inkway-gui; do
   if [ -e "$BIN_DIR/$STALE" ]; then
@@ -91,7 +91,7 @@ done
 
 # Two installs of the same tool is the quiet failure here. Ubuntu's default
 # ~/.profile prepends ~/.local/bin, so this install shadows a packaged one and
-# `jotbay` keeps running whichever is older — with nothing anywhere saying so.
+# `jotbay` keeps running whichever is older, and nothing anywhere says so.
 # Observed on a machine that had both; the two binaries behaved differently.
 if [ -x /usr/bin/jotbay ] && [ "$BIN_DIR/jotbay" != /usr/bin/jotbay ]; then
   warn "a packaged copy is already installed at /usr/bin/jotbay"
@@ -154,7 +154,7 @@ download_release() {
 
 build_from_source() {
   [ -n "$CLONE_DIR" ] || die "no release could be downloaded, and a source build needs a clone"
-  have cargo || die "cargo not found — install Rust (https://rustup.rs) or wait for a published release"
+  have cargo || die "cargo not found. Install Rust from https://rustup.rs, or wait for a published release."
 
   info "building the CLI (this takes a minute)"
   ( cd "$CLONE_DIR/lib" && cargo build --release --quiet )
@@ -167,14 +167,14 @@ build_from_source() {
         ( cd "$CLONE_DIR/lib/gui-macos" && ./build.sh Release >/dev/null )
         install_app_bundle "$CLONE_DIR/lib/gui-macos/build/Build/Products/Release/Jotbay.app"
       else
-        warn "skipping the GUI — needs Xcode and xcodegen (brew install xcodegen)"
+        warn "Skipping the GUI. It needs Xcode and xcodegen: brew install xcodegen"
       fi
     else
       info "building the desktop app"
       if ( cd "$CLONE_DIR/lib/gui-tauri/src-tauri" && cargo build --release --quiet ); then
         install -m 755 "$CLONE_DIR/lib/gui-tauri/src-tauri/target/release/jotbay-gui" "$BIN_DIR/jotbay-gui"
       else
-        warn "skipping the GUI — Tauri needs libwebkit2gtk-4.1-dev and libgtk-3-dev"
+        warn "skipping the GUI, Tauri needs libwebkit2gtk-4.1-dev and libgtk-3-dev"
       fi
     fi
   fi
@@ -200,8 +200,8 @@ info "jotbay $("$BIN_DIR/jotbay" --version | awk '{print $2}') → $BIN_DIR/jotb
 # Now it asks: resolved from recorded settings (or ~/jotbay), from $HOME so a
 # clone this script happens to sit in is never mistaken for the notes.
 
-# Not `… || true` inside the substitution: that is the A && B || C shape,
-# which shellcheck 0.8 on the CI runner rejects and 0.11 locally lets pass —
+# Not ` || true` inside the substitution: that is the A && B || C shape,
+# which shellcheck 0.8 on the CI runner rejects and 0.11 locally lets pass
 # the second time that version gap has shipped a red lint job.
 VAULT_DATA="$(cd "$HOME" && "$BIN_DIR/jotbay" path 2>/dev/null)" || VAULT_DATA=""
 VAULT_DIR=""
@@ -217,7 +217,7 @@ fi
 # creating a commit. Nothing catches that until the first sync that actually has
 # something to commit: every sync before it reports success, because a pull and
 # push with no local work never needs an identity. On a fresh desktop that gap
-# can be days — the user writes notes the whole time and nothing leaves the
+# can be days. The user writes notes the whole time and nothing leaves the
 # machine. Checking here costs nothing and closes it.
 
 IDENTITY_OK=1
@@ -260,7 +260,7 @@ ensure_git_identity
 # --- background sync --------------------------------------------------------
 #
 # The schedule runs plain `jotbay sync`: the vault is resolved from settings at
-# run time, so setting up notes later — or moving them — never needs the
+# run time, so setting up notes later, or moving them, never needs the
 # schedule rewritten. The old form baked a --jotbay path into the plist, which
 # was the installer deciding where the notes were; that is init's job now.
 
@@ -352,7 +352,7 @@ UNIT_EOF
   # Without lingering, the user manager is torn down at logout and the timer
   # stops firing on exactly the headless boxes that need it most.
   loginctl enable-linger "$USER" 2>/dev/null || \
-    warn "could not enable lingering — run: sudo loginctl enable-linger $USER"
+    warn "could not enable lingering, run: sudo loginctl enable-linger $USER"
   info "watching for changes · logs: journalctl --user -u jotbay-sync -f"
 fi
 
@@ -362,7 +362,7 @@ if [ "$WANT_GUI" -eq 1 ] && [ "$OS" = linux ] && [ -x "$BIN_DIR/jotbay-gui" ]; t
   say "creating the application menu entry"
   # The icon is installed to the hicolor theme and referenced by name, not by
   # path. An absolute Icon= into a clone dangles the moment the clone is
-  # deleted — and did: the menu entry lost its icon on every machine whose
+  # deleted, and did: the menu entry lost its icon on every machine whose
   # notes repo stripped lib/ after the split.
   ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
   mkdir -p "$ICON_DIR"
@@ -401,7 +401,7 @@ fi
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
-  *) warn "$BIN_DIR is not on your PATH — add this to your shell profile:"
+  *) warn "$BIN_DIR is not on your PATH, add this to your shell profile:"
      # shellcheck disable=SC2016  # $PATH is meant to stay literal for copy-paste
      printf '\n        export PATH="%s:$PATH"\n\n' "$BIN_DIR" ;;
 esac
@@ -413,7 +413,7 @@ if [ -n "$VAULT_DIR" ]; then
 
   # On a reinstall the schedule is already live, so its ten-minute run can land
   # on top of this one. The lock then does exactly its job and this sync exits
-  # having done nothing — correct, but "another sync is already running" is the
+  # having done nothing, correct, but "another sync is already running" is the
   # last thing the installer says, which reads like a failure. Name it.
   sync_log=$(mktemp)
   set +e
@@ -424,7 +424,7 @@ if [ -n "$VAULT_DIR" ]; then
   if grep -q "another sync is already running" "$sync_log"; then
     info "that was the scheduled sync already in flight; it finishes on its own"
   elif [ "$sync_status" -ne 0 ]; then
-    warn "first sync did not complete — run 'jotbay status' to see why"
+    warn "first sync did not complete, run 'jotbay status' to see why"
   fi
   rm -f "$sync_log"
 fi
@@ -438,15 +438,15 @@ fi
 echo
 say "done"
 if [ -z "$VAULT_DIR" ]; then
-  info "no notes on this machine yet — one more step:"
+  info "no notes on this machine yet. One more step:"
   info "  jotbay init          create, clone, or adopt your notes repository"
   if [ "$OS" = macos ] && [ -d "$APP_DIR/Jotbay.app" ]; then
-    info "  …or open Jotbay.app — the first screen asks the same question"
+    info "  or open Jotbay.app. The first screen asks the same question"
   fi
 else
-  info "jotbay status   — see every machine"
-  info "jotbay dash     — live dashboard"
-  info "jotbay sync     — sync right now"
+  info "jotbay status   see every machine"
+  info "jotbay dash     live dashboard"
+  info "jotbay sync     sync right now"
 fi
 
 if [ "$IDENTITY_OK" -eq 0 ]; then

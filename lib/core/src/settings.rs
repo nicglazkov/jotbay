@@ -53,11 +53,11 @@ pub struct Settings {
     #[serde(default)]
     pub vault_path: Option<String>,
     pub theme: Theme,
-    /// Show raw underlying detail — full git stderr, unabridged errors.
+    /// Show raw underlying detail, full git stderr, unabridged errors.
     ///
     /// Off by default because the common failures are far more useful as one
     /// sentence: a push rejected for a private email address rendered five
-    /// lines of `remote: error: …` with URLs in it, which told a first-time
+    /// lines of `remote: error: ` with URLs in it, which told a first-time
     /// user nothing and swamped the pane it appeared in.
     pub verbose: bool,
 }
@@ -111,8 +111,8 @@ fn legacy_config_dir() -> Option<PathBuf> {
 
 /// Copy the old settings across, once, if the new location has none.
 ///
-/// Copies rather than moves: an older binary may still be on the machine — the
-/// upgrade replaces one copy, not every copy — and it would find an empty
+/// Copies rather than moves: an older binary may still be on the machine. The
+/// upgrade replaces one copy, not every copy, and it would find an empty
 /// directory and re-run setup. Leaving the original costs a few hundred bytes.
 fn migrate_settings() {
     let Some(legacy) = legacy_config_dir() else {
@@ -123,7 +123,7 @@ fn migrate_settings() {
 
 /// The migration itself, with both paths handed in.
 ///
-/// Split out so it can be tested without mutating `HOME` — these tests run in
+/// Split out so it can be tested without mutating `HOME`, these tests run in
 /// parallel, and every other test in this module reads the environment through
 /// `config_dir`, so a test that reassigned it would corrupt its neighbours
 /// intermittently and only under load.
@@ -178,7 +178,7 @@ mod tests {
     /// The Linux migration run could not test this: that machine never had a
     /// config directory, so the branch was vacuous rather than passing. Losing
     /// `vault_path` sends every upgraded machine to the first-run screen as
-    /// though it had never been set up — too expensive to leave to whichever
+    /// though it had never been set up, too expensive to leave to whichever
     /// machine happens to have the right shape.
     #[test]
     fn settings_migrate_from_the_previous_name() {

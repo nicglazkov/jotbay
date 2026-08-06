@@ -6,7 +6,7 @@
 #
 # Runs the real front end in a WKWebView with a stubbed Tauri bridge, so the
 # page rendered is the one the app produces rather than a hand-edited DOM.
-# macOS-only, because it needs WebKit — but the front end is identical to the
+# macOS-only, because it needs WebKit, but the front end is identical to the
 # one WebView2 and WebKitGTK render, so the result is representative.
 
 set -euo pipefail

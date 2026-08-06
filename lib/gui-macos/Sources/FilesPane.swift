@@ -3,7 +3,7 @@ import SwiftUI
 /// Read-only browser for the notes folder: one directory at a time, breadcrumb
 /// back, markdown rendered on selection.
 ///
-/// Reads the filesystem directly rather than shelling out to the CLI — this is
+/// Reads the filesystem directly rather than shelling out to the CLI. This is
 /// the one surface where the CLI has nothing to add: there is no git state
 /// involved, and a preview that spawns a process per click feels like one.
 struct FilesPane: View {
@@ -172,7 +172,7 @@ struct FileEntry: Identifiable {
         if isDir { return "\(children) item\(children == 1 ? "" : "s")" }
         var parts = [Self.human(size)]
         if let modified {
-            // A file saved seconds ago formats as "in 0 seconds" — the relative
+            // A file saved seconds ago formats as "in 0 seconds". The relative
             // formatter rounds toward the future for near-zero intervals.
             parts.append(Date().timeIntervalSince(modified) < 90
                 ? "just now"
@@ -225,7 +225,7 @@ struct PreviewView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 } else {
-                    Text("Not a text file — \(FileEntry.human(preview.size)). It syncs like everything else; open it from the folder.")
+                    Text("This isn't a text file. It's \(FileEntry.human(preview.size)). It syncs like everything else. Open it from the folder.")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -239,8 +239,8 @@ struct PreviewView: View {
 /// Markdown rendering that keeps block structure.
 ///
 /// `AttributedString(markdown:)` handles inline styling well but treats the
-/// whole input as one paragraph. Splitting into blocks first — headings,
-/// fences, lists, quotes — and styling each keeps a document readable without
+/// whole input as one paragraph. Splitting into blocks first, headings,
+/// fences, lists, quotes, and styling each keeps a document readable without
 /// taking a rendering dependency.
 private struct MarkdownText: View {
     let source: String

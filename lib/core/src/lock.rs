@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 /// A whole-jotbay mutex, so a scheduled sync cannot land on top of a manual one.
 ///
 /// `create_dir` is atomic on every filesystem we target, which `File::create`
-/// is not — and unlike `flock` it exists on macOS, Linux and Windows alike.
+/// is not, and unlike `flock` it exists on macOS, Linux and Windows alike.
 pub struct SyncLock {
     path: PathBuf,
 }
@@ -13,7 +13,7 @@ impl SyncLock {
     /// Where the lock lives: inside `.git`, never in the working tree.
     ///
     /// It used to sit at `<root>/.jotbay-lock`, which was invisible to git only
-    /// by accident — git does not track empty directories, and the lock was
+    /// by accident. Git does not track empty directories, and the lock was
     /// always empty. The moment it gained a `pid` file the vault became
     /// permanently dirty, so every sync committed the lock, which dirtied it
     /// again. Caught by the integration suite before it shipped.
@@ -66,7 +66,7 @@ impl SyncLock {
     /// Two tests, cheapest first.
     ///
     /// **Nobody owns it.** `Drop` removes the lock on a clean exit, but a
-    /// SIGTERM does not unwind, so any hard stop of the watcher strands one —
+    /// SIGTERM does not unwind, so any hard stop of the watcher strands one
     /// and *every upgrade stops the watcher*. That left a fifteen-minute window
     /// after each one where nothing synced and the only symptom was `jotbay
     /// sync` saying "another sync is already running" about a process that no
@@ -101,8 +101,8 @@ impl SyncLock {
 /// holding. Waiting is recoverable; two syncs interleaving their git
 /// operations is not.
 fn process_alive(pid: u32) -> bool {
-    // Never a real process id, and on unix `kill(0, …)` means "my whole process
-    // group" — which succeeds, and would report a nonexistent owner as alive.
+    // Never a real process id, and on unix `kill(0, )` means "my whole process
+    // group", which succeeds, and would report a nonexistent owner as alive.
     if pid == 0 {
         return false;
     }
@@ -171,7 +171,7 @@ mod tests {
     #[test]
     fn a_lock_whose_owner_is_gone_is_taken_immediately() {
         // The upgrade case. SIGTERM does not unwind, so a stopped watcher
-        // strands its lock — and every upgrade stops the watcher. Before the
+        // strands its lock, and every upgrade stops the watcher. Before the
         // pid check this blocked all syncing for fifteen minutes, and the only
         // symptom was "another sync is already running" about a process that
         // no longer existed.

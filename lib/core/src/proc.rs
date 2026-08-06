@@ -2,7 +2,7 @@
 //!
 //! On Windows a console subprocess started by a windowed parent allocates its
 //! own console, so `git`, `gh` and `powershell` each flash a black window and
-//! steal focus. First run is the worst case — capabilities, clone, identity,
+//! steal focus. First run is the worst case, capabilities, clone, identity,
 //! shortcuts and scheduling in a row, each with its own flash.
 //!
 //! `git.rs` had this from the start; nothing else did, because nothing else was

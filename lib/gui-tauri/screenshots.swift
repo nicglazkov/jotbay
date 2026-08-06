@@ -3,8 +3,8 @@
 //   lib/gui-tauri/shots.sh
 //
 // The front end is plain HTML/CSS/JS that gets all its state from Tauri's
-// `invoke`. Rather than hand-editing the DOM — which would screenshot a page
-// the app never actually produces — this injects a stub `window.__TAURI__`
+// `invoke`. Rather than hand-editing the DOM, which would screenshot a page
+// the app never actually produces. This injects a stub `window.__TAURI__`
 // before app.js runs and answers each command with demo data. The real render
 // path then runs untouched.
 //
@@ -90,11 +90,11 @@ func bridge(hasVault: Bool) -> String {
             case "list_notes": {
               const listing = {
                 "": [
-                  { name: "daily",  path: "daily",  is_dir: true,  size: 0, modified: ISO2(3600),  children: 14 },
-                  { name: "specs",  path: "specs",  is_dir: true,  size: 0, modified: ISO2(7200),  children: 6 },
-                  { name: "refs",   path: "refs",   is_dir: true,  size: 0, modified: ISO2(86400), children: 9 },
-                  { name: "postgres-tuning.md", path: "postgres-tuning.md", is_dir: false, size: 4210, modified: ISO2(900),  children: 0 },
-                  { name: "reading-list.md",    path: "reading-list.md",    is_dir: false, size: 1830, modified: ISO2(5400), children: 0 }
+                  { name: "daily", path: "daily", is_dir: true, size: 0, modified: ISO2(3600), children: 14 },
+                  { name: "specs", path: "specs", is_dir: true, size: 0, modified: ISO2(7200), children: 6 },
+                  { name: "refs", path: "refs", is_dir: true, size: 0, modified: ISO2(86400), children: 9 },
+                  { name: "postgres-tuning.md", path: "postgres-tuning.md", is_dir: false, size: 4210, modified: ISO2(900), children: 0 },
+                  { name: "reading-list.md", path: "reading-list.md", is_dir: false, size: 1830, modified: ISO2(5400), children: 0 }
                 ],
                 "specs": [
                   { name: "api-notes.md", path: "specs/api-notes.md", is_dir: false, size: 6120, modified: ISO2(1200), children: 0 }

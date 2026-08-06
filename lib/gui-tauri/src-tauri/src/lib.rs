@@ -1,7 +1,7 @@
 //! Jotbay for Windows and Linux.
 //!
 //! Unlike the macOS app, which shells out to the `jotbay` binary, this links
-//! `jotbay-core` directly — it is already a Rust process, so there is nothing to
+//! `jotbay-core` directly. It is already a Rust process, so there is nothing to
 //! gain from spawning one.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -19,7 +19,7 @@ use jotbay_core::{ActivityEvent, CommitInfo, NodeStatus, SyncReport, Jotbay, Jot
 
 /// How often the tray re-reads git. Closing the window hides to the tray, so
 /// for most of Jotbay's life this poll is the only thing keeping any on-screen
-/// indicator honest — the webview may not even be running.
+/// indicator honest. The webview may not even be running.
 const TRAY_POLL: Duration = Duration::from_secs(10);
 
 /// Set while a sync is in flight, from the tray menu or from the window, so
@@ -41,7 +41,7 @@ enum TrayState {
 impl TrayState {
     /// Full-colour PNGs, not macOS-style templates: an AppIndicator draws the
     /// bytes as given, so a black-plus-alpha glyph would be invisible on
-    /// Ubuntu's dark panel. State is carried by the plate colour — see
+    /// Ubuntu's dark panel. State is carried by the plate colour, see
     /// `lib/icons/tray-idle.svg` for the reasoning.
     fn icon(self) -> &'static [u8] {
         match self {
@@ -55,9 +55,9 @@ impl TrayState {
 
     fn tooltip(self) -> &'static str {
         match self {
-            TrayState::Idle => "Jotbay — everything in sync",
-            TrayState::Syncing => "Jotbay — syncing…",
-            TrayState::Attention => "Jotbay — needs attention",
+            TrayState::Idle => "Jotbay: everything in sync",
+            TrayState::Syncing => "Jotbay: syncing",
+            TrayState::Attention => "Jotbay: needs attention",
         }
     }
 }
@@ -110,7 +110,7 @@ fn update_tray(app: &AppHandle) {
 }
 
 /// Holds the tray on "syncing" for as long as it is alive, and clears it on the
-/// way out — including when the sync returned an error, which is the case that
+/// way out, including when the sync returned an error, which is the case that
 /// matters most.
 struct SyncGuard(AppHandle);
 
@@ -162,7 +162,7 @@ async fn get_setup_state() -> Result<SetupState, String> {
     .map_err(|e| e.to_string())
 }
 
-/// Create, clone or adopt — whichever the user chose — then remember it.
+/// Create, clone or adopt, whichever the user chose, then remember it.
 #[tauri::command]
 async fn run_setup(mode: String, value: String, location: String) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
@@ -182,7 +182,7 @@ async fn run_setup(mode: String, value: String, location: String) -> Result<Stri
         // And leave the machine syncing by itself. This used to happen only in
         // install.sh / install.ps1, so anyone who arrived through the .msi or
         // the .deb finished setup with a tool that synced when asked and at no
-        // other time — the opposite of what the graphical route is for.
+        // other time. The opposite of what the graphical route is for.
         let _ = jotbay_core::schedule::ensure();
         let _ = vault.sync();
         Ok(root.to_string_lossy().to_string())
@@ -225,7 +225,7 @@ async fn get_status(refresh: bool) -> Result<JotbayStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let v = jotbay()?;
         // A window is open, so ask the other machines to report in. Only on a
-        // refresh that already talks to the remote — the offline path exists
+        // refresh that already talks to the remote. The offline path exists
         // precisely so opening the app costs nothing when there is no network.
         //
         // Best-effort and ignored: presence is a courtesy to whoever is
@@ -277,7 +277,7 @@ async fn get_settings() -> Result<Settings, String> {
 async fn set_settings(theme: String, verbose: bool) -> Result<Settings, String> {
     tauri::async_runtime::spawn_blocking(move || {
         // Load and mutate rather than construct. Building a fresh Settings here
-        // silently discarded every field this dialog does not show — vault_path
+        // silently discarded every field this dialog does not show, vault_path
         // among them, which would have sent the app back to first-run setup the
         // next time it started.
         let mut settings = Settings::load();
@@ -332,7 +332,7 @@ async fn abort_rebase() -> Result<(), String> {
         .map_err(|e| e.to_string())?
 }
 
-/// The file browser's two calls. Read-only by construction — the commands to
+/// The file browser's two calls. Read-only by construction. The commands to
 /// write anything simply do not exist.
 #[tauri::command]
 async fn list_notes(path: String) -> Result<Vec<jotbay_core::browse::Entry>, String> {

@@ -76,7 +76,7 @@ pub fn status(s: &JotbayStatus) {
             println!("    {} {}", "~".yellow(), f);
         }
         if s.dirty_files.len() > 10 {
-            println!("    {}", format!("… and {} more", s.dirty_files.len() - 10).bright_black());
+            println!("    {}", format!("and {} more", s.dirty_files.len() - 10).bright_black());
         }
     }
 
@@ -94,7 +94,7 @@ pub fn status(s: &JotbayStatus) {
         println!(
             "  {} {}",
             "↑".cyan().bold(),
-            format!("update available: {latest} — run `jotbay upgrade`").cyan()
+            format!("Update available: {latest}. Run `jotbay upgrade`.").cyan()
         );
     }
     nodes(&s.nodes, &s.head);
@@ -254,10 +254,10 @@ pub fn sync_report(r: &SyncReport) {
         match &c.kept_copy {
             Some(copy) => {
                 println!("  {} conflict in {}", "⚠".yellow(), c.path.bold());
-                println!("    {} both versions kept — yours is at {}", "└".bright_black(), copy.cyan());
+                println!("    {} Both versions kept. Yours is at {}", "└".bright_black(), copy.cyan());
             }
             None => {
-                println!("  {} {} — kept the surviving version", "⚠".yellow(), c.path.bold());
+                println!("  {} {} kept the surviving version", "⚠".yellow(), c.path.bold());
             }
         }
     }

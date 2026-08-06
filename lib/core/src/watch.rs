@@ -3,7 +3,7 @@
 //! The scheduled sync ran every ten minutes, which meant a note written on one
 //! machine could sit there for ten minutes before existing anywhere else, and
 //! the answer to "did that save?" was "probably, eventually". That is a poor
-//! deal for someone who does not think in commits — which is everyone this is
+//! deal for someone who does not think in commits, which is everyone this is
 //! built for.
 //!
 //! This watches the notes folder and syncs shortly after edits stop, and polls
@@ -14,8 +14,8 @@
 //! an OS notification API. Three reasons, in order of weight: it behaves
 //! identically on macOS, Windows and Linux, where the notification APIs differ
 //! enough to have their own bug classes each; it cannot miss a change that
-//! happened while the process was not running; and for a notes folder — which
-//! is measured in hundreds of files — a scan costs single-digit milliseconds.
+//! happened while the process was not running; and for a notes folder. Which
+//! is measured in hundreds of files. A scan costs single-digit milliseconds.
 //!
 //! It is deliberately not a general file-sync engine. A folder of markdown is
 //! a small, quiet thing, and the design leans on that.
@@ -28,8 +28,8 @@ use std::time::{Duration, Instant};
 
 /// How long the folder must be quiet before a sync runs.
 ///
-/// Long enough that saving a file in a loop — which every editor does, and
-/// which some do several times a second — produces one commit rather than
+/// Long enough that saving a file in a loop, which every editor does, and
+/// which some do several times a second, produces one commit rather than
 /// twenty. Short enough that "did it save?" is never a real question.
 ///
 /// With a one-second scan this puts a change on the remote in under ten
@@ -46,8 +46,8 @@ pub const SCAN_EVERY: Duration = Duration::from_secs(1);
 /// The other half of the promise: pushing quickly is worth little if the
 /// machine you walk over to is still ten minutes behind.
 ///
-/// This used to be a fixed interval, on the belief — written down, never
-/// measured — that checking an unchanged remote was "one small round trip". It
+/// This used to be a fixed interval, on the belief, written down, never
+/// measured. That checking an unchanged remote was "one small round trip". It
 /// was three: a fetch, a status fetch, and a push that had nothing to send.
 /// Four thousand times a day, on a machine nobody was using, against somebody
 /// else's git host. A self-hosted Gitea or a small Codeberg account would feel
@@ -57,7 +57,7 @@ pub const POLL_REMOTE: Duration = Duration::from_secs(20);
 /// The slowest the remote is checked once nothing has happened for a while.
 ///
 /// The interval doubles from `POLL_REMOTE` on every check that finds nothing,
-/// so a machine reaches this after roughly ten minutes of total quiet — every
+/// so a machine reaches this after roughly ten minutes of total quiet. Every
 /// machine idle, nobody editing. Five minutes of staleness on a machine nobody
 /// has touched in ten is a fair trade for cutting idle traffic by ninety-odd
 /// percent, and any local edit drops it straight back to `POLL_REMOTE`.
@@ -131,14 +131,14 @@ pub enum Event {
 /// Watch until the process is killed, calling `on_event` after each sync.
 ///
 /// Runs in the foreground on purpose: the supervisor that keeps it alive
-/// belongs to the operating system — launchd, systemd, Task Scheduler — all of
+/// belongs to the operating system, launchd, systemd, Task Scheduler, all of
 /// which restart a process that dies and log what it printed. A hand-rolled
 /// daemon would reimplement that badly.
 /// Whether to report where the seconds go, via `JOTBAY_TIMING`.
 ///
 /// Off by default: the watcher's log should stay quiet enough that a line in it
-/// means something. Turn it on for a foreground run — `JOTBAY_TIMING=1 jotbay
-/// watch` — when a machine seems slow.
+/// means something. Turn it on for a foreground run, `JOTBAY_TIMING=1 jotbay
+/// watch`. When a machine seems slow.
 ///
 /// It exists because a fresh install measured 18.7 s from writing a file to it
 /// reaching the remote on Windows, against 5–7 s on macOS and 8 s on Linux, and
@@ -157,7 +157,7 @@ fn timing_enabled() -> bool {
 /// we do not.
 ///
 /// `scan` is our directory walk, `settle` is the deliberate quiet period, and
-/// `sync` is git — add, commit, push, fetch, and the network. Only the first is
+/// `sync` is git, add, commit, push, fetch, and the network. Only the first is
 /// a thing this code could make faster; if Windows is slow in `sync`, the cause
 /// is git or the network and no amount of tuning here will touch it.
 fn report(label: &str, files: usize, scan: Duration, sync: Duration, total: Duration) {
@@ -175,7 +175,7 @@ fn report(label: &str, files: usize, scan: Duration, sync: Duration, total: Dura
 pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> Result<()> {
     // The whole vault, not just `data/`. `sync` commits the repository with
     // `git add -A`, so watching a subdirectory of it meant the watcher's idea
-    // of "changed" was narrower than git's — a report written to
+    // of "changed" was narrower than git's. A report written to
     // `install/agent/` sat for eight minutes and never committed, because
     // nothing that fires the fast path had happened inside `data/`.
     //
@@ -228,7 +228,7 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
                 // save, and this cannot see that moment.
                 report("local", files, scan_cost, sync_started.elapsed(), since.elapsed());
                 // Somebody is working. Whatever backoff had accumulated is
-                // wrong now — the other machines are about to matter again.
+                // wrong now. The other machines are about to matter again.
                 poll_every = POLL_REMOTE;
                 remote_seen = crate::sync::remote_fingerprint(jotbay.git());
                 // The sync writes status refs and may pull; re-read so its own
@@ -242,14 +242,14 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
             last_remote = Instant::now();
 
             // Ask the cheap question first. One round trip, no pack, no
-            // negotiation — against the three operations a full sync costs.
+            // negotiation, against the three operations a full sync costs.
             let probe_started = Instant::now();
             let answer = crate::sync::probe(jotbay.git());
             let probe_cost = probe_started.elapsed();
             let probe = answer.as_ref().map(|p| p.heads.clone());
 
             // Somebody opened a window and wants to know who is out there.
-            // Answering costs one small force-push of our own status ref — no
+            // Answering costs one small force-push of our own status ref. No
             // fetch, no push of main. A full sync would answer the same
             // question for three times the traffic *and* move a branch tip,
             // waking every other machine into doing the same.
@@ -273,7 +273,7 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
 
             // And the free ones, both local. `ahead` stops a failed push from
             // being forgotten until the next edit; `dirty` catches everything
-            // the folder scan cannot see — the whole vault outside `data/`,
+            // the folder scan cannot see. The whole vault outside `data/`,
             // and every dotfile.
             let ahead = jotbay.git().ahead_behind().map(|(a, _)| a).unwrap_or(0);
             let dirty = jotbay.git().is_dirty().unwrap_or(false);
@@ -320,8 +320,8 @@ fn backed_off(current: Duration) -> Duration {
 ///
 /// `dirty` is the one that matters and the one 1.7.3 shipped without. The
 /// watcher fingerprints `data/`, but `sync` commits the whole repository with
-/// `git add -A`, so anything in the vault outside `data/` — and anything
-/// dotfiled, which the scan skips — is invisible to the watcher and still
+/// `git add -A`, so anything in the vault outside `data/`, and anything
+/// dotfiled, which the scan skips, is invisible to the watcher and still
 /// perfectly visible to git. Before the poll became conditional this never
 /// showed, because a full sync ran every twenty seconds regardless and swept
 /// those files up as a side effect. Making the poll conditional removed the
@@ -342,7 +342,7 @@ fn worth_syncing(
     }
     match (remote_now, remote_seen) {
         (Some(now), Some(before)) => now != before,
-        // No baseline yet — establish one by doing the real thing.
+        // No baseline yet, establish one by doing the real thing.
         (Some(_), None) => true,
         // Unreachable. Back off rather than retry hard: an outage is exactly
         // when hammering someone's host helps least, and there is nothing of
@@ -391,7 +391,7 @@ mod tests {
         // else says "nothing to do": the remote has not moved and there is no
         // commit waiting, because the edit was never committed in the first
         // place. Return false here and the file silently never leaves the
-        // machine — no error, no log, nothing to notice.
+        // machine. No error, no log, nothing to notice.
         assert!(
             worth_syncing(Some(A), Some(A), 0, true),
             "an uncommitted local change must force a sync, wherever in the \
@@ -447,7 +447,7 @@ mod tests {
              long enough that the cap stops doing anything useful"
         );
 
-        // And it stays there rather than growing without bound — an unclamped
+        // And it stays there rather than growing without bound. An unclamped
         // doubling reaches hours before the day is out, and a machine that
         // checks once an hour is one somebody will call broken.
         for _ in 0..40 {

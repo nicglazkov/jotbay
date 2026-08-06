@@ -1,4 +1,4 @@
-# Jotbay — Design
+# Jotbay, Design
 
 Date: 2026-08-01
 Status: approved
@@ -12,7 +12,7 @@ manageable from a polished GUI on every platform.
 
 Latency tolerance is minutes, not seconds. A private git repository is an
 acceptable store. The design deliberately does not depend on the machines
-sharing a network, a VPN or a mesh — HTTPS to the remote works from anywhere.
+sharing a network, a VPN or a mesh, HTTPS to the remote works from anywhere.
 
 ## Architecture
 
@@ -30,7 +30,7 @@ A single Rust core crate owns all sync logic. Everything else is a front end.
 ```
 
 Rust is required for Tauri regardless, so the core adds no toolchain. The
-alternative — reimplementing conflict rules in bash, PowerShell, Swift and Rust —
+alternative, reimplementing conflict rules in bash, PowerShell, Swift and Rust
 guarantees drift. The Swift app shells out to `jotbay --json` rather than using
 FFI: less efficient, far less to break.
 
@@ -42,7 +42,7 @@ jotbay/
 ├── Jotbay.lnk         Windows launcher    │ installer,
 ├── jotbay.desktop     Linux launcher      ┘ gitignored
 ├── README.md
-├── data/                     the synced notes — desktop shortcut target
+├── data/                     the synced notes, desktop shortcut target
 ├── install/                  install.sh, install.ps1, uninstall.*
 ├── lib/
 │   ├── core/                 Rust sync engine
@@ -64,7 +64,7 @@ One pass, idempotent, safe to run concurrently (guarded by a lock directory):
 
 1. Acquire lock. Abort if a previous run left a rebase in progress.
 2. Stage and commit local changes under `data/` and program changes alike.
-   Automated commits are made with signing disabled — see Signing below.
+   Automated commits are made with signing disabled, see Signing below.
 3. Fetch `main` and all `refs/jotbay-status/*`.
 4. Rebase onto upstream only when `git rev-list --count @..@{u}` is non-zero.
    Comparing `@` to `@{u}` instead would fire whenever the local branch is
@@ -86,7 +86,7 @@ On a rebase conflict, for each conflicted path:
 
 Critical detail: during a rebase git replays *your* commits on top of upstream,
 so `HEAD` is upstream. `--ours` therefore means the remote and `--theirs` means
-your local change — inverted from every intuition. This is the single most
+your local change, inverted from every intuition. This is the single most
 likely place for the implementation to be silently wrong, so it is covered by a
 dedicated test that asserts content, not just exit status.
 
@@ -98,7 +98,7 @@ parsing conflict markers, so it works on any file type.
 Each node force-pushes a JSON blob to `refs/jotbay-status/<hostname>`.
 
 Per-node refs mean two nodes can never conflict, and `main` carries only
-content — no heartbeat commits. A single
+content. No heartbeat commits. A single
 `git fetch origin '+refs/jotbay-status/*:refs/jotbay-status/*'` retrieves every
 node's state.
 
@@ -110,7 +110,7 @@ Payload:
   "os": "macos", "arch": "aarch64",
   "agent_version": "0.1.0",
   "last_sync": "2026-08-01T19:42:11Z",
-  "head": "0e43b35…",
+  "head": "0e43b35",
   "ahead": 0, "behind": 0,
   "dirty": 0,
   "conflicts_resolved": 0,
@@ -124,15 +124,15 @@ machine is removed with `jotbay nodes --forget <hostname>`.
 
 ## Surfaces
 
-**CLI** — `jotbay status | sync | push | pull | log | nodes | resolve | dash`.
+**CLI**. `jotbay status | sync | push | pull | log | nodes | resolve | dash`.
 Colored tables, spinners, and a `--json` mode consumed by the Swift app.
 `jotbay dash` is a live TUI dashboard.
 
-**macOS** — SwiftUI management window plus a `MenuBarExtra` agent showing sync
+**macOS**, SwiftUI management window plus a `MenuBarExtra` agent showing sync
 state and a manual sync item. Menu-bar glyphs are monochrome template images so
 they adapt to light/dark and tinting.
 
-**Windows and Linux** — one Tauri application providing the same window and a
+**Windows and Linux**. One Tauri application providing the same window and a
 system tray icon.
 
 ## Distribution

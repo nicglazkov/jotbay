@@ -53,7 +53,7 @@ pub fn write_marker(root: &Path, version: &str) -> Result<()> {
 ///
 /// Deliberately not derived from the vault's `origin`: once the tool and the
 /// notes live in separate repositories, a user's notes remote has no releases
-/// on it — and may not even be on GitHub. A fork overrides this rather than
+/// on it, and may not even be on GitHub. A fork overrides this rather than
 /// editing the source.
 pub fn tool_repo() -> String {
     std::env::var("JOTBAY_TOOL_REPO").unwrap_or_else(|_| DEFAULT_TOOL_REPO.to_string())
@@ -92,8 +92,8 @@ fn read_cache() -> Option<String> {
 
 /// Ask GitHub what the newest release is, and remember the answer.
 ///
-/// Called only on the paths that already touch the network — a status refresh
-/// or an explicit upgrade — never from the local repaint loop, which runs every
+/// Called only on the paths that already touch the network. A status refresh
+/// or an explicit upgrade, never from the local repaint loop, which runs every
 /// twenty seconds and must not make an HTTP request to redraw a badge.
 ///
 /// Honours the cache. `refresh_remote_now` is the one that does not.
@@ -150,9 +150,9 @@ fn refresh(force: bool) {
     }
 }
 
-/// Purely local. The marker wins when the vault carries one — a repository that
+/// Purely local. The marker wins when the vault carries one. A repository that
 /// holds both the tool and the notes still delivers the answer by sync, with no
-/// request at all — and the cached remote answer covers the case where the
+/// request at all, and the cached remote answer covers the case where the
 /// notes repository is just notes.
 pub fn check(root: &Path) -> UpdateStatus {
     decide(read_marker(root).map(|m| m.version), read_cache())
@@ -213,7 +213,7 @@ pub fn asset_name() -> &'static str {
     }
 }
 
-/// Where a script install puts the binaries — the only layout `upgrade` can
+/// Where a script install puts the binaries. The only layout `upgrade` can
 /// safely write to without being told.
 ///
 /// Kept as the fallback for when the running executable cannot be located at
@@ -234,18 +234,18 @@ pub fn bin_dir() -> std::path::PathBuf {
 /// This used to be `bin_dir()` unconditionally, which is right for a script
 /// install and wrong for every native installer we ship. On a `.deb` machine
 /// the binaries live in `/usr/bin`, so `upgrade` wrote a *second* copy to
-/// `~/.local/bin`, reported success, and left the watcher — started from an
-/// absolute `/usr/bin/jotbay` in its unit file — running the old version
+/// `~/.local/bin`, reported success, and left the watcher, started from an
+/// absolute `/usr/bin/jotbay` in its unit file. Running the old version
 /// forever. `jotbay --version` then answered for PATH, which preferred the new
 /// copy, so every check a human could run said the upgrade had worked. The
 /// component with the bug was the one thing never touched.
 ///
-/// The same mismatch existed on Windows (`…\Jotbay` from the installer versus
-/// `…\Programs\jotbay` here) and on macOS, where the CLI lives inside
+/// The same mismatch existed on Windows (`\Jotbay` from the installer versus
+/// `\Programs\jotbay` here) and on macOS, where the CLI lives inside
 /// `Jotbay.app`.
 ///
 /// So: resolve from the running executable, and refuse when that location is
-/// not ours to replace. Refusing is the honest outcome — a package manager
+/// not ours to replace. Refusing is the honest outcome. A package manager
 /// owns those files, and writing a shadow copy somewhere else only recreates
 /// the split.
 pub fn install_target() -> Result<std::path::PathBuf> {
@@ -256,7 +256,7 @@ pub fn install_target() -> Result<std::path::PathBuf> {
     };
 
     // Inside a macOS app bundle. Replacing a binary in there breaks the code
-    // signature, and Gatekeeper then refuses to launch the app at all — a far
+    // signature, and Gatekeeper then refuses to launch the app at all. A far
     // worse outcome than not upgrading.
     if exe.components().any(|c| c.as_os_str().to_string_lossy().ends_with(".app")) {
         return Err(Error::Other(
@@ -273,7 +273,7 @@ pub fn install_target() -> Result<std::path::PathBuf> {
 
     if !is_writable(&dir) {
         return Err(Error::Other(format!(
-            "jotbay is installed at {}, which this account cannot write to — \
+            "jotbay is installed at {}, which this account cannot write to, \
              it came from a system package. Upgrade it the way it was installed: \
              download the latest .deb from the releases page and open it, or run \
              `sudo apt install ./Jotbay_<version>_amd64.deb`.",
@@ -328,7 +328,7 @@ pub fn other_copies_on_path(installed: &std::path::Path) -> Vec<std::path::PathB
 /// Fetch the current release and replace the installed binaries.
 ///
 /// Downloads through `gh` when it is available and authenticated, because the
-/// repository may be private — `releases/latest/download/…` returns 404 to
+/// repository may be private, `releases/latest/download/` returns 404 to
 /// everyone, including the owner, while it is. Falls back to a plain HTTPS
 /// download so this keeps working unchanged once the repository is public.
 pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
@@ -373,7 +373,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
             .unwrap_or(false);
         if !ok {
             return Err(Error::Other(format!(
-                "could not download {asset} — is gh authenticated, or the repository public?"
+                "Couldn't download {asset}. Check that gh is signed in, or that the repository is public."
             )));
         }
     }
@@ -454,7 +454,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
 ///
 /// Linux returns ETXTBSY when anything tries to open a running executable for
 /// writing. Versions up to 1.3.2 replaced binaries by truncating them in place,
-/// so upgrading *to* 1.3.3 — which is the release that stops doing that — fails
+/// so upgrading *to* 1.3.3, which is the release that stops doing that, fails
 /// with a bare "Text file busy (os error 26)". The upgrader doing the work is
 /// always the old one, so this specific failure cannot be fixed by the upgrade
 /// that fixes it; the least it can do is say what to run instead.
@@ -464,7 +464,7 @@ fn explain_busy(e: Error, name: &str) -> Error {
         return Error::Other(format!(
             "cannot replace {name} while it is running. This version of the \
 upgrader writes over the live file; the fix ships in a later one. Install it \
-directly instead — ./install/install.sh, or install.ps1 on Windows — and \
+directly instead, ./install/install.sh, or install.ps1 on Windows, and \
 `jotbay upgrade` will work from then on."
         ));
     }
@@ -481,7 +481,7 @@ fn binaries() -> &'static [&'static str] {
 
 /// Replace a binary that may be the one currently executing.
 ///
-/// Unix lets a running executable's path be replaced — the old inode stays
+/// Unix lets a running executable's path be replaced. The old inode stays
 /// alive for the running process. Windows refuses to overwrite a running image
 /// but does allow renaming it, so the outgoing binary is moved aside first and
 /// swept up on the next upgrade.
@@ -493,7 +493,7 @@ fn replace_binary(from: &Path, to: &Path) -> Result<()> {
     }
 
     // Stage beside the target, then rename over it. Copying onto the live path
-    // would rewrite the bytes of a file that is very likely mapped right now —
+    // would rewrite the bytes of a file that is very likely mapped right now
     // this function usually runs from the binary it is replacing. Doing that
     // corrupts the running image and invalidates its signature; macOS then
     // SIGKILLs it, leaving an executable that is a valid Mach-O and dies at
@@ -567,7 +567,7 @@ mod tests {
 
         assert_eq!(std::fs::read(&target).unwrap(), b"new");
         // Inodes are the direct evidence, and only Unix has them. Windows takes
-        // a different path anyway — it parks the old file as .old first, because
+        // a different path anyway. It parks the old file as .old first, because
         // it will not overwrite a running image at all.
         #[cfg(unix)]
         assert_ne!(before, file_id(&target), "must arrive as a different inode");

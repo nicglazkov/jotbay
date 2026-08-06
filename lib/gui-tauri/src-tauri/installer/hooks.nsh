@@ -6,7 +6,7 @@
 ;
 ; The edit is delegated to PowerShell rather than done with ReadRegStr and
 ; WriteRegExpandStr. NSIS strings are capped (1024 characters in the standard
-; build), and a PATH longer than the cap comes back silently truncated —
+; build), and a PATH longer than the cap comes back silently truncated
 ; writing that value back would delete the tail of the user's PATH. That is not
 ; a risk worth taking for a convenience feature.
 ;
@@ -14,7 +14,7 @@
 ; nothing here touches the machine-wide environment.
 
 ; Escaping note, learned the hard way: inside an NSIS single-quoted string a
-; literal apostrophe is written $\' — NOT '' as in SQL or PowerShell. The first
+; literal apostrophe is written $\'. NOT '' as in SQL or PowerShell. The first
 ; shipped version used '' and NSIS passed both characters through, so
 ; PowerShell received `TrimEnd('';'')`: an empty string, a statement-ending
 ; semicolon, and a parse error ("Missing ')' in method call", exit code 1).
@@ -31,7 +31,7 @@
 
 ; Take the background sync out before the binaries go, or the machine is left
 ; with a logon task pointing at an executable that no longer exists. It then
-; fires at every logon, fails, and does so silently — forever — on any machine
+; fires at every logon, fails, and does so silently, forever, on any machine
 ; that has ever uninstalled Jotbay. uninstall.ps1 has always unregistered it;
 ; the NSIS uninstaller never learned to, and Settings → Apps is the route
 ; almost everybody actually takes.
@@ -41,7 +41,7 @@
 ; this uninstaller is about to delete.
 ;
 ; Both names, because a machine installed before the rename still carries the
-; old one. Failures are ignored throughout — an uninstall that cannot find a
+; old one. Failures are ignored throughout. An uninstall that cannot find a
 ; task must still finish uninstalling.
 !macro NSIS_HOOK_PREUNINSTALL
   DetailPrint "Stopping background sync"

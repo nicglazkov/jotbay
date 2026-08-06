@@ -8,7 +8,7 @@
 #
 # ORDER IS THE WHOLE GAME. The app is notarized and stapled BEFORE anything is
 # packaged around it. Stapling a finished DMG does not reach the app sealed
-# inside, and Gatekeeper hides the mistake by asking Apple online — so the gap
+# inside, and Gatekeeper hides the mistake by asking Apple online, so the gap
 # is invisible on any connected machine and blocks a user whose first launch is
 # offline. Only `stapler validate` on the app inside the mounted image proves it.
 #
@@ -21,7 +21,7 @@ set -euo pipefail
 # Refuse to package a working tree that does not match its tag.
 #
 # This builds from whatever is checked out, and the 1.8.1 DMG therefore shipped
-# the tag plus one later commit — a Mac running the cask had code the tag did
+# the tag plus one later commit. A Mac running the cask had code the tag did
 # not contain. Linux and Windows artifacts come from CI and can be checked with
 # `gh attestation verify`; a locally built DMG can be checked against nothing,
 # so the only thing standing between the label and the bytes is this.
@@ -30,7 +30,7 @@ set -euo pipefail
 if [ "${JOTBAY_ALLOW_DIRTY:-0}" != "1" ]; then
   version=$(sed -n 's/^ *MARKETING_VERSION: *"\([^"]*\)".*/\1/p' lib/gui-macos/project.yml | head -1)
   if [ -n "$(git status --porcelain)" ]; then
-    echo "error: the working tree is dirty — the DMG would not match any tag." >&2
+    echo "error: the working tree is dirty. The DMG would not match any tag." >&2
     echo "       commit first, or set JOTBAY_ALLOW_DIRTY=1 for a test build." >&2
     exit 1
   fi
@@ -61,7 +61,7 @@ die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
 # `notarytool submit --wait` exits 0 even when the submission comes back
 # Invalid, so the exit code proves nothing. Read the status, and on failure
-# print the log — it names the exact file, reason and architecture, and is the
+# print the log. It names the exact file, reason and architecture, and is the
 # only thing worth reading when Apple rejects something.
 notarize() {
   local target="$1" out id status
@@ -72,7 +72,7 @@ notarize() {
     id=$(printf '%s' "$out" | awk '/^ *id:/ {print $2; exit}')
     printf '\033[31mnotarization %s\033[0m\n' "${status:-failed}" >&2
     # Written as an `if` rather than `A && B || true`: that form is not
-    # if-then-else — the `|| true` also swallows a failure of the *test*, which
+    # if-then-else. The `|| true` also swallows a failure of the *test*, which
     # is the one case worth seeing. shellcheck 0.8 flags it (SC2015); 0.11 does
     # not, so CI caught what the local tool missed.
     if [ -n "$id" ]; then
@@ -85,11 +85,11 @@ notarize() {
 # --- preflight --------------------------------------------------------------
 
 [ -n "$IDENTITY" ] \
-  || die "no signing identity — copy signing.env.example to signing.env and fill it in"
+  || die "no signing identity, copy signing.env.example to signing.env and fill it in"
 security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY" \
   || die "no Developer ID certificate on this machine matching $IDENTITY"
 xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1 \
-  || die "no notarytool profile named '$PROFILE' — see the publishing guide"
+  || die "no notarytool profile named '$PROFILE', see the publishing guide"
 command -v create-dmg >/dev/null || die "create-dmg not found (brew install create-dmg)"
 
 VERSION=$(grep -m1 'MARKETING_VERSION' project.yml | cut -d'"' -f2)
@@ -183,5 +183,5 @@ printf '    %s\n' "$DIST/$APP_NAME.dmg" "$DIST/$APP_NAME.zip"
 printf '    sha256: %s\n' "$(shasum -a 256 "$DIST/$APP_NAME.dmg" | cut -d' ' -f1)"
 echo
 echo "    Next: attach both to the release, then bump version and sha256 in the"
-echo "    Homebrew cask. Note the cask cannot work until the repo is public —"
+echo "    Homebrew cask. Note the cask cannot work until the repo is public"
 echo "    releases/latest/download/ 404s while it is private."

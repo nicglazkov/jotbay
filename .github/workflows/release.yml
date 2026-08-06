@@ -77,7 +77,7 @@ jobs:
         run: |
           for manifest in lib/Cargo.toml lib/gui-tauri/src-tauri/Cargo.toml; do
             if ! cargo metadata --locked --format-version 1 --manifest-path "$manifest" >/dev/null 2>&1; then
-              echo "::error::$manifest has a stale Cargo.lock — run lib/release.sh <version>"
+              echo "::error::$manifest has a stale Cargo.lock, run lib/release.sh <version>"
               exit 1
             fi
           done
@@ -88,7 +88,7 @@ jobs:
         run: rustup target add x86_64-apple-darwin
 
       # Absolute build paths reach the shipped binary through `file!()`, which
-      # every panic message and assertion carries — 128 of them in the 1.7.1
+      # every panic message and assertion carries, 128 of them in the 1.7.1
       # CLI, naming the runner's checkout and, in a local build, the builder's
       # home directory. Two builds of one commit could therefore never match,
       # which is what left "did CI build what I think it built?" unanswerable
@@ -157,7 +157,7 @@ jobs:
       # a separate tool. npm is already on every runner and installs it in
       # seconds, where `cargo install tauri-cli` is a from-source build.
       # Pinned exactly. `@^2` floats, which meant the version that built any
-      # given release was unrecoverable after the fact — and when Defender
+      # given release was unrecoverable after the fact, and when Defender
       # flagged the 1.7.1 installer, ruling the bundler in or out took a
       # publish-date lookup on npm rather than a glance at this file. It turned
       # out to be the same version either way, but a build input nobody can name
@@ -181,7 +181,7 @@ jobs:
           ls -l "$staged"
 
       # The cargo cache restores target/, bundle directory included, so a
-      # previous run's installers survive into this one — and the collect step
+      # previous run's installers survive into this one, and the collect step
       # below cannot tell them apart from what was just built. v1.4.0 shipped
       # with a Jotbay_1.3.4 .deb and -setup.exe attached because of this.
       - name: Clear stale bundle output
@@ -210,7 +210,7 @@ jobs:
 
       # Runners can have xcode-select pointing at the Command Line Tools, where
       # xcodebuild cannot open a project at all and reports only "Unable to read
-      # project" — which reads like a corrupt file rather than a missing Xcode.
+      # project", which reads like a corrupt file rather than a missing Xcode.
       - name: Select Xcode
         if: matrix.os == 'macos'
         uses: maxim-lobanov/setup-xcode@v1
@@ -227,7 +227,7 @@ jobs:
           echo "xcode-select: $(xcode-select -p)"
           xcodebuild -version
           xcodegen --version
-          # build.sh bundles whichever CLI it finds at lib/target/release —
+          # build.sh bundles whichever CLI it finds at lib/target/release
           # already the universal binary produced by the lipo step above.
           cd lib/gui-macos && JOTBAY_ARCHS="arm64 x86_64" ./build.sh Release
           lipo -info build/Build/Products/Release/Jotbay.app/Contents/MacOS/Jotbay
@@ -275,7 +275,7 @@ jobs:
       # The lesson is about timing rather than content. A freshly published,
       # unsigned installer with no download reputation, scanned against ML
       # definitions hours old, is the single riskiest moment for a generic !ml
-      # verdict — and we published straight into it. This gate is that check,
+      # verdict, and we published straight into it. This gate is that check,
       # moved to before anybody can download the file instead of after.
       #
       # The -SignatureUpdate below is not a formality: scanning against stale
@@ -349,7 +349,7 @@ jobs:
   # Everything that can say "no" must run before anything is published.
   #
   # This depended on `build` alone, so v1.7.2 shipped to the release page while
-  # the test job was failing on both Linux and Windows — the run was red and the
+  # the test job was failing on both Linux and Windows. The run was red and the
   # artifacts went out anyway. A gate that only checks whether the code compiles
   # is not a gate.
   publish:
@@ -422,8 +422,8 @@ jobs:
           done
           exit $status
 
-      # The Windows installers cannot be parsed on macOS — the `powershell`
-      # Homebrew cask is deprecated — so this runner is where they get checked.
+      # The Windows installers cannot be parsed on macOS. The `powershell`
+      # Homebrew cask is deprecated, so this runner is where they get checked.
       - name: Parse the PowerShell installers
         if: matrix.shell == 'powershell'
         shell: powershell
@@ -444,7 +444,7 @@ jobs:
 
   # This repository is public and the tool's whole promise is that notes go to a
   # private remote. Nothing enforces that at the moment somebody runs `git add
-  # -A` in the wrong directory, so it is enforced here instead — along with the
+  # -A` in the wrong directory, so it is enforced here instead, along with the
   # machine names and signing material that a personal history is full of and a
   # published one must not be.
   no-leaks:

@@ -1,6 +1,6 @@
 //! The jotbay sync engine.
 //!
-//! Every front end — the CLI, the Tauri GUI, the macOS app — drives this crate
+//! Every front end. The CLI, the Tauri GUI, the macOS app, drives this crate
 //! rather than reimplementing git handling. That is the whole point: the
 //! conflict policy in particular is subtle enough that a second implementation
 //! would drift from the first.
@@ -36,8 +36,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// Matches `watch::POLL_REMOTE_MAX`: a machine that has been quiet for a while
 /// checks the remote every five minutes, so it can take that long to notice it
-/// was asked. Three of those — fifteen minutes of being asked and not
-/// answering — is a machine that is genuinely not there.
+/// was asked. Three of those, fifteen minutes of being asked and not
+/// answering, is a machine that is genuinely not there.
 ///
 /// Was 600, from when every machine synced on a ten-minute timer. Nothing has
 /// run on that schedule since 1.6.0.
@@ -78,11 +78,11 @@ impl Jotbay {
 
     /// Discovery for a windowed app.
     ///
-    /// `discover` starts from the working directory, which is right for a CLI —
+    /// `discover` starts from the working directory, which is right for a CLI
     /// `cd` into another vault and it follows you. An installed app has no
     /// meaningful working directory: it is wherever the launcher happened to
     /// leave it. On Windows that was the install directory, so the app reported
-    /// "no jotbay found at C:\Users\…\AppData\Local\Jotbay" before setup and
+    /// "no jotbay found at C:\Users\\AppData\Local\Jotbay" before setup and
     /// could bind to the wrong repository after it, if one happened to sit
     /// above the launch directory.
     ///
@@ -117,7 +117,7 @@ impl Jotbay {
         self.git.root()
     }
 
-    /// The synced notes directory — the one users make shortcuts to.
+    /// The synced notes directory. The one users make shortcuts to.
     pub fn data_dir(&self) -> PathBuf {
         self.git.root().join("data")
     }
@@ -195,8 +195,8 @@ impl Jotbay {
 
     /// Every machine's activity, merged newest-first.
     ///
-    /// This is what actually happened — syncs that moved content, conflicts
-    /// resolved, failures — as distinct from `log`, which is the commit
+    /// This is what actually happened, syncs that moved content, conflicts
+    /// resolved, failures, as distinct from `log`, which is the commit
     /// history of what changed.
     pub fn activity(&self, refresh: bool, limit: usize) -> Result<Vec<ActivityEvent>> {
         if refresh {

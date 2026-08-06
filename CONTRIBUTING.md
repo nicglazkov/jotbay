@@ -2,8 +2,8 @@
 
 ## The shape of the thing
 
-One engine, three front ends. `lib/core` owns every decision about git — what
-gets committed, how a conflict is resolved, when a node counts as stale — and
+One engine, three front ends. `lib/core` owns every decision about git, what
+gets committed, how a conflict is resolved, when a node counts as stale. And
 the CLI, the Tauri app and the macOS app all drive it. If you find yourself
 writing git logic in a UI, that is the bug.
 
@@ -36,7 +36,7 @@ signs ad hoc, which runs fine and cannot be notarized.
 
 ## Testing
 
-`cargo test` drives real git repositories in temporary directories — there are
+`cargo test` drives real git repositories in temporary directories. There are
 no mocks, because the behaviour worth testing is what git actually does. CI runs
 the suite on Linux **and** Windows: line endings, path separators and process
 spawning differ enough that a Unix-only run has already missed a real bug.

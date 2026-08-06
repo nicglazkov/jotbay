@@ -8,7 +8,7 @@ struct MenuBarView: View {
     /// Close the popover, then do the thing.
     ///
     /// Every other menu bar app on the system closes when you pick something,
-    /// and this one sat there — most obviously on "Open Jotbay Folder", where
+    /// and this one sat there, most obviously on "Open Jotbay Folder", where
     /// Finder came forward and left the popover hanging over it.
     ///
     /// Dismiss first, act second: several of these activate another app or open
@@ -24,7 +24,7 @@ struct MenuBarView: View {
             if controller.needsSetup {
                 // Every row below assumes a vault. Offering Sync Now with
                 // nothing to sync just produces an error the user cannot act on
-                // from here — send them to the one screen that can fix it.
+                // from here, send them to the one screen that can fix it.
                 unconfigured
             } else {
                 header
@@ -106,7 +106,7 @@ struct MenuBarView: View {
     private var actions: some View {
         VStack(spacing: 0) {
             if controller.needsSetup {
-                MenuButton(title: "Set Up Jotbay…", symbol: "sparkles", key: "m") {
+                MenuButton(title: "Set up Jotbay", symbol: "sparkles", key: "m") {
                     choose {
                         openWindow(id: "main")
                         NSApp.activate(ignoringOtherApps: true)

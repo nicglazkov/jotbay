@@ -161,7 +161,7 @@ struct SyncReport: Codable {
         if committed { parts.append("committed") }
         if pulled > 0 { parts.append("pulled \(pulled)") }
         if !conflicts.isEmpty {
-            parts.append("\(conflicts.count) conflict\(conflicts.count == 1 ? "" : "s") — both versions kept")
+            parts.append("\(conflicts.count) conflict\(conflicts.count == 1 ? "" : "s"), both versions kept")
         }
         if pushed { parts.append("pushed") }
         return parts.joined(separator: " · ").capitalizedFirst
@@ -169,7 +169,7 @@ struct SyncReport: Codable {
 }
 
 /// One thing that happened on one machine. Distinct from `CommitInfo`: a
-/// commit says what changed, an event says what a machine *did* — including
+/// commit says what changed, an event says what a machine *did*, including
 /// failing, which leaves no commit behind.
 struct ActivityEvent: Codable, Identifiable, Hashable {
     var id: String { "\(hostname)-\(at.timeIntervalSince1970)-\(summary)" }
@@ -178,7 +178,7 @@ struct ActivityEvent: Codable, Identifiable, Hashable {
     let hostname: String
     let kind: EventKind
     let summary: String
-    /// Paths this event touched, so a row can answer "pushed 2 files — which?"
+    /// Paths this event touched, so a row can answer "pushed 2 files, which?"
     let files: [String]?
     /// Raw underlying text. Shown only in verbose mode; a push rejected for a
     /// private email is five lines of git stderr that helps almost nobody.

@@ -1,8 +1,8 @@
 //! End-to-end tests against real git repositories.
 //!
 //! These assert on file *content*, not exit status. The conflict policy's most
-//! likely failure mode — swapping which side keeps the canonical filename,
-//! because `--ours` means upstream during a rebase — exits zero either way.
+//! likely failure mode, swapping which side keeps the canonical filename,
+//! because `--ours` means upstream during a rebase, exits zero either way.
 
 use std::path::Path;
 use std::process::Command;
@@ -84,7 +84,7 @@ fn sync_is_a_noop_when_nothing_changed() {
 fn the_remote_fingerprint_moves_only_when_the_remote_does() {
     // The watcher leans on this to decide whether a full sync is worth three
     // round trips. If it reported a change on every call, the backoff would
-    // never take hold and the polling would be exactly as heavy as before —
+    // never take hold and the polling would be exactly as heavy as before
     // silently, because everything would still work.
     let f = fixture();
     let a = Jotbay::open(&f.a).unwrap();
@@ -102,7 +102,7 @@ fn the_remote_fingerprint_moves_only_when_the_remote_does() {
     let after = jotbay_core::sync::remote_fingerprint(a.git()).expect("remote is reachable");
     assert_ne!(
         first, after,
-        "the remote moved and the fingerprint did not — the watcher would \
+        "the remote moved and the fingerprint did not. The watcher would \
          never notice another machine's work"
     );
 }
@@ -114,7 +114,7 @@ fn the_fingerprint_ignores_status_refs() {
     // act on. Watch them here and each machine's sync wakes every other
     // machine, whose syncs wake it back: the backoff never engages and the
     // polling costs more than the fixed interval it replaced. Nothing would
-    // look broken — it would just quietly be worse.
+    // look broken. It would just quietly be worse.
     let f = fixture();
     let a = Jotbay::open(&f.a).unwrap();
 
@@ -131,7 +131,7 @@ fn the_fingerprint_ignores_status_refs() {
     let after = jotbay_core::sync::remote_fingerprint(a.git()).unwrap();
     assert_eq!(
         before, after,
-        "a status-only change moved the fingerprint — every machine will now \
+        "a status-only change moved the fingerprint. Every machine will now \
          wake every other machine indefinitely"
     );
 }
@@ -388,7 +388,7 @@ fn oversized_files_are_never_staged_and_are_reported() {
     assert_eq!(blocked.len(), 1, "the oversized file is reported");
     assert_eq!(blocked[0].path, "data/huge.bin");
 
-    // Critically it must NOT be in history — a commit containing it could
+    // Critically it must NOT be in history. A commit containing it could
     // never be pushed, and every later sync would fail on the same rejection.
     let tracked = git(&f.a, &["ls-files"]);
     assert!(!tracked.contains("huge.bin"), "oversized file must stay untracked: {tracked}");
@@ -409,7 +409,7 @@ fn oversized_files_are_never_staged_and_are_reported() {
 fn a_roll_call_is_visible_to_other_machines_and_answering_does_not_move_it() {
     // The whole design rests on this asymmetry. Asking moves the roll-call ref;
     // answering moves only a status ref. Get it wrong and every machine's
-    // answer is another machine's question, forever — the same loop that made
+    // answer is another machine's question, forever. The same loop that made
     // watching status refs untenable.
     let f = fixture();
     let a = Jotbay::open(&f.a).unwrap();
@@ -427,7 +427,7 @@ fn a_roll_call_is_visible_to_other_machines_and_answering_does_not_move_it() {
     );
     assert_eq!(
         asked.heads, before.heads,
-        "asking moved a branch tip — that would make a roll call trigger a full \
+        "asking moved a branch tip. That would make a roll call trigger a full \
          sync on every machine instead of a status publish"
     );
 
@@ -436,7 +436,7 @@ fn a_roll_call_is_visible_to_other_machines_and_answering_does_not_move_it() {
     let after = jotbay_core::sync::probe(a.git()).expect("remote reachable");
     assert_eq!(
         after.rollcall, asked.rollcall,
-        "answering the roll call moved it — every answer is now a new question \
+        "answering the roll call moved it. Every answer is now a new question \
          and the fleet will never go quiet"
     );
     assert_eq!(after.heads, before.heads, "answering moved a branch tip");

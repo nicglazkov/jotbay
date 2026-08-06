@@ -98,7 +98,7 @@ final class JotbayController: ObservableObject {
     func sync() {
         guard !isSyncing else { return }
         isSyncing = true
-        lastMessage = "Syncing…"
+        lastMessage = "Syncing"
         lastMessageIsError = false
 
         Task {
@@ -128,7 +128,7 @@ final class JotbayController: ObservableObject {
                 self.needsSetup = await self.run(["status", "--offline", "--json"]) == nil
             }
             // Set on every path. A missing CLI is not a reason to sit on a
-            // blank window forever — the main view says so plainly.
+            // blank window forever. The main view says so plainly.
             self.setupChecked = true
         }
     }
@@ -226,10 +226,10 @@ final class JotbayController: ObservableObject {
 
     func upgrade() {
         Task {
-            self.lastMessage = "Downloading update…"
+            self.lastMessage = "Downloading update"
             self.lastMessageIsError = false
             if await run(["upgrade"]) != nil {
-                self.lastMessage = "Updated — restart Jotbay to finish."
+                self.lastMessage = "Updated. Restart Jotbay to finish."
             } else {
                 self.lastMessage = self.lastStderr.isEmpty ? "Update failed" : self.lastStderr
                 self.lastMessageIsError = true

@@ -2,7 +2,7 @@
 //!
 //! The ceilings are GitHub's, not ours. The one that matters is 100 MB: a push
 //! containing a larger file is rejected outright. Committing such a file first
-//! and discovering that at push time is the worst outcome available — the
+//! and discovering that at push time is the worst outcome available. The
 //! commit is already in local history, every later sync fails on the same
 //! rejected push, and getting out requires a reset the user did not ask for.
 //!
@@ -20,7 +20,7 @@ pub const BLOCK_BYTES: u64 = 100 * 1024 * 1024;
 pub const WARN_BYTES: u64 = 50 * 1024 * 1024;
 /// Our own guidance. Git keeps a near-complete copy of every version of a
 /// binary forever, so repeated edits to a file this size are what actually
-/// ruins a repository — long before any single file hits the hard ceiling.
+/// ruins a repository, long before any single file hits the hard ceiling.
 pub const ADVISE_BYTES: u64 = 25 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,15 +60,15 @@ impl Severity {
     ///
     /// This is the only copy of that advice. The CLI reads it directly and
     /// both GUIs receive it on every `FileWarning` (see the `Serialize` impl
-    /// below), because the previous arrangement — each UI holding its own
-    /// literal — is exactly how all three came to keep recommending Git LFS
+    /// below), because the previous arrangement. Each UI holding its own
+    /// literal, is exactly how all three came to keep recommending Git LFS
     /// for months after this function stopped.
     pub fn advice(&self) -> &'static str {
         match self {
             Severity::Blocked => {
                 // Deliberately does NOT suggest Git LFS. Conflict resolution
                 // reads merge stages with `git show :2:`, which returns an LFS
-                // *pointer* rather than the file — verified — so a conflict on
+                // *pointer* rather than the file, verified, so a conflict on
                 // an LFS-tracked file would write a 130-byte stub over real
                 // content. Advise LFS only once conflict.rs smudges stages.
                 "GitHub refuses files of 100 MB or more, so these were left out of the sync. \
@@ -79,7 +79,7 @@ impl Severity {
                  download on every clone."
             }
             Severity::Advisory => {
-                "These sync, but git keeps every version forever — editing them repeatedly \
+                "These sync, but git keeps every version forever, editing them repeatedly \
                  grows the repository permanently on every machine."
             }
         }
@@ -131,7 +131,7 @@ pub fn human_size(bytes: u64) -> String {
 /// Every file in the working tree that is at or over the advisory threshold.
 ///
 /// Uses `git ls-files` rather than walking the directory so that ignored paths
-/// — build output above all — are never considered.
+///, build output above all, are never considered.
 pub fn scan(git: &Git) -> Result<Vec<FileWarning>> {
     let listing = git.run(&["ls-files", "--cached", "--others", "--exclude-standard"])?;
     let root = git.root();

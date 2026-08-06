@@ -1,7 +1,7 @@
 //! The three first-run routes, against real git repositories.
 //!
-//! Setup offers three ways in — create a repository, clone one you already
-//! have, adopt a folder that is already a clone — and they are three different
+//! Setup offers three ways in, create a repository, clone one you already
+//! have, adopt a folder that is already a clone, and they are three different
 //! functions that happen to share a tail. Nothing tested that tail, and in
 //! 1.7.1 it cost us: the git-identity fix landed below an early return that
 //! only the *create* route falls through, so cloning and adopting kept the old
@@ -84,7 +84,7 @@ fn origin_with_history(tmp: &Path) -> PathBuf {
 /// Hide any git identity this machine already has.
 ///
 /// Without this the test asserts nothing on a machine with a global
-/// `user.email` — which is every developer's laptop and every GitHub runner.
+/// `user.email`, which is every developer's laptop and every GitHub runner.
 /// `ensure_identity` legitimately accepts a global identity and returns
 /// success without writing anything locally, and that outcome is *identical*
 /// to the bug, where it was never called at all.
@@ -111,13 +111,13 @@ fn hide_ambient_git_identity() {
 /// signed in and the route writes a noreply address, or it is not and the
 /// route refuses and says so. Asserting either alone would test the machine
 /// rather than the code. What cannot happen is returning success having
-/// neither set an identity nor complained — precisely what the bug did, on the
+/// neither set an identity nor complained, precisely what the bug did, on the
 /// route a user with existing notes actually picks.
 fn assert_identity_was_settled(outcome: &Result<PathBuf, jotbay_core::Error>, repo: &Path) {
     let email = local_config(repo, "user.email");
     assert!(
         outcome.is_err() || email.is_some(),
-        "setup reported success without settling a git identity — the commit \
+        "setup reported success without settling a git identity. The commit \
          that follows would be authored from the global config and the first \
          push would fail with GH007. Local user.email: {email:?}"
     );
@@ -135,7 +135,7 @@ fn cloning_an_existing_repository_settles_the_git_identity() {
 
     let outcome = jotbay_core::setup::clone_existing(origin.to_str().unwrap(), &dest);
 
-    // The clone itself must have happened either way — the identity step runs
+    // The clone itself must have happened either way. The identity step runs
     // after it, so a failure here would mean something else broke.
     assert!(dest.join(".git").exists(), "the repository was not cloned");
     assert_eq!(
@@ -172,7 +172,7 @@ fn every_route_seeds_the_vault_layout() {
     hide_ambient_git_identity();
     // Shared tail, separately reachable. `seed` is what puts data/ and the
     // normalisation attributes in place, and a route that skipped it would
-    // produce a vault whose line endings differ per platform — the failure the
+    // produce a vault whose line endings differ per platform. The failure the
     // sync suite had to learn about on Windows.
     let tmp = std::env::temp_dir().join("jotbay-route-seed");
     let _ = std::fs::remove_dir_all(&tmp);

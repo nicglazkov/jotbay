@@ -26,7 +26,7 @@ targets:
     platform: macOS
     sources:
       - path: Sources
-      # XcodeGen has no `resources:` key — non-code files are declared as
+      # XcodeGen has no `resources:` key, non-code files are declared as
       # sources with an explicit build phase, or they are silently omitted
       # from the bundle and the app launches with no icon and no CLI.
       - path: Resources

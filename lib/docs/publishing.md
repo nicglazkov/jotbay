@@ -6,15 +6,15 @@ actually decided and why.
 
 ## Two repositories, not a template
 
-The template-repository route — publish one repo, users click *Use this
-template* and get their own private copy — was the cheaper option and is wrong
+The template-repository route, publish one repo, users click *Use this
+template* and get their own private copy, was the cheaper option and is wrong
 here. It puts a copy of the source inside every user's private notes repo, makes
 every update a git merge instead of a command, and means a user's notes live in
 a fork of a public repository, one setting away from being public.
 
 So: **a public repo holding only the tool, and each user's own private notes
-repo created by `jotbay init`.** The cost was real installer work — bootstrapping
-without a clone, and guided first-run setup in both GUIs — and that work is done.
+repo created by `jotbay init`.** The cost was real installer work, bootstrapping
+without a clone, and guided first-run setup in both GUIs, and that work is done.
 
 What it buys, all of which was blocked while one private repo held both:
 
@@ -27,13 +27,13 @@ What it buys, all of which was blocked while one private repo held both:
 
 ## The name changed, twice
 
-The tool was originally `vault`, which collided with HashiCorp Vault — that
+The tool was originally `vault`, which collided with HashiCorp Vault. That
 product puts a `vault` binary on PATH, which is a real conflict rather than a
 branding preference. It became `inkway`, and `inkway` failed for a different and
 more interesting reason: its author kept forgetting it. An abstract coinage with
 no familiar root gives the memory nothing to hook onto.
 
-It is now **jotbay** — *jot*, the verb for writing something down quickly, plus
+It is now **jotbay**, *jot*, the verb for writing something down quickly, plus
 *bay*, a sheltered place things return to.
 
 Four things were checked before committing, and the last one is the one most
@@ -48,8 +48,8 @@ naming exercises skip:
    own name, npm `homeport` is a two-week-old CLI for shipping binaries, and
    JETBAY is an air-charter company with an app in the US App Store.
 3. **Phonetics.** The seam between the two halves of a compound decides whether
-   it is pleasant to say. A sonorant running into a stop — the `/l/`+`/b/` of
-   *mailbag* — flows; two stops colliding does not. `jotbay` pays a small tax
+   it is pleasant to say. A sonorant running into a stop. The `/l/`+`/b/` of
+   *mailbag*, flows; two stops colliding does not. `jotbay` pays a small tax
    here (`/t/`+`/b/`) and was chosen anyway, because connotation is forever and
    an awkward seam stops being noticed in a week.
 4. **Whether the name survives as a search term.** Compounds of two very common
@@ -58,7 +58,7 @@ naming exercises skip:
    uncommon enough to hold together as one token, which is why it survived where
    `syncbay` and `stowbox` did not.
 
-Trademark findings behind point 2 are a floor, not clearance — the authoritative
+Trademark findings behind point 2 are a floor, not clearance. The authoritative
 sources block automated access, so a real search is still owed before the name
 goes on a business.
 
@@ -94,7 +94,7 @@ file that `lib/release.sh` writes into the repository, so the answer arrived by
 the same sync that carried the notes and cost no network call. A notes-only repo
 carries no such marker. Detection now falls back to
 `api.github.com/repos/<tool>/releases/latest`, cached for six hours in the config
-directory, and — importantly — that request is made **only** on paths that
+directory, and, importantly, that request is made **only** on paths that
 already accept network latency. The GUI repaints its state every twenty seconds;
 an HTTP request on that path would be indefensible.
 
@@ -103,7 +103,7 @@ still answers for free.
 
 ## Identity is configuration, not source
 
-- **Signing** — certificate name, Team ID, bundle prefix and notary profile live
+- **Signing**, certificate name, Team ID, bundle prefix and notary profile live
   in `lib/gui-macos/signing.env`, which is gitignored. A Team ID identifies an
   Apple developer account, not a project. Without the file the build signs ad
   hoc, which runs locally and cannot be notarized; CI has always taken that path.
@@ -121,7 +121,7 @@ The existing history is not publishable and not worth laundering: 1,189 commits
 mention the author by name, it has already been rewritten once to remove
 accidentally-committed build output, and every automated sync commit is titled
 with a machine's hostname. A `git checkout --orphan` start costs nothing that
-matters — the tool's history is interesting to nobody but its author, and the
+matters. The tool's history is interesting to nobody but its author, and the
 design notes that *are* interesting are checked in under `lib/docs/`.
 
 A credential scan of the full history found nothing: no keys, no tokens, no
@@ -136,12 +136,12 @@ is a separate piece of work with no upside for anyone else.
 
 Unsigned until the LLC exists, then
 [Azure Trusted Signing](https://azure.microsoft.com/products/trusted-signing) at
-roughly $10/month — an order of magnitude cheaper than OV or EV, and unlike OV it
+roughly $10/month. An order of magnitude cheaper than OV or EV, and unlike OV it
 inherits Microsoft's SmartScreen reputation immediately rather than accruing its
 own. Until then the Windows installers show "Windows protected your PC".
 
 macOS is signed and notarized; `lib/gui-macos/package.sh` does it, and the order
 that matters is *staple the app before packaging it*, because a DMG built first
 seals in an app with no ticket and Gatekeeper hides the mistake by checking Apple
-online. Linux has nothing to sign — distribution signing is per-repository, and
+online. Linux has nothing to sign, distribution signing is per-repository, and
 direct `.deb`/`.AppImage` downloads need none.

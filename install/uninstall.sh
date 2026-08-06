@@ -6,11 +6,11 @@
 #   install/uninstall.sh --all    remove them too, for a genuinely fresh install
 #   curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/uninstall.sh | bash -s -- --all
 #
-# Your notes are never touched. This removes the program, not the data — the
+# Your notes are never touched. This removes the program, not the data. The
 # repository stays where it is, and a later install can adopt it.
 #
 # This used to undo only what install.sh had done, so it could not clean a
-# machine installed from the .deb or the .dmg — the two routes most people take.
+# machine installed from the .deb or the .dmg. The two routes most people take.
 # Both fresh-install runs had to finish the job by hand, and everything they
 # found left behind is handled here: a scheduled task pointing at a deleted
 # binary, a desktop launcher for a program that was gone, and settings that made
@@ -35,7 +35,7 @@ esac
 # to ask. Used only so the closing line can name the folder it did not touch.
 # Read from the recorded setting, not from `jotbay path`. That command answers
 # for the current directory, so running this uninstaller from inside any git
-# repository made it announce that repository as "your notes" — which is the
+# repository made it announce that repository as "your notes", which is the
 # same cwd-versus-settings confusion as issue #2, in a script rather than the
 # app. Harmless in what it deleted, wrong in what it told the user.
 VAULT=""
@@ -59,7 +59,7 @@ if [ "$OS" = macos ]; then
 else
   # One unit per command. Naming several and letting a missing one fail aborts
   # the whole call, so the service is never disabled and its enable symlink
-  # survives — which then makes the next install's scheduler check meaningless,
+  # survives, which then makes the next install's scheduler check meaningless,
   # because an inherited unit looks exactly like a freshly created one. Found by
   # an agent who proved it with a dummy unit rather than assuming.
   for UNIT in jotbay-sync.service jotbay-sync.timer inkway-sync.service inkway-sync.timer; do
@@ -78,7 +78,7 @@ info "stopped"
 # --- 2. the package, if this machine has one -------------------------------
 if [ "$OS" = linux ] && command -v dpkg >/dev/null 2>&1; then
   # `dpkg -s`, not `dpkg -l | grep -q`. With `pipefail` set, grep exits the
-  # moment it matches, dpkg dies of SIGPIPE, and the pipeline reports failure —
+  # moment it matches, dpkg dies of SIGPIPE, and the pipeline reports failure
   # so the package was silently never removed on a machine that definitely had
   # it. The uninstaller's own closing check is what caught that.
   if dpkg -s jotbay >/dev/null 2>&1; then
@@ -86,7 +86,7 @@ if [ "$OS" = linux ] && command -v dpkg >/dev/null 2>&1; then
     if sudo -n true 2>/dev/null; then
       sudo apt-get remove -y jotbay >/dev/null 2>&1 && info "removed"
     else
-      warn "needs sudo — finish with: sudo apt-get remove -y jotbay"
+      warn "needs sudo, finish with: sudo apt-get remove -y jotbay"
     fi
   fi
 fi
@@ -106,7 +106,7 @@ if [ "$OS" = macos ]; then
   # Homebrew owns its own symlink; say so rather than leaving a dangling link
   # or fighting brew over a file it will put back.
   if [ -L /opt/homebrew/bin/jotbay ] || [ -L /usr/local/bin/jotbay ]; then
-    warn "installed with Homebrew — finish with: brew uninstall --cask jotbay"
+    warn "installed with Homebrew, finish with: brew uninstall --cask jotbay"
   fi
 else
   rm -f "$HOME/.local/share/applications/jotbay.desktop" \
@@ -137,11 +137,11 @@ if [ "$ALL" = 1 ]; then
   say "removing preferences"
   rm -rf "$CONFIG" "$LEGACY"
   rm -f "$HOME/Library/Logs/jotbay-sync.log" 2>/dev/null
-  info "removed — the next install starts from the first-run screen"
+  info "removed. The next install starts from the first-run screen"
 elif [ -d "$CONFIG" ]; then
   say "keeping your preferences"
   info "$CONFIG"
-  info "these record where your notes live, so a reinstall finds them again —"
+  info "these record where your notes live, so a reinstall finds them again"
   info "which also means a reinstall is NOT a fresh one. Use --all for that."
 fi
 
@@ -162,18 +162,18 @@ if command -v jotbay >/dev/null 2>&1; then
   warn "still on PATH: $(command -v jotbay)"
   LEFT=1
 fi
-# Homebrew's copy is deliberately not removed here, but it is still a copy —
+# Homebrew's copy is deliberately not removed here, but it is still a copy
 # and reporting "nothing left behind" beside a warning to run brew was a
 # contradiction that only one of the two could be true about.
 if [ -L /opt/homebrew/bin/jotbay ] || [ -L /usr/local/bin/jotbay ]; then
-  warn "still installed by Homebrew — run: brew uninstall --cask jotbay"
+  warn "still installed by Homebrew, run: brew uninstall --cask jotbay"
   LEFT=1
 fi
 [ "$LEFT" = 0 ] && info "nothing left behind"
 
 echo
 if [ -n "$VAULT" ] && [ -d "$VAULT" ]; then
-  say "done — your notes in $VAULT are untouched"
+  say "done, your notes in $VAULT are untouched"
 else
-  say "done — your notes were not touched"
+  say "done, your notes were not touched"
 fi

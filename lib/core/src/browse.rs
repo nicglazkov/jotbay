@@ -6,7 +6,7 @@
 //!
 //! Everything here refuses to leave the notes directory. The paths come from a
 //! webview, and a webview's idea of a path is attacker-adjacent input even
-//! when the only user is the owner — one `../` in a crafted event and a
+//! when the only user is the owner. One `../` in a crafted event and a
 //! "read-only notes browser" is reading `~/.ssh`.
 
 use crate::error::{Error, Result};
@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Serialize)]
 pub struct Entry {
     pub name: String,
-    /// Relative to the notes root, always with forward slashes — the webview
+    /// Relative to the notes root, always with forward slashes. The webview
     /// hands it back verbatim, and Windows accepts both.
     pub path: String,
     pub is_dir: bool,
@@ -212,7 +212,7 @@ mod tests {
         let dir = scratch("escape");
         let root = dir.join("notes");
         // Whether the traversal fails to resolve or resolves outside the root,
-        // the answer must be an error — never the file.
+        // the answer must be an error, never the file.
         assert!(read(&root, "../secret.txt").is_err());
         assert!(list(&root, "..").is_err());
         let _ = std::fs::remove_dir_all(&dir);

@@ -1,4 +1,4 @@
-/* Jotbay — Windows and Linux.
+/* Jotbay. Windows and Linux.
    Mirrors the macOS app's information design so the two never feel like
    different products. Colours come from the app icon's indigo/violet. */
 
@@ -23,7 +23,7 @@
    The media query is the correct mechanism and is what WebKitGTK honours. The
    attribute selector is set by app.js from `matchMedia`, because WebView2 does
    not re-evaluate the media query when Windows switches theme while the window
-   is open — so on Windows this is the copy that actually repaints.
+   is open, so on Windows this is the copy that actually repaints.
    `data-theme="light"` must also win, or a machine that starts dark and
    switches to light would keep the dark media query. */
 @media (prefers-color-scheme: dark) {
@@ -80,7 +80,7 @@
 
 /* Any author `display` rule outranks the user agent's `[hidden] { display:
    none }`, so `el.hidden = true` silently does nothing to an element whose
-   class sets a display — which is how both banners ended up permanently on
+   class sets a display, which is how both banners ended up permanently on
    screen. Restore the attribute's meaning once, here, rather than remembering
    it at every call site. */
 [hidden] { display: none !important; }
@@ -218,7 +218,7 @@ button.link {
 
 /* The wrapper the first-run screen needs, which had no rule at all.
    body is a 100vh flex column and main is flex:1/min-height:0, so the chain
-   looks correct from either side — but an unstyled div between them grows to
+   looks correct from either side, but an unstyled div between them grows to
    its content instead of passing the height down. main measured 2385px inside
    a 620px body, so every pane was exactly as tall as its content, overflow-y
    had nothing to scroll against, and body{overflow:hidden} clipped the rest
@@ -380,7 +380,7 @@ main { flex: 1; display: flex; min-height: 0; }
 #fr-detail input { font: inherit; font-size: 12.5px; padding: 7px 10px;
   border-radius: var(--radius); border: 1px solid var(--border);
   background: var(--bg); color: var(--text); width: 100%; }
-/* Label above, like the field before it — an inline label put the two rows on
+/* Label above, like the field before it. An inline label put the two rows on
    different left edges, which read as a mistake. */
 .fr-row { display: flex; gap: 8px; align-items: center; }
 .fr-row input { flex: 1; }

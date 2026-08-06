@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jotbay — your notes, on every machine you own</title>
+<title>Jotbay: your notes, on every machine you own</title>
 <meta name="description" content="Jotbay keeps a folder of markdown notes in sync across macOS, Windows and Linux, through a private git repository you own. No server, no account, and nothing is ever discarded.">
 <style>
 :root {
@@ -103,12 +103,12 @@ footer a { color: var(--dim); margin: 0 10px; }
   <h1>The note you need is always<br>on the other machine.</h1>
   <p class="sub">Jotbay keeps a folder of markdown in sync across your Macs, Windows
   and Linux machines, through a private git repository you own. No server, no
-  account, no telemetry — and nothing you wrote is ever discarded.</p>
+  account, and no telemetry. Nothing you wrote is ever discarded.</p>
   <div class="cta">
     <a class="btn primary" href="https://github.com/nicglazkov/jotbay/releases/latest">Download</a>
     <a class="btn quiet" href="https://github.com/nicglazkov/jotbay">GitHub</a>
   </div>
-  <p class="platforms faint">macOS 14+ · Windows 10+ · Linux — free and open source, MIT</p>
+  <p class="platforms faint">macOS 14+, Windows 10+, Linux. Free and open source, MIT.</p>
 </header>
 
 <img class="shot" src="images/macos-main.png"
@@ -126,7 +126,7 @@ been failing for six hours says so here, and in no commit log anywhere.</p>
   <div class="feature">
     <h3>Shows every machine</h3>
     <p>A menu bar or tray icon that changes when something needs attention, and
-    an activity feed of what each machine actually did — including failing.</p>
+    an activity feed of what each machine actually did, including failing.</p>
   </div>
   <div class="feature">
     <h3>Keeps both versions</h3>
@@ -139,7 +139,7 @@ been failing for six hours says so here, and in no commit log anywhere.</p>
 <h2>A closer look</h2>
 
 <p class="dim">Reading a note without leaving the app. The browser is read-only
-by construction — the commands to write anything simply do not exist.</p>
+by construction. The commands to write anything don't exist.</p>
 <img class="shot" src="images/tauri-preview.png"
      alt="The file browser rendering a markdown note">
 
@@ -158,7 +158,7 @@ adopt a folder that is already a clone. Prefer a terminal?
 
 <h3>Download</h3>
 <p>Grab the installer for your platform from the
-<a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a> —
+<a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a>:
 a notarized <code>.dmg</code> for macOS, <code>-setup.exe</code> for Windows,
 <code>.deb</code> or <code>.AppImage</code> for Linux. Every installer includes
 the command line tool.</p>
@@ -172,7 +172,7 @@ no administrator rights. <a href="#windows">Why that happens.</a></p>
 <h3>Terminal</h3>
 <p class="faint">macOS and Linux:</p>
 <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash</code></pre>
-<p class="faint">Windows, in PowerShell — this is the recommended route until the
+<p class="faint">Windows, in PowerShell. This is the recommended route until the
 build is signed. It needs no administrator rights:</p>
 <pre><code>irm https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.ps1 -OutFile "$env:TEMP\jotbay-install.ps1"
 powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></pre>
@@ -181,7 +181,7 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
 
 <details open>
   <summary>Where do my notes actually go?</summary>
-  <p>To a git repository you own — usually a private one on GitHub, but GitLab,
+  <p>To a git repository that you own, usually a private one on GitHub. GitLab,
   Codeberg, a self-hosted Forgejo or a bare repo over SSH all work. There is no
   Jotbay server, no account with anyone, and the tool phones nothing home. The
   one outbound request it makes on its own is checking its own releases page for
@@ -196,7 +196,7 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
 <details>
   <summary>Do I need to know git?</summary>
   <p>No. Setup asks where your notes should live and handles the rest; the word
-  "commit" never appears in the interface. If you do know git, it is all real —
+  "commit" never appears in the interface. If you do know git, it's all real:
   a normal repository you can inspect, clone and script against.</p>
 </details>
 <details>
@@ -211,14 +211,14 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
   <summary>How fast is "sync"?</summary>
   <p>Jotbay watches the folder and syncs about two seconds after you stop
   editing, so a note is usually on your other machines within ten seconds. It
-  still is not a real-time collaborative editor — it is built for notes that
+  still isn't a real-time collaborative editor. It's built for notes that
   need to be on the next machine you sit at, not for two people typing in one
   document.</p>
 </details>
 <details id="windows">
   <summary>Why does Windows warn me about the installer?</summary>
   <p>Because it is not code-signed yet. Microsoft Defender SmartScreen stops
-  unrecognized apps, and says <em>"Windows protected your PC — Microsoft
+  unrecognized apps, and says <em>"Windows protected your PC. Microsoft
   Defender SmartScreen prevented an unrecognized app from starting"</em>. At
   first the only button is <strong>Don't run</strong>; click
   <strong>More info</strong> and it shows <em>Publisher: Unknown publisher</em>
@@ -229,7 +229,7 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
   <code>Trojan:Win32/Wacatac.C!ml</code> and quarantined outright. We withdrew
   it rather than ask anyone to click past a malware warning. It turned out to be
   a false positive in Defender's machine-learning model, which Microsoft
-  corrected in a definition update — the identical file, byte for byte, is clean
+  corrected in a definition update. The identical file, byte for byte, is clean
   on current definitions. Nothing in the code was involved or changed. The
   installer is back, and it is recorded here because a project that quietly
   deletes its own incidents is not one worth trusting with your notes.</p>
@@ -237,12 +237,12 @@ powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></
 
 <h2>The command line</h2>
 <p class="dim">Everything the app shows, scriptable. The GUIs are front ends over
-the same engine — nothing works differently in a terminal.</p>
+the same engine. Nothing works differently in a terminal.</p>
 <table>
   <tr><td>jotbay</td><td>current state, local and across every machine</td></tr>
   <tr><td>jotbay sync</td><td>commit, integrate the remote, push</td></tr>
   <tr><td>jotbay dash</td><td>live dashboard in the terminal</td></tr>
-  <tr><td>jotbay activity</td><td>what every machine has done — syncs, conflicts, failures</td></tr>
+  <tr><td>jotbay activity</td><td>what every machine has done: syncs, conflicts, failures</td></tr>
   <tr><td>jotbay init</td><td>set up a vault on a new machine</td></tr>
   <tr><td>jotbay upgrade</td><td>fetch the current release and replace this machine's binaries</td></tr>
 </table>

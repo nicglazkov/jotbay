@@ -31,11 +31,11 @@ mkdir -p "$OUT/linux" "$OUT/menubar" "$OUT/tauri" "$OUT/tray"
 if [ -n "$ICNS_KEEP" ]; then
   cp "$ICNS_KEEP" "$OUT/jotbay.icns"
   rm -rf "$(dirname "$ICNS_KEEP")"
-  echo "note: kept the existing jotbay.icns — only macOS can regenerate it" >&2
+  echo "note: kept the existing jotbay.icns. Only macOS can regenerate it" >&2
 fi
 
 if ! have rsvg-convert; then
-  echo "error: rsvg-convert not found — brew install librsvg" >&2
+  echo "error: rsvg-convert not found, brew install librsvg" >&2
   exit 1
 fi
 
@@ -110,4 +110,4 @@ cp "$OUT/icon.png" "$OUT/tauri/icon.png"
 [ -f "$OUT/jotbay.ico" ]  && cp "$OUT/jotbay.ico"  "$OUT/tauri/icon.ico"
 
 echo
-echo "done — $(find "$OUT" -type f | wc -l | tr -d ' ') files in $OUT/"
+echo "done, $(find "$OUT" -type f | wc -l | tr -d ' ') files in $OUT/"

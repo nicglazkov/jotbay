@@ -26,7 +26,7 @@ fn fetch(git: &Git) -> Result<()> {
 ///
 /// One round trip, no object negotiation, no pack. It exists so the watcher can
 /// find out that nothing has changed without paying for a fetch, a status fetch
-/// and a push to discover the same thing — which is what it used to do, every
+/// and a push to discover the same thing, which is what it used to do, every
 /// twenty seconds, forever. On an idle machine that was roughly thirteen
 /// thousand git operations a day against someone's git host.
 ///
@@ -40,8 +40,8 @@ fn fetch(git: &Git) -> Result<()> {
 /// backoff would never engage and the whole exercise would cost more than the
 /// fixed interval it replaced.
 ///
-/// Watching branches asks the question that actually has consequences — has
-/// the content moved, do I need to pull — and that settles after one round,
+/// Watching branches asks the question that actually has consequences, has
+/// the content moved, do I need to pull, and that settles after one round,
 /// because a machine that only pulls pushes nothing back. Status is telemetry;
 /// `sync` already fetches it, and the interface refreshes it on demand.
 ///
@@ -127,7 +127,7 @@ pub fn run(jotbay: &Jotbay) -> Result<SyncReport> {
     let mut report = SyncReport::default();
     let outcome = sync_inner(jotbay, &hostname, &mut report);
 
-    // Publish status even when the pass failed — a node that reports "auth
+    // Publish status even when the pass failed. A node that reports "auth
     // error at 14:22" is far more useful than one that silently goes stale.
     let error = outcome.as_ref().err().map(|e| e.to_string());
     let _ = publish_status(jotbay, &hostname, &report, error);
@@ -174,8 +174,8 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
         // in a scheduled job would hang forever holding the sync lock, turning
         // a visible failure into silent sync death.
         //
-        // If the commit itself fails — overwhelmingly because the machine has
-        // no user.name/user.email — everything we just staged would stay
+        // If the commit itself fails, overwhelmingly because the machine has
+        // no user.name/user.email, everything we just staged would stay
         // staged, so the next `git status` the user runs shows a half-prepared
         // commit they never made. Put the index back before reporting.
         if let Err(e) = git.run(&["-c", "commit.gpgsign=false", "commit", "-q", "-m", &message]) {
@@ -214,7 +214,7 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
     //
     //    Whether anything is actually going out is decided *before* the push,
     //    because afterwards the answer is always no. `pushed` used to be set
-    //    unconditionally, which made did_nothing() permanently false — a lie
+    //    unconditionally, which made did_nothing() permanently false. A lie
     //    nobody noticed at ten-minute intervals and that the watcher turned
     //    into "Saved your changes" every twenty seconds, forever.
     let ahead: u32 = git
@@ -242,7 +242,7 @@ fn sync_inner(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Resul
             // With two machines that is rare and one retry always sufficed.
             // With ten it stops being rare: every retry is itself a race, and
             // losing twice in a row only needs a third editor. Attempts are
-            // cheap — integrate is local once the fetch is done — and the cost
+            // cheap, integrate is local once the fetch is done, and the cost
             // of running out is a sync that reports failure for a reason that
             // would have resolved itself.
             //
@@ -288,7 +288,7 @@ fn integrate(jotbay: &Jotbay, hostname: &str, report: &mut SyncReport) -> Result
         return Ok(());
     }
 
-    // The rebase stopped. Resolve every conflicted commit in turn — one rebase
+    // The rebase stopped. Resolve every conflicted commit in turn. One rebase
     // can halt repeatedly, once per replayed commit that collides.
     let mut guard = 0;
     while git.rebase_in_progress() {
@@ -338,7 +338,7 @@ fn describe(
 
     let (kind, summary) = if let Some(err) = error {
         // Keep the raw text, but lead with a sentence. Verbose mode shows the
-        // rest; without this the feed fills with `remote: error: …` and URLs.
+        // rest; without this the feed fills with `remote: error: ` and URLs.
         detail = Some(err.clone());
         (EventKind::Error, summarise_error(err))
     } else if !blocked.is_empty() {
@@ -388,7 +388,7 @@ fn describe(
         if !report.conflicts.is_empty() {
             let n = report.conflicts.len();
             parts.push(format!(
-                "{n} conflict{} — both versions kept",
+                "{n} conflict{}, both versions kept",
                 if n == 1 { "" } else { "s" }
             ));
         }
@@ -436,13 +436,13 @@ fn summarise_error(raw: &str) -> String {
         return "Cannot commit: git has no user.name or user.email on this machine.".to_string();
     }
     if lower.contains("authentication failed") || lower.contains("could not read username") {
-        return "Authentication failed — the credential helper could not answer.".to_string();
+        return "Authentication failed. The credential helper couldn't answer.".to_string();
     }
     if lower.contains("exceeds github's file size limit") || lower.contains("gh001") {
         return "Push rejected: a file exceeds GitHub's 100 MB limit.".to_string();
     }
     if lower.contains("could not resolve host") || lower.contains("network is unreachable") {
-        return "Offline — could not reach the remote.".to_string();
+        return "Offline. Couldn't reach the remote.".to_string();
     }
     if lower.contains("non-fast-forward") || lower.contains("rejected") && lower.contains("fetch first") {
         return "Push rejected: the remote moved on. The next sync reconciles it.".to_string();
@@ -451,8 +451,11 @@ fn summarise_error(raw: &str) -> String {
     let first = raw.lines().find(|l| !l.trim().is_empty()).unwrap_or(raw).trim();
     let first = first.strip_prefix("error: ").unwrap_or(first);
     if first.chars().count() > 140 {
-        let cut: String = first.chars().take(137).collect();
-        format!("{cut}…")
+        // Say that it was cut, rather than trailing off. An ellipsis leaves the
+        // reader unsure whether the message ended or the sentence did, and a
+        // silently truncated error reads as a complete one.
+        let cut: String = first.chars().take(128).collect();
+        format!("{} (truncated)", cut.trim_end())
     } else {
         first.to_string()
     }
@@ -526,7 +529,7 @@ mod tests {
                         git config --global user.email \"you@example.com\"";
         assert!(summarise_error(identity).contains("no user.name"));
 
-        assert!(summarise_error("fatal: Authentication failed for 'https://…'")
+        assert!(summarise_error("fatal: Authentication failed for 'https://'")
             .contains("Authentication failed"));
         assert!(summarise_error("fatal: unable to access: Could not resolve host: github.com")
             .contains("Offline"));
@@ -540,6 +543,8 @@ mod tests {
         let long = "x".repeat(400);
         let s = summarise_error(&long);
         assert!(s.chars().count() <= 140, "truncated: {}", s.chars().count());
-        assert!(s.ends_with('…'));
+        // Truncation has to announce itself. Without a marker a cut-off error
+        // reads as a complete one, and the reader acts on half a sentence.
+        assert!(s.ends_with("(truncated)"), "no truncation marker: {s}");
     }
 }

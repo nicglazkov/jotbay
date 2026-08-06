@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// An installed app always opens here the first time: a `.dmg` cannot clone a
 /// private repository, so somebody has to be asked where the notes live. Three
-/// routes, with the one requiring no git knowledge offered first — and disabled
+/// routes, with the one requiring no git knowledge offered first, and disabled
 /// rather than allowed to fail when `gh` cannot actually deliver it.
 struct FirstRunView: View {
     @EnvironmentObject private var controller: JotbayController
@@ -123,7 +123,7 @@ struct FirstRunView: View {
     /// screen can hint at it.
     private func detail(for option: SetupMode) -> String {
         guard option == .create else { return option.detail }
-        guard let caps else { return "Checking…" }
+        guard let caps else { return "Checking" }
         if caps.ghAuthenticated {
             return caps.login.map { "Makes a new private repository under \($0) and starts syncing." }
                 ?? option.detail
@@ -194,20 +194,20 @@ struct SetupForm: View {
                     .font(.system(size: 12.5))
                 // Typing a filesystem path is exactly what someone who opened
                 // the app instead of a terminal is trying to avoid.
-                Button("Choose…", action: browse)
+                Button("Choose", action: browse)
             }
 
             HStack(spacing: 10) {
                 if busy {
                     ProgressView().controlSize(.small)
-                    Text(mode == .adopt ? "Checking the folder…" : "This can take a moment…")
+                    Text(mode == .adopt ? "Checking the folder" : "This can take a moment")
                         .font(.system(size: 11.5))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Back", action: back)
                     .disabled(busy)
-                Button(busy ? "Setting up…" : "Set up Jotbay", action: submit)
+                Button(busy ? "Setting up" : "Set up Jotbay", action: submit)
                     .keyboardShortcut(.defaultAction)
                     .disabled(busy || location.isEmpty || (mode != .adopt && value.isEmpty))
             }

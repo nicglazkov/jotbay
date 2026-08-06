@@ -52,7 +52,7 @@ fn event_loop(jotbay: &Jotbay, terminal: &mut ratatui::DefaultTerminal) -> std::
                     KeyCode::Char('q') | KeyCode::Esc => break,
                     KeyCode::Char('s') => {
                         app.busy = true;
-                        app.message = "syncing…".into();
+                        app.message = "syncing".into();
                         terminal.draw(|f| draw(f, &app))?;
 
                         app.message = match jotbay.sync() {

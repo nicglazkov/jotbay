@@ -1,7 +1,7 @@
 # Normalize line endings for text. Without this, editing the same file on
 # Windows and Linux produces whole-file diffs on every commit.
 #
-# `text=auto` only converts files git detects as text — verified: a file whose
+# `text=auto` only converts files git detects as text, verified: a file whose
 # body is high-byte data is left untouched even when its first 8KB look like
 # ASCII. What it does NOT protect is a genuinely-ASCII file where CRLF is
 # load-bearing, so those are listed explicitly below.
