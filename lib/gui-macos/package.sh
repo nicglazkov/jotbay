@@ -150,8 +150,19 @@ rm -rf "$DIST/dmgroot"
 mkdir -p "$DIST/dmgroot"
 cp -R "$BUILT" "$DIST/dmgroot/"
 
+# The volume name carries the version, and that is load bearing rather than
+# decorative. macOS App Management protects the path an installed app was
+# distributed from, so creating /Volumes/Jotbay/Jotbay.app is refused with
+# "Operation not permitted" on a machine that has ever installed Jotbay from a
+# disk image, and no amount of resetting removable-volume consent clears it.
+# Proven by elimination: Calculator.app on a volume named Jotbay works, and
+# Jotbay.app on a volume named anything else works. Only the exact pair fails.
+#
+# Granting the terminal App Management would also fix it, but that is a
+# permanent permission on the developer's machine to work around a naming
+# collision, and a versioned volume name is what most applications ship anyway.
 create-dmg \
-  --volname "$APP_NAME" \
+  --volname "$APP_NAME $VERSION" \
   --window-pos 200 120 --window-size 560 380 \
   --icon-size 110 \
   --icon "$APP_NAME.app" 150 175 \
