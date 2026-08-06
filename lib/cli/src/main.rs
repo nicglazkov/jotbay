@@ -214,13 +214,31 @@ fn cmd_nodes(jotbay: &Jotbay, json: bool, forget: Option<String>) -> jotbay_core
     // something to sync" — which on a quiet fleet is nobody at all.
     // Best-effort: a remote we cannot reach still has local answers worth
     // showing.
-    let _ = jotbay_core::presence::request(jotbay.git());
+    let asked = jotbay_core::presence::request(jotbay.git()).is_ok();
     let nodes = jotbay.nodes(true)?;
     if json {
         println!("{}", serde_json::to_string_pretty(&nodes)?);
     } else {
         let head = jotbay.git().head().unwrap_or_default();
         render::nodes(&nodes, &head);
+        // Answers cannot arrive before they are asked for. A machine that has
+        // been quiet checks the remote every few minutes, so the roll call sent
+        // a moment ago is still in flight while this table is being printed —
+        // and the first run after a quiet spell therefore shows ages, not
+        // presence. Saying so beats letting the reader conclude their machines
+        // are dead.
+        let waiting = nodes
+            .iter()
+            .filter(|n| n.is_stale(jotbay_core::SYNC_INTERVAL_SECS))
+            .count();
+        if asked && waiting > 0 {
+            println!();
+            println!(
+                "  · asked {} to report in — run this again in a moment",
+                if waiting == 1 { "a machine that has been quiet".to_string() }
+                else { format!("{waiting} machines that have been quiet") }
+            );
+        }
         println!();
     }
     Ok(())
