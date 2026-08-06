@@ -33,9 +33,15 @@ esac
 
 # Asked before anything is removed, because afterwards there is no `jotbay` left
 # to ask. Used only so the closing line can name the folder it did not touch.
+# Read from the recorded setting, not from `jotbay path`. That command answers
+# for the current directory, so running this uninstaller from inside any git
+# repository made it announce that repository as "your notes" — which is the
+# same cwd-versus-settings confusion as issue #2, in a script rather than the
+# app. Harmless in what it deleted, wrong in what it told the user.
 VAULT=""
-if command -v jotbay >/dev/null 2>&1; then
-  VAULT="$(jotbay path 2>/dev/null | sed 's|/data$||')"
+SETTINGS="${XDG_CONFIG_HOME:-$HOME/.config}/jotbay/settings.json"
+if [ -f "$SETTINGS" ]; then
+  VAULT="$(sed -n 's/.*"vault_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SETTINGS" | head -1)"
 fi
 
 # --- 1. stop the background sync -------------------------------------------
@@ -154,6 +160,13 @@ for P in "$HOME/.local/bin/jotbay" "/usr/bin/jotbay" "/usr/local/bin/jotbay" \
 done
 if command -v jotbay >/dev/null 2>&1; then
   warn "still on PATH: $(command -v jotbay)"
+  LEFT=1
+fi
+# Homebrew's copy is deliberately not removed here, but it is still a copy —
+# and reporting "nothing left behind" beside a warning to run brew was a
+# contradiction that only one of the two could be true about.
+if [ -L /opt/homebrew/bin/jotbay ] || [ -L /usr/local/bin/jotbay ]; then
+  warn "still installed by Homebrew — run: brew uninstall --cask jotbay"
   LEFT=1
 fi
 [ "$LEFT" = 0 ] && info "nothing left behind"
