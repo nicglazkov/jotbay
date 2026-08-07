@@ -406,10 +406,12 @@ fn seed(root: &Path) -> Result<()> {
     // program itself creates.
     let ignore = root.join(".gitignore");
     if !ignore.exists() {
-        std::fs::write(
-            &ignore,
-            b"# Noise the operating system leaves in folders. Without these, a\n              # Mac fills the repository with .DS_Store files and every other\n              # machine pulls them down.\n              .DS_Store\n              Thumbs.db\n              desktop.ini\n              \n              # Editor scratch files.\n              *.swp\n              *~\n              .obsidian/workspace*.json\n              \n              # Jotbay's own working state, which belongs to this machine only.\n              .jotbay-lock/\n              .jotbay/local.json\n              \n              # Desktop launchers, which are per-machine: a Mac must never pull\n              # down a Windows .lnk.\n              /Jotbay.app\n              /Jotbay.lnk\n              /jotbay.desktop\n              /jotbay.command\n",
-        )?;
+        std::fs::write(&ignore, VAULT_GITIGNORE)?;
+    }
+
+    let readme = root.join("data/README.md");
+    if !readme.exists() {
+        std::fs::write(&readme, VAULT_README)?;
     }
 
     let attributes = root.join(".gitattributes");
@@ -437,6 +439,24 @@ fn seed(root: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_seeded_ignore_rules_actually_match() {
+        // The first version of this file was an indented string literal, so
+        // every rule after the first carried fourteen leading spaces. Git does
+        // not strip those from a pattern, so `.DS_Store` never matched
+        // `.DS_Store` and the file ignored nothing. It looked completely
+        // correct in the source.
+        for line in VAULT_GITIGNORE.lines() {
+            assert_eq!(
+                line,
+                line.trim_start(),
+                "a rule with leading whitespace matches nothing: {line:?}"
+            );
+        }
+        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".DS_Store"));
+        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".jotbay-lock/"));
+    }
 
     #[test]
     fn seeding_creates_what_a_vault_needs_and_is_idempotent() {
@@ -484,3 +504,77 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
+
+/// What a new vault ignores.
+///
+/// Written as a module constant with unindented lines rather than inline. The
+/// first version was an indented string literal, so every rule after the first
+/// arrived with fourteen leading spaces. Git does not strip leading whitespace
+/// from a pattern, so `.DS_Store` never matched `.DS_Store`, and the file that
+/// exists to stop a Mac filling somebody's notes with `.DS_Store` quietly
+/// ignored nothing at all. Caught by seeding a throwaway repository and asking
+/// `git check-ignore`.
+const VAULT_GITIGNORE: &str = "\
+# Noise that the operating system leaves in folders. Without these, a Mac fills
+# the repository with .DS_Store files and every other machine pulls them down.
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor scratch files.
+*.swp
+*~
+.obsidian/workspace*.json
+
+# Jotbay's own working state, which belongs to this machine only.
+.jotbay-lock/
+.jotbay/local.json
+
+# Desktop launchers, which are per-machine. A Mac must never pull down a
+# Windows .lnk.
+/Jotbay.app
+/Jotbay.lnk
+/jotbay.desktop
+/jotbay.command
+";
+
+/// The starting note in a new vault.
+///
+/// A repository that Jotbay creates arrives empty, which gives someone nothing
+/// to open and no hint that the folder is the product. This is a table of
+/// contents with nothing in it yet: enough structure to suggest that notes are
+/// worth organising, and short enough to delete without regret.
+const VAULT_README: &str = "\
+# Notes
+
+Everything in this folder syncs to your other machines within a few seconds of
+you saving it. You don't need to do anything else.
+
+Use this file as a table of contents. Fill in the rows as you add notes, or
+delete it if you'd rather not keep one.
+
+| Note | What it's for |
+|---|---|
+|  |  |
+
+## Suggested folders
+
+Subfolders sync like everything else. Some people organise by topic, some by
+project, and some not at all.
+
+| Folder | What goes in it |
+|---|---|
+| `reference/` | Things you look up rather than read |
+| `projects/` | One folder per piece of work |
+| `journal/` | Dated entries |
+
+## Worth knowing
+
+If you edit the same note on two machines before they sync, Jotbay keeps both.
+The incoming version keeps the filename and yours is saved beside it as
+`note.conflict-<machine>-<time>.md`. Nothing you wrote is ever discarded.
+
+Files of any type sync, not just markdown. Anything at or over 100 MB is left
+uncommitted and flagged in the app, because a push containing it would be
+rejected.
+";
