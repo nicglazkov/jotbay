@@ -20,8 +20,11 @@ use std::time::{Duration, Instant};
 /// suppresses the console allocation; output is unaffected because every call
 /// site pipes it.
 fn git_command() -> Command {
+    // Resolved for the same reason as everything in proc.rs: a windowed process
+    // gets a minimal PATH, and a machine whose git comes from Homebrew or Nix
+    // rather than /usr/bin would otherwise have no git at all from the app.
     #[cfg_attr(not(windows), allow(unused_mut))]
-    let mut cmd = Command::new("git");
+    let mut cmd = Command::new(crate::proc::resolve("git"));
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
