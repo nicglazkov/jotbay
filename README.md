@@ -38,6 +38,16 @@ a folder that's already a clone.
 The Windows installer isn't code-signed yet, so SmartScreen blocks it with
 *"Windows protected your PC"*. Click **More info**, then **Run anyway**.
 
+### Use Homebrew
+
+```bash
+brew trust nicglazkov/tap
+brew install --cask nicglazkov/tap/jotbay
+```
+
+Homebrew 6 refuses to load a cask from a third-party tap until you trust it, so
+the first line is required once.
+
 ### Use the terminal
 
 ```bash

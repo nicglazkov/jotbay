@@ -167,7 +167,11 @@ the command line tool.</p>
 no administrator rights. <a href="#windows">Why that happens.</a></p>
 
 <h3>Homebrew</h3>
-<pre><code>brew install --cask nicglazkov/tap/jotbay</code></pre>
+<pre><code>brew trust nicglazkov/tap
+brew install --cask nicglazkov/tap/jotbay</code></pre>
+<p class="faint">Homebrew 6 refuses to load a cask from a third-party tap until
+you trust it, so the first line is required once. It tells Homebrew that you
+accept casks from this tap, and nothing more.</p>
 
 <h3>Terminal</h3>
 <p class="faint">macOS and Linux:</p>
