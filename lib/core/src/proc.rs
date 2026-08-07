@@ -46,6 +46,15 @@ pub fn quiet(program: &str) -> Command {
 /// Returns the bare name when nothing is found, so callers still produce the
 /// normal "command not found" rather than a path that does not exist.
 pub fn resolve(program: &str) -> String {
+    // Windows needs none of this and must not have it. A GUI application there
+    // inherits the full machine and user PATH from the registry, so installed
+    // tools are already reachable, and CreateProcess does its own search
+    // including the executable extensions this function knows nothing about.
+    // Returning a bare name lets Windows do the job it already does correctly.
+    if cfg!(target_os = "windows") {
+        return program.to_string();
+    }
+
     // Trust PATH first: a user who put a specific build ahead of everything
     // else meant it.
     if let Ok(path) = std::env::var("PATH") {
@@ -85,6 +94,9 @@ pub fn resolve(program: &str) -> String {
 mod tests {
     use super::*;
 
+    // Unix only: the fallback list is Unix paths, and Windows deliberately
+    // short-circuits because its PATH is already complete for a windowed app.
+    #[cfg(not(windows))]
     #[test]
     fn a_tool_only_homebrew_has_is_still_found_with_a_bare_path() {
         // The bug this exists for: a GUI app launched from Finder gets
