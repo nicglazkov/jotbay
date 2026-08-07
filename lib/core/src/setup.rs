@@ -388,12 +388,14 @@ fn guard_destination(destination: &Path) -> Result<()> {
 /// default `core.autocrlf` rewrites line endings on checkout, and the same note
 /// then differs byte-for-byte between machines and churns on every sync.
 fn seed(root: &Path) -> Result<()> {
-    let data = root.join("data");
-    std::fs::create_dir_all(&data)?;
-    let keep = data.join(".gitkeep");
-    if !keep.exists() {
-        std::fs::write(&keep, b"")?;
-    }
+    // A new vault is flat: the folder somebody opens is the folder their notes
+    // are in. Vaults created before this have a `data/` subdirectory and keep
+    // it; `Jotbay::data_dir` decides by looking, so both shapes work on every
+    // version and nobody has to migrate.
+    //
+    // Nothing is created for the notes themselves any more. The repository root
+    // already exists, and a `.gitkeep` was only ever needed because git will
+    // not track an empty directory.
 
     // A vault with no ignore rules commits whatever the operating system
     // leaves lying in it. macOS writes .DS_Store into every folder a Finder
@@ -409,7 +411,7 @@ fn seed(root: &Path) -> Result<()> {
         std::fs::write(&ignore, VAULT_GITIGNORE)?;
     }
 
-    let readme = root.join("data/README.md");
+    let readme = root.join("README.md");
     if !readme.exists() {
         std::fs::write(&readme, VAULT_README)?;
     }
@@ -539,16 +541,27 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         seed(&dir).unwrap();
-        assert!(dir.join("data/.gitkeep").exists());
+        // Flat: the folder somebody opens is the folder their notes go in.
+        // No data/ and no .gitkeep, because the root already exists.
+        assert!(!dir.join("data").exists(), "a new vault should not have data/");
+        assert!(dir.join("README.md").exists(), "a new vault starts with a note");
         let attrs = std::fs::read_to_string(dir.join(".gitattributes")).unwrap();
         assert!(attrs.contains("eol=lf"));
+        let ignore = std::fs::read_to_string(dir.join(".gitignore")).unwrap();
+        assert!(ignore.lines().any(|l| l == ".DS_Store"));
 
-        // A second run must not clobber a vault someone has customised.
+        // A second run must not clobber a vault someone has customised, and
+        // that includes the note they have since rewritten.
         std::fs::write(dir.join(".gitattributes"), b"# mine\n").unwrap();
+        std::fs::write(dir.join("README.md"), b"my own index\n").unwrap();
         seed(&dir).unwrap();
         assert_eq!(
             std::fs::read_to_string(dir.join(".gitattributes")).unwrap(),
             "# mine\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("README.md")).unwrap(),
+            "my own index\n"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -118,8 +118,31 @@ impl Jotbay {
     }
 
     /// The synced notes directory. The one users make shortcuts to.
+    ///
+    /// Discovered rather than assumed, because vaults come in two shapes.
+    ///
+    /// Notes used to live in `data/`, which put two folders between somebody
+    /// and their note and named the second one after an implementation detail.
+    /// It was never a technical boundary either: the watcher fingerprints the
+    /// repository root and sync has always run `git add -A` from it, so `data/`
+    /// only ever affected what the interface pointed at.
+    ///
+    /// New vaults are flat. Existing ones keep their `data/` and go on working
+    /// on every version, which is the point of deciding this by looking rather
+    /// than by version number. A machine running an older build against a vault
+    /// that somebody has since flattened would otherwise report zero notes
+    /// while syncing them perfectly well.
+    ///
+    /// Migrating is therefore a thing a person does to their files, not
+    /// something an upgrade does to them: move the notes up, remove `data/`,
+    /// and the next call here notices.
     pub fn data_dir(&self) -> PathBuf {
-        self.git.root().join("data")
+        let root = self.git.root();
+        let nested = root.join("data");
+        if nested.is_dir() {
+            return nested;
+        }
+        root.to_path_buf()
     }
 
     /// This machine's name, as published to its status ref.
@@ -299,6 +322,13 @@ fn count_files(dir: &Path) -> u32 {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
         for entry in entries.flatten() {
             let path = entry.path();
+            // Dot directories are skipped, not just dotfiles. This counts the
+            // notes directory, and once that can be the repository root, a walk
+            // that descends into `.git` reports several thousand loose objects
+            // as somebody's notes.
+            if path.file_name().is_some_and(|f| f.to_string_lossy().starts_with('.')) {
+                continue;
+            }
             if path.is_dir() {
                 walk(&path, n);
             } else if !path.file_name().is_some_and(|f| f.to_string_lossy().starts_with('.')) {
@@ -313,6 +343,48 @@ fn count_files(dir: &Path) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_vault_with_a_data_directory_still_points_at_it() {
+        // Existing vaults keep working untouched, on every version. That is
+        // what makes migrating optional rather than something an upgrade does
+        // to somebody's files.
+        let dir = std::env::temp_dir().join("jotbay-layout-nested");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("data")).unwrap();
+        let v = Jotbay { git: crate::git::Git::new(&dir) };
+        assert_eq!(v.data_dir(), dir.join("data"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_flat_vault_points_at_its_root() {
+        let dir = std::env::temp_dir().join("jotbay-layout-flat");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let v = Jotbay { git: crate::git::Git::new(&dir) };
+        assert_eq!(v.data_dir(), dir);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn counting_notes_never_descends_into_git() {
+        // Once the notes directory can be the repository root, a walk that
+        // recurses into dot directories reports several thousand loose objects
+        // as somebody's notes. The count is the number on the front of the
+        // window, so it would be wrong in the most visible place there is.
+        let dir = std::env::temp_dir().join("jotbay-layout-count");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join(".git/objects/ab")).unwrap();
+        std::fs::write(dir.join(".git/objects/ab/deadbeef"), b"x").unwrap();
+        std::fs::write(dir.join(".git/config"), b"x").unwrap();
+        std::fs::write(dir.join("a-note.md"), b"hello").unwrap();
+        std::fs::create_dir_all(dir.join("topic")).unwrap();
+        std::fs::write(dir.join("topic/another.md"), b"hello").unwrap();
+
+        assert_eq!(count_files(&dir), 2, "counted repository internals as notes");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     use super::*;
 
     #[test]
