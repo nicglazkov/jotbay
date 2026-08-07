@@ -139,7 +139,7 @@ impl Jotbay {
     pub fn data_dir(&self) -> PathBuf {
         let root = self.git.root();
         let nested = root.join("data");
-        if nested.is_dir() {
+        if has_visible_entries(&nested) {
             return nested;
         }
         root.to_path_buf()
@@ -317,6 +317,23 @@ pub fn home() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
+/// Whether a directory holds anything a person would call a note.
+///
+/// `data_dir` asks this rather than testing for the directory, because
+/// existence alone is too weak a signal. Flattening this machine's own vault
+/// left `data/` behind holding nothing but an ignored `.remember/` from another
+/// tool, and a bare `is_dir` check would have kept pointing the whole interface
+/// at it. Any tool that ever creates a `data/` folder in somebody's notes would
+/// have done the same, silently, long after the migration.
+fn has_visible_entries(dir: &Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entries.flatten().any(|e| {
+        !e.file_name().to_string_lossy().starts_with('.')
+    })
+}
+
 fn count_files(dir: &Path) -> u32 {
     fn walk(dir: &Path, n: &mut u32) {
         let Ok(entries) = std::fs::read_dir(dir) else { return };
@@ -350,9 +367,30 @@ mod tests {
         // to somebody's files.
         let dir = std::env::temp_dir().join("jotbay-layout-nested");
         let _ = std::fs::remove_dir_all(&dir);
+        // With a note in it, as every real nested vault has. An empty data/
+        // says nothing about where the notes are, so it is treated as flat.
         std::fs::create_dir_all(dir.join("data")).unwrap();
+        std::fs::write(dir.join("data/note.md"), b"hello").unwrap();
         let v = Jotbay { git: crate::git::Git::new(&dir) };
         assert_eq!(v.data_dir(), dir.join("data"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_data_folder_holding_only_hidden_files_does_not_count() {
+        // What flattening this machine's vault actually produced: data/ could
+        // not be removed because an ignored .remember/ from another tool was
+        // sitting in it. Testing for the directory alone would have kept the
+        // entire interface pointed at an empty folder, and any tool that
+        // creates a `data/` in somebody's notes would do the same later.
+        let dir = std::env::temp_dir().join("jotbay-layout-hidden");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("data/.remember")).unwrap();
+        std::fs::write(dir.join("data/.DS_Store"), b"x").unwrap();
+        std::fs::write(dir.join("a-note.md"), b"hello").unwrap();
+
+        let v = Jotbay { git: crate::git::Git::new(&dir) };
+        assert_eq!(v.data_dir(), dir, "an all-hidden data/ captured the vault");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
