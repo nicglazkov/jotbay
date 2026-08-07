@@ -7,7 +7,7 @@ members = ["core", "cli"]
 # etc.) on machines that only need the CLI, notably the headless servers.
 
 [workspace.package]
-version = "1.8.3"
+version = "1.8.4"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
