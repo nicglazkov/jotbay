@@ -89,6 +89,10 @@ enum Severity: String, Codable {
 
 struct JotbayStatus: Codable {
     let root: String
+    /// Where the notes are. Not always `root`, and never worth guessing: this
+    /// view used to append "data" itself, which broke the folder button the day
+    /// vaults became flat.
+    let notes: String?
     let branch: String
     let head: String
     let headShort: String
@@ -103,7 +107,7 @@ struct JotbayStatus: Codable {
     let nodes: [NodeStatus]
 
     enum CodingKeys: String, CodingKey {
-        case root, branch, head, ahead, behind, conflicts, nodes
+        case root, notes, branch, head, ahead, behind, conflicts, nodes
         case headShort = "head_short"
         case dirtyFiles = "dirty_files"
         case rebaseInProgress = "rebase_in_progress"
@@ -117,7 +121,7 @@ struct JotbayStatus: Codable {
     }
 
     static let empty = JotbayStatus(
-        root: "", branch: "", head: "", headShort: "",
+        root: "", notes: nil, branch: "", head: "", headShort: "",
         ahead: 0, behind: 0, dirtyFiles: [], rebaseInProgress: false,
         conflicts: [], dataFiles: 0, warnings: [], updateAvailable: nil, nodes: []
     )

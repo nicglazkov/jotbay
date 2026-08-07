@@ -107,6 +107,7 @@ fn event_loop(jotbay: &Jotbay, terminal: &mut ratatui::DefaultTerminal) -> std::
 fn empty_status() -> JotbayStatus {
     JotbayStatus {
         root: String::new(),
+        notes: String::new(),
         branch: String::new(),
         head: String::new(),
         head_short: String::new(),

@@ -179,6 +179,7 @@ impl Jotbay {
 
         Ok(JotbayStatus {
             root: self.git.root().to_string_lossy().to_string(),
+            notes: self.data_dir().to_string_lossy().to_string(),
             branch: self.git.current_branch().unwrap_or_else(|_| "HEAD".into()),
             head: self.git.head().unwrap_or_default(),
             head_short: self.git.head_short().unwrap_or_default(),

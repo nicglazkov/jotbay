@@ -53,7 +53,21 @@ final class JotbayController: ObservableObject {
             : URL(fileURLWithPath: status.root)
     }
 
-    var dataDirectory: URL { jotbayRoot.appendingPathComponent("data") }
+    /// Where the notes are, as the engine reports them.
+    ///
+    /// This used to append "data" to the root. That was a second copy of a rule
+    /// that lives in the engine, and when vaults became flat it pointed at a
+    /// directory which no longer existed. NSWorkspace declines to open a missing
+    /// path silently, so the folder button stopped doing anything at all.
+    ///
+    /// Falls back to the root rather than to "data": a vault whose status has
+    /// not loaded yet is better served by opening something real.
+    var dataDirectory: URL {
+        if let notes = status.notes, !notes.isEmpty {
+            return URL(fileURLWithPath: notes)
+        }
+        return jotbayRoot
+    }
 
     // MARK: - Lifecycle
 

@@ -106,6 +106,17 @@ impl NodeHealth {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JotbayStatus {
     pub root: String,
+    /// Where the notes actually are, which is not always `root`.
+    ///
+    /// Published rather than left for each interface to work out, because the
+    /// macOS app worked it out separately by appending "data" to the root. When
+    /// vaults became flat that button pointed at a directory which no longer
+    /// existed, and NSWorkspace declines to open a missing path without saying
+    /// anything, so the folder button simply stopped doing anything.
+    ///
+    /// One place decides the layout. Everything else is told.
+    #[serde(default)]
+    pub notes: String,
     pub branch: String,
     pub head: String,
     pub head_short: String,
