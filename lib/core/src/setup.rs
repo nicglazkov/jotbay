@@ -436,75 +436,6 @@ fn seed(root: &Path) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn the_seeded_ignore_rules_actually_match() {
-        // The first version of this file was an indented string literal, so
-        // every rule after the first carried fourteen leading spaces. Git does
-        // not strip those from a pattern, so `.DS_Store` never matched
-        // `.DS_Store` and the file ignored nothing. It looked completely
-        // correct in the source.
-        for line in VAULT_GITIGNORE.lines() {
-            assert_eq!(
-                line,
-                line.trim_start(),
-                "a rule with leading whitespace matches nothing: {line:?}"
-            );
-        }
-        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".DS_Store"));
-        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".jotbay-lock/"));
-    }
-
-    #[test]
-    fn seeding_creates_what_a_vault_needs_and_is_idempotent() {
-        let dir = std::env::temp_dir().join("jotbay-seed-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-
-        seed(&dir).unwrap();
-        assert!(dir.join("data/.gitkeep").exists());
-        let attrs = std::fs::read_to_string(dir.join(".gitattributes")).unwrap();
-        assert!(attrs.contains("eol=lf"));
-
-        // A second run must not clobber a vault someone has customised.
-        std::fs::write(dir.join(".gitattributes"), b"# mine\n").unwrap();
-        seed(&dir).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(dir.join(".gitattributes")).unwrap(),
-            "# mine\n"
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn a_non_empty_destination_is_refused_before_anything_is_created() {
-        let dir = std::env::temp_dir().join("jotbay-guard-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("something"), b"x").unwrap();
-
-        assert!(guard_destination(&dir).is_err(), "must refuse a non-empty dir");
-
-        let empty = dir.join("empty");
-        std::fs::create_dir_all(&empty).unwrap();
-        assert!(guard_destination(&empty).is_ok(), "an empty dir is fine");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn adopting_something_that_is_not_a_repo_fails_clearly() {
-        let dir = std::env::temp_dir().join("jotbay-adopt-test");
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        let err = adopt(&dir).unwrap_err().to_string();
-        assert!(err.contains("not a git repository"), "{err}");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-}
-
 /// What a new vault ignores.
 ///
 /// Written as a module constant with unindented lines rather than inline. The
@@ -578,3 +509,72 @@ Files of any type sync, not just markdown. Anything at or over 100 MB is left
 uncommitted and flagged in the app, because a push containing it would be
 rejected.
 ";
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_seeded_ignore_rules_actually_match() {
+        // The first version of this file was an indented string literal, so
+        // every rule after the first carried fourteen leading spaces. Git does
+        // not strip those from a pattern, so `.DS_Store` never matched
+        // `.DS_Store` and the file ignored nothing. It looked completely
+        // correct in the source.
+        for line in VAULT_GITIGNORE.lines() {
+            assert_eq!(
+                line,
+                line.trim_start(),
+                "a rule with leading whitespace matches nothing: {line:?}"
+            );
+        }
+        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".DS_Store"));
+        assert!(VAULT_GITIGNORE.lines().any(|l| l == ".jotbay-lock/"));
+    }
+
+    #[test]
+    fn seeding_creates_what_a_vault_needs_and_is_idempotent() {
+        let dir = std::env::temp_dir().join("jotbay-seed-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        seed(&dir).unwrap();
+        assert!(dir.join("data/.gitkeep").exists());
+        let attrs = std::fs::read_to_string(dir.join(".gitattributes")).unwrap();
+        assert!(attrs.contains("eol=lf"));
+
+        // A second run must not clobber a vault someone has customised.
+        std::fs::write(dir.join(".gitattributes"), b"# mine\n").unwrap();
+        seed(&dir).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.join(".gitattributes")).unwrap(),
+            "# mine\n"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_non_empty_destination_is_refused_before_anything_is_created() {
+        let dir = std::env::temp_dir().join("jotbay-guard-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("something"), b"x").unwrap();
+
+        assert!(guard_destination(&dir).is_err(), "must refuse a non-empty dir");
+
+        let empty = dir.join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(guard_destination(&empty).is_ok(), "an empty dir is fine");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn adopting_something_that_is_not_a_repo_fails_clearly() {
+        let dir = std::env::temp_dir().join("jotbay-adopt-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let err = adopt(&dir).unwrap_err().to_string();
+        assert!(err.contains("not a git repository"), "{err}");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
