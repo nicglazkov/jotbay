@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jotbay, markdown notes in sync across every machine you own</title>
-<meta name="description" content="Jotbay keeps a folder of markdown notes in sync across macOS, Windows, and Linux through a private git repository that you own. No server, no account, and nothing you wrote is ever discarded.">
+<title>Jotbay, your notes on all of your machines</title>
+<meta name="description" content="Jotbay copies a folder of markdown notes to your macOS, Windows, and Linux machines. It uses a private git repository. There is no server and no account.">
 <meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="Jotbay">
-<meta property="og:description" content="The note you need is always on the other machine. Jotbay fixes that, through a private git repository that you own.">
+<meta property="og:description" content="Jotbay puts your notes on all of your machines. It uses a private git repository. You are the owner of the repository.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://nicglazkov.github.io/jotbay/">
 <meta property="og:image" content="https://nicglazkov.github.io/jotbay/images/icon.png">
@@ -27,10 +27,10 @@
   <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
   <span class="grow"></span>
   <nav>
-    <a href="#what">Features</a>
+    <a href="#what">Functions</a>
     <a href="#install">Install</a>
-    <a href="#cli">Terminal</a>
-    <a href="#faq">FAQ</a>
+    <a href="#cli">Commands</a>
+    <a href="#faq">Questions</a>
     <a href="https://github.com/nicglazkov/jotbay">Source</a>
   </nav>
   <div class="themer" role="group" aria-label="Color theme">
@@ -49,87 +49,92 @@
 
   <header class="hero">
     <img class="icon" src="images/icon.png" alt="" width="96" height="96">
-    <h1>The note you need is always<br>on the other machine.</h1>
-    <p class="lede">Jotbay keeps a folder of markdown in sync across your Macs, Windows,
-      and Linux machines, through a private git repository that you own.</p>
+    <h1>Jotbay puts your notes<br>on all of your machines.</h1>
+    <p class="lede">Jotbay copies a folder of markdown notes between your macOS, Windows,
+      and Linux machines. It uses a private git repository. You are the owner of the
+      repository.</p>
     <div class="cta">
       <a class="fill" href="https://github.com/nicglazkov/jotbay/releases/latest">Download</a>
-      <a class="ghost" href="https://github.com/nicglazkov/jotbay">View source</a>
+      <a class="ghost" href="https://github.com/nicglazkov/jotbay">See the source</a>
     </div>
-    <p class="fineprint">macOS 14+, Windows 10+, Linux. Free and open source under MIT.<br>
-      No server, no account, no telemetry.</p>
+    <p class="fineprint">macOS 14 or later. Windows 10 or later. Linux. The license is MIT.<br>
+      There is no server, no account, and no telemetry.</p>
   </header>
 
   <figure class="stage">
-    <img class="shot only-light" src="images/macos-main.png" alt="The Jotbay window listing four machines beside a feed of what each one has done">
-    <img class="shot only-dark" src="images/macos-main-dark.png" alt="The Jotbay window listing four machines beside a feed of what each one has done">
-    <figcaption>Every machine reports in. The one that has been failing for six hours
-      says so here, and in no commit log anywhere.</figcaption>
+    <img class="shot only-light" src="images/macos-main.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
+    <img class="shot only-dark" src="images/macos-main-dark.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
+    <figcaption>Each machine sends its status. If a machine cannot sync for six hours,
+      this window shows the error.</figcaption>
   </figure>
 
   <section class="panel" id="what">
-    <h2>Three things, and nothing else</h2>
-    <p class="note">Jotbay syncs a folder of notes. It is deliberately not an editor, a database,
-      or somewhere to keep your photos.</p>
+    <h2>Three functions</h2>
+    <p class="note">Jotbay syncs a folder of notes. It is not an editor. It is not a database.
+      It is not a location for your images.</p>
     <div class="trio">
       <div class="chip">
-        <h3>Syncs a folder</h3>
-        <p>Save a file and it reaches your other machines seconds later. No button, no commit,
-          nothing to remember. Any file type works, though markdown is the point.</p>
+        <h3>It copies a folder</h3>
+        <p>Save a file. Jotbay sends the file to your other machines in a few seconds. You do
+          not push a button. You do not make a commit. The folder can contain all file types,
+          but markdown notes are the primary function.</p>
       </div>
       <div class="chip">
-        <h3>Shows every machine</h3>
-        <p>A menu bar or tray icon that changes when something needs attention, and a feed of
-          what each machine actually did, including the times it failed.</p>
+        <h3>It shows each machine</h3>
+        <p>Jotbay puts an icon in the menu bar or in the system tray. The icon changes when a
+          machine has a problem. The window shows the operations of each machine, and also the
+          operations that failed.</p>
       </div>
       <div class="chip">
-        <h3>Keeps both versions</h3>
-        <p>Edit one note on two machines and the incoming copy keeps the filename while yours is
-          saved beside it. Sync never stalls, and no version is discarded.</p>
+        <h3>It keeps two versions</h3>
+        <p>You can change one note on two machines. Jotbay keeps the two versions. The version
+          from the other machine keeps the file name. Jotbay saves your version in a second
+          file. Jotbay does not stop, and it does not delete a version.</p>
       </div>
     </div>
   </section>
 
   <section class="panel">
-    <h2>A closer look</h2>
-    <p class="note">Read a note without leaving the app. The reader is read-only by
-      construction, because the commands to write anything don't exist.</p>
+    <h2>The reader</h2>
+    <p class="note">You can read a note in the app. The app cannot change a note, because the
+      commands to write to a file are not in the app.</p>
     <figure>
-      <img class="shot" src="images/tauri-preview.png" alt="A markdown note rendered inside Jotbay, with headings, lists, and a code block">
-      <figcaption>The Windows and Linux app. macOS gets a native SwiftUI window that shows
-        the same three panes.</figcaption>
+      <img class="shot" src="images/tauri-preview.png" alt="A markdown note in the Jotbay reader. The note has headings, lists, and a code block">
+      <figcaption>The app for Windows and Linux. On macOS, a SwiftUI app shows the same
+        three panes.</figcaption>
     </figure>
-    <p class="note" style="margin:30px 0 22px">The first launch asks one question: where should
-      your notes live? Jotbay can create the private repository for you, clone one that you
-      already have, or adopt a folder that is already a clone.</p>
+    <p class="note" style="margin:30px 0 22px">The first start asks one question. Where must
+      Jotbay put your notes? Jotbay can make the private repository for you. It can clone a
+      repository that you have. It can also use a clone that is already on this machine.</p>
     <figure>
-      <img class="shot only-light" src="images/macos-first-run.png" alt="First run offering three ways to set up">
-      <img class="shot only-dark" src="images/macos-first-run-dark.png" alt="First run offering three ways to set up">
+      <img class="shot only-light" src="images/macos-first-run.png" alt="The first start of Jotbay. It shows the three setup options">
+      <img class="shot only-dark" src="images/macos-first-run-dark.png" alt="The first start of Jotbay. It shows the three setup options">
     </figure>
   </section>
 
   <section class="panel" id="install">
     <h2>Install</h2>
     <p class="note">Download the file for your platform from the
-      <a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a>.
-      Every installer includes the <code>jotbay</code> command, so choosing the app doesn't
-      cost you the terminal.</p>
+      <a href="https://github.com/nicglazkov/jotbay/releases/latest">most recent release</a>.
+      Each installer contains the <code>jotbay</code> command. If you install the app, you also
+      get the command.</p>
 
     <div class="plat">
       <div class="os">
         <h3>macOS <span class="badge ok">Signed</span></h3>
-        <p>Open the disk image and drag Jotbay to Applications.</p>
+        <p>Open the disk image. Move Jotbay to the Applications folder.</p>
         <span class="file">Jotbay.dmg</span>
       </div>
       <div class="os">
-        <h3>Windows <span class="badge warn">Unsigned</span></h3>
-        <p>Installs for your user only, so it needs no administrator rights. SmartScreen stops
-          it: choose More info, then Run anyway.</p>
+        <h3>Windows <span class="badge warn">No signature</span></h3>
+        <p>The installer writes only to your user account. It does not ask for administrator
+          permission. SmartScreen shows a warning. Click More info, then click Run anyway.</p>
         <span class="file">Jotbay_&lt;version&gt;_x64-setup.exe</span>
       </div>
       <div class="os">
         <h3>Linux</h3>
-        <p>Double-click the package, or use the AppImage on distributions without apt.</p>
+        <p>Open the package with two clicks. On a distribution that does not have apt, use the
+          AppImage.</p>
         <span class="file">Jotbay_&lt;version&gt;_amd64.deb<br>Jotbay_&lt;version&gt;_amd64.AppImage</span>
       </div>
     </div>
@@ -137,93 +142,97 @@
     <h3 style="font-size:15.5px;margin:22px 0 2px">Homebrew</h3>
     <pre><code>brew trust nicglazkov/tap
 brew install --cask nicglazkov/tap/jotbay</code></pre>
-    <p class="note" style="margin:8px 0 0">Homebrew refuses to load a cask from a third-party tap
-      until you trust it, so the first line is needed once.</p>
+    <p class="note" style="margin:8px 0 0">Homebrew must trust a tap before it loads a cask
+      from that tap. You do the first command one time.</p>
 
     <h3 style="font-size:15.5px;margin:22px 0 2px">Terminal</h3>
     <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
 jotbay init</code></pre>
-    <p class="note" style="margin:8px 0 0">On Windows, run <code>install.ps1</code> the same way.
-      On a headless server, add <code>--no-gui</code>. Jotbay requires <code>git</code>. Only the
-      create-a-repository route also needs <a href="https://cli.github.com">gh</a>.</p>
+    <p class="note" style="margin:8px 0 0">On Windows, use <code>install.ps1</code> in the same
+      manner. On a server that has no desktop, add <code>--no-gui</code>. Jotbay needs
+      <code>git</code>. Only the first setup option also needs
+      <a href="https://cli.github.com">gh</a>.</p>
   </section>
 
   <section class="panel" id="cli">
-    <h2>Everything the app shows, scriptable</h2>
-    <p class="note">The apps are front ends over one engine. Nothing behaves differently in a
-      terminal.</p>
+    <h2>The commands</h2>
+    <p class="note">The apps and the commands use the same engine. The operation in a terminal
+      is the same as the operation in a window.</p>
     <table>
-      <tr><th>Command</th><th>What it does</th></tr>
-      <tr><td>jotbay</td><td>Shows the current state, locally and across every machine</td></tr>
-      <tr><td>jotbay sync</td><td>Commits, integrates the remote, and pushes</td></tr>
-      <tr><td>jotbay dash</td><td>Opens a live dashboard in the terminal</td></tr>
-      <tr><td>jotbay nodes</td><td>Lists every machine and asks them to report in</td></tr>
-      <tr><td>jotbay activity</td><td>Shows what every machine has done, including failures</td></tr>
-      <tr><td>jotbay path</td><td>Prints the path of your notes folder</td></tr>
-      <tr><td>jotbay upgrade</td><td>Fetches the current release and replaces this machine's binaries</td></tr>
-      <tr><td>jotbay init</td><td>Sets up a vault on a new machine</td></tr>
+      <tr><th>Command</th><th>Function</th></tr>
+      <tr><td>jotbay</td><td>Shows the status of this machine and of all other machines</td></tr>
+      <tr><td>jotbay sync</td><td>Makes a commit, gets the changes from the repository, and sends your changes</td></tr>
+      <tr><td>jotbay dash</td><td>Shows a live dashboard in the terminal</td></tr>
+      <tr><td>jotbay nodes</td><td>Shows each machine, and asks each machine for its status</td></tr>
+      <tr><td>jotbay activity</td><td>Shows the operations of each machine, and also the operations that failed</td></tr>
+      <tr><td>jotbay path</td><td>Shows the path of your notes folder</td></tr>
+      <tr><td>jotbay upgrade</td><td>Downloads the most recent release, and replaces the files on this machine</td></tr>
+      <tr><td>jotbay init</td><td>Prepares a vault on a new machine</td></tr>
     </table>
   </section>
 
   <section class="panel" id="faq">
-    <h2>Questions worth asking</h2>
+    <h2>Questions</h2>
 
     <details class="qa" open>
-      <summary>Where do my notes actually go?</summary>
-      <p>To a git repository that you own, usually a private one on GitHub. GitLab, Codeberg, a
-        self-hosted Forgejo, or a bare repository over SSH all work equally well. There is no
-        Jotbay server and no account with anyone.</p>
-      <p>The only request Jotbay makes on its own is checking its releases page for updates, and
-        you can point that elsewhere or block it.</p>
+      <summary>Where does Jotbay put my notes?</summary>
+      <p>Jotbay puts your notes in a git repository. You are the owner of the repository. Most
+        users have a private repository on GitHub. GitLab, Codeberg, a Forgejo server, and a
+        bare repository on SSH also operate correctly. There is no Jotbay server, and you do
+        not make an account.</p>
+      <p>Jotbay makes only one other connection. It examines its releases page for a new
+        version. You can change this address, or you can prevent the connection.</p>
     </details>
 
     <details class="qa">
-      <summary>Do my machines need to be on the same network?</summary>
-      <p>No, and there is no benefit to it. Machines never contact each other. Each one talks
-        only to the git remote, so a laptop on hotel wifi and a desktop behind a home router
-        behave identically. You need no VPN, and there is nothing to discover or forward.</p>
+      <summary>Must my machines be on the same network?</summary>
+      <p>No. The machines do not connect to each other. Each machine connects only to the git
+        repository. A laptop on a hotel network and a desktop at your home operate in the same
+        manner. You do not need a VPN, and you do not open a port.</p>
     </details>
 
     <details class="qa">
-      <summary>What happens when two machines edit the same note?</summary>
-      <p>Both versions are kept. The incoming one takes the filename, and yours is saved beside
-        it as <code>note.conflict-&lt;machine&gt;-&lt;time&gt;.md</code>. A conflict is something
-        to tidy up later, never something that stops your notes syncing.</p>
+      <summary>What occurs if two machines change the same note?</summary>
+      <p>Jotbay keeps the two versions. The version from the other machine keeps the file name.
+        Jotbay saves your version as <code>note.conflict-&lt;machine&gt;-&lt;time&gt;.md</code>.
+        You can correct the two files later. Jotbay does not stop the sync.</p>
     </details>
 
     <details class="qa">
-      <summary>Do I need to know git?</summary>
-      <p>No. Setup asks where your notes should live and handles the rest, and the word "commit"
-        never appears in the interface. If you do know git, everything is real: an ordinary
-        repository that you can inspect, clone, and script against.</p>
+      <summary>Must I know git?</summary>
+      <p>No. The setup asks where to put your notes, and Jotbay does the other steps. The word
+        commit is not in the interface.</p>
+      <p>If you know git, the repository is a usual git repository. You can examine it, clone
+        it, and use it in a script.</p>
     </details>
 
     <details class="qa">
-      <summary>What can the folder hold?</summary>
-      <p>Any file type, handled byte for byte. The limits come from git rather than from Jotbay.
-        Anything at or over 100 MB is left uncommitted, because GitHub would reject the push, and
-        Jotbay flags it in the app until you deal with it.</p>
-      <p>The constraint that actually bites is churn rather than size. Git keeps a near-complete
-        copy of every version of a binary forever, so an image you rewrite twenty times costs
-        that twenty times over on every machine that clones it. Markdown, screenshots, and the
-        occasional PDF are comfortable. Video belongs somewhere else.</p>
+      <summary>Which files can the folder contain?</summary>
+      <p>The folder can contain all file types. Jotbay copies each file byte for byte. The
+        limits come from git, not from Jotbay. Git rejects a file of 100 MB or more. Jotbay
+        does not make a commit for such a file, and it shows the file in the app.</p>
+      <p>The quantity of the changes is more important than the size. Git keeps a copy of each
+        version of a binary file. If you change an image 20 times, the repository keeps the 20
+        versions. Each machine then downloads the 20 versions. Markdown notes, screenshots,
+        and PDF files are satisfactory. Put video files in a different location.</p>
     </details>
 
     <details class="qa">
-      <summary>How quickly does it sync?</summary>
-      <p>Jotbay syncs a couple of seconds after you stop editing, so a note is usually on your
-        other machines within ten seconds. When nothing is happening it goes quiet rather than
-        polling, and opening a window asks the other machines to report in.</p>
-      <p>It is still not a real-time collaborative editor. It is built for notes that need to be
-        on the next machine you sit at, not for two people typing in one document.</p>
+      <summary>How quickly does Jotbay sync?</summary>
+      <p>Jotbay syncs two seconds after you stop. Usually a note is on your other machines in
+        less than ten seconds. If you make no changes, Jotbay stops the checks. If you open a
+        window, Jotbay asks the other machines for their status.</p>
+      <p>Two users cannot write in one note at the same time. Jotbay is a tool for the notes
+        that you need on the next machine.</p>
     </details>
 
     <details class="qa">
-      <summary>Why does Windows warn me about the installer?</summary>
-      <p>Because it is not code-signed yet, so Microsoft Defender SmartScreen stops unrecognized
-        apps. Choose <strong>More info</strong>, then <strong>Run anyway</strong>. There is no
-        browser warning and no elevation prompt, because Jotbay installs entirely under your own
-        profile. The macOS build is signed and notarized.</p>
+      <summary>Why does Windows show a warning?</summary>
+      <p>The Windows installer has no code signature. Microsoft Defender SmartScreen shows a
+        warning for an unknown app. Click <strong>More info</strong>, then click
+        <strong>Run anyway</strong>. The browser shows no warning, and the installer does not
+        ask for administrator permission. The macOS app has a signature and a notarization
+        from Apple.</p>
     </details>
   </section>
 
@@ -234,7 +243,7 @@ jotbay init</code></pre>
   <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
   <a href="https://github.com/nicglazkov/jotbay/blob/main/SECURITY.md">Security</a>
   <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
-  <p class="tag">Your notes go to your own remote and nowhere else.</p>
+  <p class="tag">Jotbay sends your notes only to your repository.</p>
 </footer>
 
 <script>
