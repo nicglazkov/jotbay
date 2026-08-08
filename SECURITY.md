@@ -1,5 +1,8 @@
 # Security
 
+This page is also on the site, alongside a privacy page that lists every
+outbound connection: <https://nicglazkov.github.io/jotbay/security.html>.
+
 ## The trust model, stated plainly
 
 Jotbay has no server. It never sends your notes anywhere except the git remote
@@ -20,7 +23,7 @@ if you ran the commands yourself. Setup uses `gh` only if you choose the
 
 ## What Jotbay can do to your files
 
-- It commits and pushes everything under `data/` in the vault it was pointed at.
+- It commits and pushes everything in the vault it was pointed at.
 - It never deletes a version. On a conflict both sides are kept, one under a
   suffixed name.
 - Files at or over 100 MB are detected before staging and deliberately left

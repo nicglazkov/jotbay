@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jotbay privacy</title>
+<meta name="description" content="Jotbay collects no data about you. This page lists every connection that the app makes and every connection that this website makes.">
+<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="images/icon.png">
+<script>
+  (function(){try{var s=localStorage.getItem("jotbay-theme");
+  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bar"><div class="shell">
+  <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
+  <span class="grow"></span>
+  <nav>
+    <a href="index.html#install">Install</a>
+    <a href="index.html#what">Functions</a>
+    <a href="commands.html">Commands</a>
+    <a href="index.html#faq">FAQ</a>
+    <a href="https://github.com/nicglazkov/jotbay">Source</a>
+  </nav>
+  <div class="themer" role="group" aria-label="Color theme">
+    <button type="button" id="lightBtn" aria-pressed="false" aria-label="Light theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+      </svg></button>
+    <button type="button" id="darkBtn" aria-pressed="false" aria-label="Dark theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7z"/>
+      </svg></button>
+  </div>
+</div></div>
+
+<div class="shell">
+
+  <header class="subhead">
+    <a class="back" href="index.html">Back to the start page</a>
+    <h1>Privacy</h1>
+    <p>Jotbay collects no data about you. This page lists each connection that the app makes,
+      and each connection that this website makes.</p>
+  </header>
+
+  <section class="panel">
+    <h2>The app</h2>
+    <p class="note">Jotbay has no server and no account. It sends no data to this project.
+      There is no telemetry and there is no analytics.</p>
+
+    <h3 class="sub">Your notes</h3>
+    <p class="note">Your notes stay on your machines and in the git repository that you
+      selected. You are the owner of that repository. If you use GitHub for the repository,
+      the GitHub terms apply to it, and not this page.</p>
+
+    <h3 class="sub">The one connection</h3>
+    <p class="note">Jotbay reads
+      <code>api.github.com/repos/&lt;repository&gt;/releases/latest</code> to find a new
+      version. This request contains no data about you and no data about your notes. Jotbay
+      keeps the answer for six hours. Set <code>JOTBAY_TOOL_REPO</code> to a different
+      address, or prevent the connection. All other functions continue to operate.</p>
+
+    <h3 class="sub">On your machine</h3>
+    <p class="note">Jotbay writes one preferences file, and a desktop shortcut if you ask for
+      one. It reads and writes no other file outside your vault.</p>
+  </section>
+
+  <section class="panel">
+    <h2>This website</h2>
+    <p class="note">This website has no cookies, no analytics, and no advertisements. It loads
+      no font and no script from a different company.</p>
+
+    <h3 class="sub">The connections that this page makes</h3>
+    <ul>
+      <li><strong>GitHub Pages</strong> supplies this page, the stylesheet, and the images.
+        GitHub records the requests to its servers, and the
+        <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub
+        privacy statement</a> gives the details.</li>
+      <li><strong>api.github.com</strong> supplies the version number and the address of each
+        download. The start page makes this request one time. It sends no data about you.</li>
+      <li>A download button sends you to <strong>github.com</strong> for the file.</li>
+    </ul>
+
+    <h3 class="sub">Storage in your browser</h3>
+    <p class="note">If you use the light and dark buttons, this website keeps your selection
+      in the local storage of your browser. The value is <code>light</code> or
+      <code>dark</code>. It stays on your machine, and the website sends it to no server. To
+      delete it, clear the site data for this address in your browser.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Questions</h2>
+    <p class="note">Open an
+      <a href="https://github.com/nicglazkov/jotbay/issues">issue</a> on the repository. For a
+      security problem, use the <a href="security.html">security page</a>.</p>
+    <p class="updated">This page changed on 8 August 2026.</p>
+  </section>
+
+</div>
+
+<footer>
+  <a href="commands.html">Commands</a>
+  <a href="security.html">Security</a>
+  <a href="privacy.html">Privacy</a>
+  <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
+  <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
+  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+</footer>
+
+<script src="theme.js"></script>
+</body>
+</html>

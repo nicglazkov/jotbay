@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jotbay security</title>
+<meta name="description" content="The Jotbay trust model. Jotbay has no server, it does not read your credentials, and it changes no file outside your vault.">
+<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="images/icon.png">
+<script>
+  (function(){try{var s=localStorage.getItem("jotbay-theme");
+  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bar"><div class="shell">
+  <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
+  <span class="grow"></span>
+  <nav>
+    <a href="index.html#install">Install</a>
+    <a href="index.html#what">Functions</a>
+    <a href="commands.html">Commands</a>
+    <a href="index.html#faq">FAQ</a>
+    <a href="https://github.com/nicglazkov/jotbay">Source</a>
+  </nav>
+  <div class="themer" role="group" aria-label="Color theme">
+    <button type="button" id="lightBtn" aria-pressed="false" aria-label="Light theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+      </svg></button>
+    <button type="button" id="darkBtn" aria-pressed="false" aria-label="Dark theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7z"/>
+      </svg></button>
+  </div>
+</div></div>
+
+<div class="shell">
+
+  <header class="subhead">
+    <a class="back" href="index.html">Back to the start page</a>
+    <h1>Security</h1>
+    <p>The trust model of Jotbay, in plain words. Each statement here is a statement about
+      the code, and you can read the code.</p>
+  </header>
+
+  <section class="panel">
+    <h2>The trust model</h2>
+    <p class="note">Jotbay has no server. It sends your notes only to the git repository that
+      you selected. There is no telemetry, there is no analytics, and you make no account with
+      this project.</p>
+
+    <h3 class="sub">Your credentials</h3>
+    <p class="note">Jotbay does not read your credentials. It does not keep them, and it does
+      not send them. The push operation and the pull operation use your <code>git</code>
+      program and your credential helper. The result is the same as the result of the same
+      commands in your terminal.</p>
+    <p class="note">The setup uses <a href="https://cli.github.com">gh</a> only for the option
+      <strong>Create one for me</strong>. It makes one repository, under the account that
+      <code>gh</code> uses. The two other setup options do not use <code>gh</code>.</p>
+
+    <h3 class="sub">The one connection that Jotbay makes</h3>
+    <p class="note">Jotbay reads
+      <code>api.github.com/repos/&lt;repository&gt;/releases/latest</code> to find a new
+      version. It sends no data with this request, and it keeps the answer for six hours.</p>
+    <p class="note">Set <code>JOTBAY_TOOL_REPO</code> to a different address, or prevent the
+      connection. All other functions continue to operate. The
+      <a href="privacy.html">privacy page</a> lists each connection.</p>
+  </section>
+
+  <section class="panel">
+    <h2>What Jotbay does to your files</h2>
+    <ul>
+      <li>It commits and sends each file in the vault that you selected.</li>
+      <li>It does not delete a version. If there is a conflict, it keeps the two versions, and
+        it gives a new name to one of them.</li>
+      <li>It finds a file of 100 MB or more before the commit, and it does not commit that
+        file, because GitHub rejects the push. The file stays on your machine, and Jotbay
+        shows it in the app.</li>
+      <li>It changes no file outside the vault. The two exceptions are its own preferences
+        file, and a desktop shortcut if you ask for one.</li>
+    </ul>
+  </section>
+
+  <section class="panel">
+    <h2>Report a vulnerability</h2>
+    <p class="note">Open a
+      <a href="https://github.com/nicglazkov/jotbay/security/advisories/new">security
+      advisory</a> on the repository. You can also send an email to the address on the
+      GitHub profile of the maintainer. Do not open a public issue for a problem that a
+      person can exploit.</p>
+    <p class="note">You get an answer in one week. This is a personal project. There is no
+      security team, and there is no bounty.</p>
+
+    <h3 class="sub">Supported versions</h3>
+    <p class="note">The most recent release only. The command <code>jotbay upgrade</code>
+      moves a machine to that release in one step.</p>
+  </section>
+
+</div>
+
+<footer>
+  <a href="commands.html">Commands</a>
+  <a href="security.html">Security</a>
+  <a href="privacy.html">Privacy</a>
+  <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
+  <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
+  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+</footer>
+
+<script src="theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jotbay commands</title>
+<meta name="description" content="Every Jotbay command. The apps and the commands use the same engine, and the operation in a terminal is the same as the operation in a window.">
+<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="images/icon.png">
+<script>
+  (function(){try{var s=localStorage.getItem("jotbay-theme");
+  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bar"><div class="shell">
+  <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
+  <span class="grow"></span>
+  <nav>
+    <a href="index.html#install">Install</a>
+    <a href="index.html#what">Functions</a>
+    <a href="commands.html">Commands</a>
+    <a href="index.html#faq">FAQ</a>
+    <a href="https://github.com/nicglazkov/jotbay">Source</a>
+  </nav>
+  <div class="themer" role="group" aria-label="Color theme">
+    <button type="button" id="lightBtn" aria-pressed="false" aria-label="Light theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+      </svg></button>
+    <button type="button" id="darkBtn" aria-pressed="false" aria-label="Dark theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7z"/>
+      </svg></button>
+  </div>
+</div></div>
+
+<div class="shell">
+
+  <header class="subhead">
+    <a class="back" href="index.html">Back to the start page</a>
+    <h1>Commands</h1>
+    <p>The apps and the commands use the same engine. The operation in a terminal is the
+      same as the operation in a window. Each installer contains the
+      <code>jotbay</code> command.</p>
+  </header>
+
+  <section class="panel">
+    <h3 class="sub">Every day</h3>
+    <table>
+      <tr><th>Command</th><th>Function</th></tr>
+      <tr><td>jotbay</td><td>Shows the status of this machine and of all other machines</td></tr>
+      <tr><td>jotbay sync</td><td>Makes a commit, gets the changes from the repository, and sends your changes</td></tr>
+      <tr><td>jotbay dash</td><td>Shows a live dashboard in the terminal</td></tr>
+      <tr><td>jotbay path</td><td>Shows the path of your notes folder</td></tr>
+    </table>
+
+    <h3 class="sub">The other machines</h3>
+    <table>
+      <tr><th>Command</th><th>Function</th></tr>
+      <tr><td>jotbay nodes</td><td>Shows each machine, and asks each machine for its status</td></tr>
+      <tr><td>jotbay nodes --forget &lt;name&gt;</td><td>Removes the status of a machine that you do not use again</td></tr>
+      <tr><td>jotbay activity</td><td>Shows the operations of each machine, and also the operations that failed</td></tr>
+      <tr><td>jotbay log</td><td>Shows the git history of the changes to your notes</td></tr>
+    </table>
+
+    <h3 class="sub">Setup and maintenance</h3>
+    <table>
+      <tr><th>Command</th><th>Function</th></tr>
+      <tr><td>jotbay init</td><td>Prepares a vault on a new machine</td></tr>
+      <tr><td>jotbay schedule</td><td>Shows the background sync, and prepares it if it is absent</td></tr>
+      <tr><td>jotbay watch</td><td>Syncs after each change, and shows each operation</td></tr>
+      <tr><td>jotbay shortcut</td><td>Puts an icon for the app or for your notes folder on the desktop</td></tr>
+      <tr><td>jotbay settings</td><td>Shows or changes the preferences of this machine</td></tr>
+      <tr><td>jotbay upgrade</td><td>Downloads the most recent release, and replaces the files on this machine</td></tr>
+      <tr><td>jotbay resolve</td><td>Completes a rebase that stopped</td></tr>
+    </table>
+
+    <h3 class="sub">Options for all commands</h3>
+    <table>
+      <tr><th>Option</th><th>Function</th></tr>
+      <tr><td>--json</td><td>Shows the result as JSON, for a script</td></tr>
+      <tr><td>--at &lt;path&gt;</td><td>Uses the vault at this path</td></tr>
+      <tr><td>--offline</td><td>Uses only local data. Available for status and activity.</td></tr>
+    </table>
+    <p class="dlnote" style="margin-top:18px">The macOS app uses <code>jotbay --json</code> for
+      each value that it shows. A script can read the same data.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Set up a vault from the terminal</h2>
+    <p class="note">The command asks the same question as the first start of the app. You can
+      also give the answer as an option.</p>
+    <pre><code>jotbay init                        # asks the three options
+jotbay init --create my-notes      # makes a private GitHub repository
+jotbay init --clone &lt;url&gt;          # clones a repository that you have
+jotbay init --adopt &lt;path&gt;         # uses a clone on this machine</code></pre>
+    <p class="dlnote">Only <code>--create</code> needs
+      <a href="https://cli.github.com">gh</a>. The other options need only
+      <code>git</code>.</p>
+  </section>
+
+</div>
+
+<footer>
+  <a href="commands.html">Commands</a>
+  <a href="security.html">Security</a>
+  <a href="privacy.html">Privacy</a>
+  <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
+  <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
+  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+</footer>
+
+<script src="theme.js"></script>
+</body>
+</html>

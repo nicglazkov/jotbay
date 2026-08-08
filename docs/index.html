@@ -27,10 +27,10 @@
   <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
   <span class="grow"></span>
   <nav>
-    <a href="#what">Functions</a>
     <a href="#install">Install</a>
-    <a href="#cli">Commands</a>
-    <a href="#faq">Questions</a>
+    <a href="#what">Functions</a>
+    <a href="commands.html">Commands</a>
+    <a href="#faq">FAQ</a>
     <a href="https://github.com/nicglazkov/jotbay">Source</a>
   </nav>
   <div class="themer" role="group" aria-label="Color theme">
@@ -54,12 +54,86 @@
       and Linux machines. It uses a private git repository. You are the owner of the
       repository.</p>
     <div class="cta">
-      <a class="fill" href="https://github.com/nicglazkov/jotbay/releases/latest">Download</a>
+      <a class="fill" href="#install">Install Jotbay</a>
       <a class="ghost" href="https://github.com/nicglazkov/jotbay">See the source</a>
     </div>
-    <p class="fineprint">macOS 14 or later. Windows 10 or later. Linux. The license is MIT.<br>
-      There is no server, no account, and no telemetry.</p>
+    <p class="fineprint">macOS, Windows, Linux. MIT license.</p>
   </header>
+
+  <section class="panel getit" id="install">
+    <h2>Install</h2>
+    <p class="note">Each installer contains the app and the <code>jotbay</code> command.
+      Jotbay needs <code>git</code>.</p>
+
+    <div class="tabrow">
+      <div class="tabs" role="tablist" aria-label="Operating system">
+        <button type="button" role="tab" id="tab-macos" data-os="macos"
+                aria-selected="false" aria-controls="pane-macos">macOS</button>
+        <button type="button" role="tab" id="tab-windows" data-os="windows"
+                aria-selected="false" aria-controls="pane-windows">Windows</button>
+        <button type="button" role="tab" id="tab-linux" data-os="linux"
+                aria-selected="false" aria-controls="pane-linux">Linux</button>
+      </div>
+      <span class="ver" id="ver" hidden></span>
+    </div>
+    <p class="detected" id="detected" hidden></p>
+
+    <div class="osp" id="pane-macos" role="tabpanel" aria-labelledby="tab-macos" hidden>
+      <div class="dlrow">
+        <a class="dl primary" data-asset="Jotbay.dmg"
+           href="https://github.com/nicglazkov/jotbay/releases/latest">
+          <span class="t">Download the DMG</span>
+          <span class="s">macOS 14 or later. Apple silicon and Intel.</span>
+        </a>
+      </div>
+      <p class="dlnote">Open the disk image. Move Jotbay to the Applications folder.
+        Apple signed and notarized this app.</p>
+      <h3>Or use Homebrew</h3>
+      <pre><code>brew trust nicglazkov/tap
+brew install --cask nicglazkov/tap/jotbay</code></pre>
+      <p class="dlnote">Homebrew must trust a tap before it loads a cask from that tap.
+        You do the first command one time.</p>
+    </div>
+
+    <div class="osp" id="pane-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
+      <div class="dlrow">
+        <a class="dl primary" data-asset="-setup.exe"
+           href="https://github.com/nicglazkov/jotbay/releases/latest">
+          <span class="t">Download the installer</span>
+          <span class="s">Windows 10 or later. 64 bit.</span>
+        </a>
+      </div>
+      <p class="dlnote">The installer writes only to your user account. It does not ask for
+        administrator permission. This installer has no code signature, and SmartScreen
+        shows a warning. Click <strong>More info</strong>, then click
+        <strong>Run anyway</strong>.</p>
+      <h3>Or use PowerShell</h3>
+      <pre><code>irm https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.ps1 | iex
+jotbay init</code></pre>
+    </div>
+
+    <div class="osp" id="pane-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
+      <div class="dlrow">
+        <a class="dl primary" data-asset="_amd64.deb"
+           href="https://github.com/nicglazkov/jotbay/releases/latest">
+          <span class="t">Download the DEB</span>
+          <span class="s">Debian, Ubuntu, and other apt distributions.</span>
+        </a>
+        <a class="dl second" data-asset=".AppImage"
+           href="https://github.com/nicglazkov/jotbay/releases/latest">
+          <span class="t">Download the AppImage</span>
+          <span class="s">All other distributions. x86-64.</span>
+        </a>
+      </div>
+      <p class="dlnote">Open the DEB package with two clicks, or use
+        <code>sudo apt install ./Jotbay_&lt;version&gt;_amd64.deb</code>. Make the AppImage
+        executable, then start it.</p>
+      <h3>Or use the terminal</h3>
+      <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
+jotbay init</code></pre>
+      <p class="dlnote">On a server that has no desktop, add <code>--no-gui</code>.</p>
+    </div>
+  </section>
 
   <figure class="stage">
     <img class="shot only-light" src="images/macos-main.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
@@ -112,67 +186,8 @@
     </figure>
   </section>
 
-  <section class="panel" id="install">
-    <h2>Install</h2>
-    <p class="note">Download the file for your platform from the
-      <a href="https://github.com/nicglazkov/jotbay/releases/latest">most recent release</a>.
-      Each installer contains the <code>jotbay</code> command. If you install the app, you also
-      get the command.</p>
-
-    <div class="plat">
-      <div class="os">
-        <h3>macOS <span class="badge ok">Signed</span></h3>
-        <p>Open the disk image. Move Jotbay to the Applications folder.</p>
-        <span class="file">Jotbay.dmg</span>
-      </div>
-      <div class="os">
-        <h3>Windows <span class="badge warn">No signature</span></h3>
-        <p>The installer writes only to your user account. It does not ask for administrator
-          permission. SmartScreen shows a warning. Click More info, then click Run anyway.</p>
-        <span class="file">Jotbay_&lt;version&gt;_x64-setup.exe</span>
-      </div>
-      <div class="os">
-        <h3>Linux</h3>
-        <p>Open the package with two clicks. On a distribution that does not have apt, use the
-          AppImage.</p>
-        <span class="file">Jotbay_&lt;version&gt;_amd64.deb<br>Jotbay_&lt;version&gt;_amd64.AppImage</span>
-      </div>
-    </div>
-
-    <h3 style="font-size:15.5px;margin:22px 0 2px">Homebrew</h3>
-    <pre><code>brew trust nicglazkov/tap
-brew install --cask nicglazkov/tap/jotbay</code></pre>
-    <p class="note" style="margin:8px 0 0">Homebrew must trust a tap before it loads a cask
-      from that tap. You do the first command one time.</p>
-
-    <h3 style="font-size:15.5px;margin:22px 0 2px">Terminal</h3>
-    <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
-jotbay init</code></pre>
-    <p class="note" style="margin:8px 0 0">On Windows, use <code>install.ps1</code> in the same
-      manner. On a server that has no desktop, add <code>--no-gui</code>. Jotbay needs
-      <code>git</code>. Only the first setup option also needs
-      <a href="https://cli.github.com">gh</a>.</p>
-  </section>
-
-  <section class="panel" id="cli">
-    <h2>The commands</h2>
-    <p class="note">The apps and the commands use the same engine. The operation in a terminal
-      is the same as the operation in a window.</p>
-    <table>
-      <tr><th>Command</th><th>Function</th></tr>
-      <tr><td>jotbay</td><td>Shows the status of this machine and of all other machines</td></tr>
-      <tr><td>jotbay sync</td><td>Makes a commit, gets the changes from the repository, and sends your changes</td></tr>
-      <tr><td>jotbay dash</td><td>Shows a live dashboard in the terminal</td></tr>
-      <tr><td>jotbay nodes</td><td>Shows each machine, and asks each machine for its status</td></tr>
-      <tr><td>jotbay activity</td><td>Shows the operations of each machine, and also the operations that failed</td></tr>
-      <tr><td>jotbay path</td><td>Shows the path of your notes folder</td></tr>
-      <tr><td>jotbay upgrade</td><td>Downloads the most recent release, and replaces the files on this machine</td></tr>
-      <tr><td>jotbay init</td><td>Prepares a vault on a new machine</td></tr>
-    </table>
-  </section>
-
   <section class="panel" id="faq">
-    <h2>Questions</h2>
+    <h2>FAQ</h2>
 
     <details class="qa" open>
       <summary>Where does Jotbay put my notes?</summary>
@@ -181,7 +196,7 @@ jotbay init</code></pre>
         bare repository on SSH also operate correctly. There is no Jotbay server, and you do
         not make an account.</p>
       <p>Jotbay makes only one other connection. It examines its releases page for a new
-        version. You can change this address, or you can prevent the connection.</p>
+        version. The <a href="privacy.html">privacy page</a> gives the details.</p>
     </details>
 
     <details class="qa">
@@ -239,34 +254,84 @@ jotbay init</code></pre>
 </div>
 
 <footer>
+  <a href="commands.html">Commands</a>
+  <a href="security.html">Security</a>
+  <a href="privacy.html">Privacy</a>
   <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
   <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
-  <a href="https://github.com/nicglazkov/jotbay/blob/main/SECURITY.md">Security</a>
   <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
-  <p class="tag">Jotbay sends your notes only to your repository.</p>
 </footer>
 
+<script src="theme.js"></script>
 <script>
-  // The toggle writes a preference. With none stored, the page follows the system.
-  var root = document.documentElement;
-  var lightBtn = document.getElementById("lightBtn");
-  var darkBtn = document.getElementById("darkBtn");
-  function paint(){
-    var set = root.getAttribute("data-theme");
-    var dark = set ? set === "dark"
-                   : window.matchMedia("(prefers-color-scheme: dark)").matches;
-    lightBtn.setAttribute("aria-pressed", String(!dark));
-    darkBtn.setAttribute("aria-pressed", String(dark));
+  // The install pane. The tabs work with no network and no detection; the
+  // fetch below only upgrades the buttons from "the releases page" to the
+  // exact file, and names the version. A failed fetch changes nothing.
+  var REPO = "nicglazkov/jotbay";
+  var NAMES = {macos: "macOS", windows: "Windows", linux: "Linux"};
+  var tabs = [].slice.call(document.querySelectorAll(".tabs button"));
+  var line = document.getElementById("detected");
+
+  // Android reports "Linux" and iOS reports a Mac-like platform, so both are
+  // tested first. Neither has a Jotbay build, and a guess for them would send
+  // a phone user to a file that cannot run.
+  function detect(){
+    var ua = navigator.userAgent || "";
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) ||
+            navigator.platform || "";
+    if (/Android/i.test(ua)) return "mobile";
+    if (/iPhone|iPad|iPod/i.test(ua)) return "mobile";
+    if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return "macos";
+    if (/Win/i.test(p) || /Windows/i.test(ua)) return "windows";
+    if (/Linux|X11|CrOS/i.test(p + ua)) return "linux";
+    return null;
   }
-  function choose(theme){
-    root.setAttribute("data-theme", theme);
-    try { localStorage.setItem("jotbay-theme", theme); } catch (e) {}
-    paint();
+  var found = detect();
+
+  // The line under the tabs describes the detected machine, so it must go away
+  // when the visitor selects a different tab. If it stays, the page says
+  // "This machine uses macOS" above the Linux downloads.
+  function selectOS(os){
+    tabs.forEach(function(t){
+      var on = t.getAttribute("data-os") === os;
+      t.setAttribute("aria-selected", String(on));
+      document.getElementById("pane-" + t.getAttribute("data-os")).hidden = !on;
+    });
+    if (found === "mobile") {
+      line.className = "detected plain";
+      line.textContent = "Jotbay operates on a desktop machine.";
+      line.hidden = false;
+    } else if (found && found === os) {
+      line.className = "detected";
+      line.textContent = "This machine uses " + NAMES[found] + ".";
+      line.hidden = false;
+    } else {
+      line.hidden = true;
+    }
   }
-  lightBtn.addEventListener("click", function(){ choose("light"); });
-  darkBtn.addEventListener("click", function(){ choose("dark"); });
-  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
-  paint();
+  tabs.forEach(function(t){
+    t.addEventListener("click", function(){ selectOS(t.getAttribute("data-os")); });
+  });
+
+  selectOS(found && found !== "mobile" ? found : "macos");
+
+  fetch("https://api.github.com/repos/" + REPO + "/releases/latest")
+    .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
+    .then(function(rel){
+      var ver = document.getElementById("ver");
+      ver.textContent = "Version " + String(rel.tag_name).replace(/^v/, "");
+      ver.hidden = false;
+      [].forEach.call(document.querySelectorAll("a[data-asset]"), function(a){
+        var suffix = a.getAttribute("data-asset");
+        for (var i = 0; i < rel.assets.length; i++) {
+          if (rel.assets[i].name.slice(-suffix.length) === suffix) {
+            a.href = rel.assets[i].browser_download_url;
+            return;
+          }
+        }
+      });
+    })
+    .catch(function(){ /* the buttons already point at the releases page */ });
 </script>
 
 </body>
