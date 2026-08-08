@@ -122,7 +122,8 @@ jotbay init</code></pre>
         </a>
       </div>
       <p class="dlnote">Open the DEB package with two clicks, or use
-        <code>sudo apt install ./Jotbay_&lt;version&gt;_amd64.deb</code>. Make the AppImage
+        <code>sudo apt install ./<span id="debname">Jotbay_&lt;version&gt;_amd64.deb</span></code>.
+        Make the AppImage
         executable, then start it.</p>
       <h3>Or use the terminal</h3>
       <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
@@ -309,15 +310,22 @@ jotbay init</code></pre>
       var ver = document.getElementById("ver");
       ver.textContent = "Version " + String(rel.tag_name).replace(/^v/, "");
       ver.hidden = false;
-      [].forEach.call(document.querySelectorAll("a[data-asset]"), function(a){
-        var suffix = a.getAttribute("data-asset");
+      function find(suffix){
         for (var i = 0; i < rel.assets.length; i++) {
-          if (rel.assets[i].name.slice(-suffix.length) === suffix) {
-            a.href = rel.assets[i].browser_download_url;
-            return;
-          }
+          if (rel.assets[i].name.slice(-suffix.length) === suffix) return rel.assets[i];
         }
+        return null;
+      }
+
+      [].forEach.call(document.querySelectorAll("a[data-asset]"), function(a){
+        var hit = find(a.getAttribute("data-asset"));
+        if (hit) a.href = hit.browser_download_url;
       });
+
+      // The apt line names the file, so it goes stale in a way the buttons
+      // cannot: a copied command with last release's version in it fails.
+      var deb = find("_amd64.deb");
+      if (deb) document.getElementById("debname").textContent = deb.name;
     })
     .catch(function(){ /* the buttons already point at the releases page */ });
 </script>
