@@ -1,0 +1,181 @@
+/* Jotbay site.
+   Shares its shape with the Overhang site so the two read as a family: glass
+   over a soft wash, one column, panels rather than full-bleed sections. The
+   hues differ because the products do. Jotbay's mark is indigo, so the wash
+   runs indigo into violet. */
+
+:root{
+  --wash-a:#dde3ff; --wash-b:#e9dcff; --page:#f5f5fa;
+  --glass:rgba(255,255,255,.62); --glass-line:rgba(255,255,255,.9);
+  --glass-inner:rgba(255,255,255,.66);
+  --text:#12141a; --muted:#585e70; --faint:#848a9c;
+  --accent:#5b4bd6; --rule:rgba(0,0,0,.08);
+  --solid:#12141a; --solid-ink:#fff;
+  --soft:rgba(0,0,0,.05); --soft-line:rgba(0,0,0,.09);
+  --shadow:0 10px 34px rgba(45,40,95,.11);
+  --shot-shadow:0 8px 26px rgba(45,40,95,.15);
+  --navbg:rgba(255,255,255,.6);
+  --ok:#1d9a63; --warn:#a8730b;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --wash-a:#231e5c; --wash-b:#3d1f52; --page:#08080c;
+    --glass:rgba(255,255,255,.055); --glass-line:rgba(255,255,255,.1);
+    --glass-inner:rgba(255,255,255,.05);
+    --text:#f5f5f7; --muted:#a9afc2; --faint:#7a8199;
+    --accent:#a99cff; --rule:rgba(255,255,255,.08);
+    --solid:#fff; --solid-ink:#101018;
+    --soft:rgba(255,255,255,.09); --soft-line:rgba(255,255,255,.16);
+    --shadow:0 18px 50px rgba(0,0,0,.5);
+    --shot-shadow:0 12px 34px rgba(0,0,0,.5);
+    --navbg:rgba(12,12,18,.55);
+    --ok:#4ad295; --warn:#e8b551;
+  }
+}
+:root[data-theme="dark"]{
+  --wash-a:#231e5c; --wash-b:#3d1f52; --page:#08080c;
+  --glass:rgba(255,255,255,.055); --glass-line:rgba(255,255,255,.1);
+  --glass-inner:rgba(255,255,255,.05);
+  --text:#f5f5f7; --muted:#a9afc2; --faint:#7a8199;
+  --accent:#a99cff; --rule:rgba(255,255,255,.08);
+  --solid:#fff; --solid-ink:#101018;
+  --soft:rgba(255,255,255,.09); --soft-line:rgba(255,255,255,.16);
+  --shadow:0 18px 50px rgba(0,0,0,.5);
+  --shot-shadow:0 12px 34px rgba(0,0,0,.5);
+  --navbg:rgba(12,12,18,.55);
+  --ok:#4ad295; --warn:#e8b551;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;color:var(--text);font-size:17px;line-height:1.55;min-height:100vh;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  -webkit-font-smoothing:antialiased;
+  background-color:var(--page);
+  background-image:
+    radial-gradient(72% 55% at 16% 0,var(--wash-a) 0,transparent 62%),
+    radial-gradient(62% 50% at 92% 6%,var(--wash-b) 0,transparent 58%);
+  background-attachment:fixed;
+}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code,kbd{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:.9em}
+code{background:var(--soft);border-radius:6px;padding:2px 6px}
+pre{background:var(--soft);border:1px solid var(--soft-line);border-radius:12px;
+  padding:14px 16px;overflow-x:auto;line-height:1.5;margin:12px 0}
+pre code{background:none;padding:0;font-size:13.5px}
+.shell{max-width:1000px;margin:0 auto;padding:0 24px}
+.grow{flex:1}
+
+/* nav */
+.bar{position:sticky;top:0;z-index:20;background:var(--navbg);
+  backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);
+  border-bottom:1px solid var(--rule)}
+.bar .shell{display:flex;align-items:center;gap:22px;height:56px;font-size:13px}
+.bar img{width:23px;height:23px;border-radius:6px}
+.bar b{font-weight:600;font-size:15px}
+.bar .brand{display:flex;align-items:center;gap:11px;color:var(--text)}
+.bar .brand:hover{text-decoration:none}
+.bar nav{display:flex;gap:20px}
+.bar nav a{color:var(--muted)}
+.bar nav a:hover{color:var(--text);text-decoration:none}
+@media (max-width:640px){.bar nav{display:none}}
+
+.themer{display:flex;background:var(--soft);border:1px solid var(--soft-line);
+  border-radius:99px;padding:2px;gap:2px}
+.themer button{appearance:none;background:none;border:0;cursor:pointer;padding:5px 9px;
+  border-radius:99px;color:var(--faint);display:flex;align-items:center;line-height:0}
+.themer button svg{width:15px;height:15px}
+.themer button[aria-pressed="true"]{background:var(--glass-inner);color:var(--text);
+  box-shadow:0 1px 2px rgba(0,0,0,.12)}
+
+/* hero */
+.hero{text-align:center;padding:76px 0 44px}
+.hero .icon{width:96px;height:96px;border-radius:22px;box-shadow:var(--shadow)}
+.hero h1{font-size:clamp(34px,5.6vw,56px);line-height:1.06;letter-spacing:-.026em;
+  font-weight:700;margin:24px 0 14px}
+.hero .lede{font-size:19px;color:var(--muted);max-width:46ch;margin:0 auto 28px}
+.cta a{display:inline-block;padding:12px 26px;border-radius:99px;font-size:16px;
+  font-weight:500;margin:0 5px 8px}
+.cta a:hover{text-decoration:none}
+.fill{background:var(--solid);color:var(--solid-ink)}
+.fill:hover{filter:brightness(1.12)}
+.ghost{background:var(--soft);border:1px solid var(--soft-line);color:var(--text)}
+.ghost:hover{background:var(--glass-inner)}
+.fineprint{font-size:12.5px;color:var(--faint);margin-top:14px}
+
+/* screenshots */
+.shot{width:100%;display:block;border-radius:14px;border:1px solid var(--glass-line);
+  box-shadow:var(--shot-shadow)}
+figure{margin:0}
+figcaption{font-size:13.5px;color:var(--faint);text-align:center;margin-top:12px;
+  max-width:62ch;margin-left:auto;margin-right:auto}
+.stage{padding-bottom:8px}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:720px){.pair{grid-template-columns:1fr}}
+/* Every screenshot ships in both themes. Showing the wrong one is the fastest
+   way to make a page feel unfinished. */
+.only-light{display:block} .only-dark{display:none}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .only-light{display:none}
+  :root:not([data-theme="light"]) .only-dark{display:block}
+}
+:root[data-theme="dark"] .only-light{display:none}
+:root[data-theme="dark"] .only-dark{display:block}
+:root[data-theme="light"] .only-light{display:block}
+:root[data-theme="light"] .only-dark{display:none}
+
+/* panels */
+.panel{background:var(--glass);backdrop-filter:blur(26px) saturate(180%);
+  -webkit-backdrop-filter:blur(26px) saturate(180%);
+  border:1px solid var(--glass-line);border-radius:20px;padding:32px;margin-bottom:20px}
+@media (max-width:640px){.panel{padding:24px 20px}}
+.panel h2{font-size:23px;font-weight:700;letter-spacing:-.015em;margin:0 0 6px}
+.panel .note{color:var(--muted);margin:0 0 24px;font-size:15px}
+.panel > p{color:var(--muted);font-size:15.5px}
+.panel > p strong{color:var(--text)}
+h2 .lead{color:var(--faint);font-weight:600}
+
+.trio{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.chip{background:var(--glass-inner);border-radius:15px;padding:20px}
+.chip h3{font-size:16px;margin:0 0 6px;font-weight:600}
+.chip p{margin:0;color:var(--muted);font-size:14px}
+
+/* install */
+.plat{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  margin-bottom:22px}
+.os{background:var(--glass-inner);border-radius:15px;padding:18px 20px}
+.os h3{margin:0 0 4px;font-size:15.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.os p{margin:0;color:var(--muted);font-size:13.5px}
+.os .file{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--faint);
+  display:block;margin-top:8px;word-break:break-all}
+.badge{font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;
+  padding:2px 7px;border-radius:99px;background:var(--soft);color:var(--faint)}
+.badge.ok{color:var(--ok)} .badge.warn{color:var(--warn)}
+
+/* command table */
+table{border-collapse:collapse;width:100%;font-size:14.5px;margin-top:8px}
+td,th{text-align:left;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule);
+  vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);
+  font-weight:600}
+td:first-child{font-family:ui-monospace,Menlo,monospace;font-size:13px;white-space:nowrap;
+  padding-right:22px}
+td:last-child{color:var(--muted)}
+
+/* faq */
+.qa{border-bottom:1px solid var(--rule)}
+.qa:last-of-type{border-bottom:0}
+.qa summary{cursor:pointer;list-style:none;padding:15px 0;font-weight:600;font-size:15.5px;
+  display:flex;justify-content:space-between;align-items:baseline;gap:16px}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary::after{content:"+";color:var(--faint);font-weight:400;font-size:19px;line-height:1}
+.qa[open] summary::after{content:"\2212"}
+.qa p{color:var(--muted);font-size:15px;margin:0 0 16px;max-width:70ch}
+.qa p:first-of-type{margin-top:-2px}
+
+/* footer */
+footer{padding:36px 24px 56px;text-align:center;font-size:13.5px;color:var(--faint);
+  border-top:1px solid var(--rule);margin-top:44px}
+footer a{color:var(--muted);margin:0 10px}
+footer .tag{margin-top:14px}

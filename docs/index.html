@@ -1,264 +1,264 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Jotbay: your notes, on every machine you own</title>
-<meta name="description" content="Jotbay keeps a folder of markdown notes in sync across macOS, Windows and Linux, through a private git repository you own. No server, no account, and nothing is ever discarded.">
-<style>
-:root {
-  --bg: #ffffff; --bg-soft: #f6f6f8; --text: #1a1a1e; --dim: #6b6b76;
-  --faint: #9a9aa5; --accent: #6d5ce6; --border: #e6e6ec; --radius: 10px;
-  --code-bg: #f0f0f4;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #131316; --bg-soft: #1b1b20; --text: #ececf1; --dim: #a0a0ac;
-    --faint: #6e6e7a; --accent: #8b7cf6; --border: #2a2a32; --code-bg: #222228;
-  }
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif;
-  background: var(--bg); color: var(--text);
-  -webkit-font-smoothing: antialiased;
-}
-main { max-width: 860px; margin: 0 auto; padding: 0 24px; }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
-code, pre {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 0.9em; background: var(--code-bg); border-radius: 6px;
-}
-code { padding: 2px 6px; }
-pre { padding: 14px 16px; overflow-x: auto; line-height: 1.5; }
-pre code { background: none; padding: 0; }
-h2 { font-size: 26px; margin: 72px 0 8px; letter-spacing: -0.01em; }
-h3 { font-size: 17px; margin: 28px 0 6px; }
-p { margin: 10px 0; }
-.dim { color: var(--dim); }
-.faint { color: var(--faint); font-size: 14px; }
-
-header { text-align: center; padding: 88px 0 40px; }
-header img.mark { width: 96px; height: 96px; border-radius: 22px; }
-header h1 {
-  font-size: clamp(30px, 5.5vw, 44px); letter-spacing: -0.02em;
-  margin: 26px 0 12px; line-height: 1.15;
-}
-header .sub { font-size: 19px; color: var(--dim); max-width: 620px; margin: 0 auto; }
-.cta { margin-top: 30px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.btn {
-  display: inline-block; padding: 11px 22px; border-radius: 999px;
-  font-weight: 600; font-size: 15px;
-}
-.btn.primary { background: var(--accent); color: #fff; }
-.btn.primary:hover { text-decoration: none; filter: brightness(1.08); }
-.btn.quiet { border: 1px solid var(--border); color: var(--text); }
-.btn.quiet:hover { text-decoration: none; background: var(--bg-soft); }
-.platforms { margin-top: 14px; }
-
-.shot {
-  width: 100%; border-radius: var(--radius); border: 1px solid var(--border);
-  display: block; margin: 22px 0;
-}
-.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 700px) { .pair { grid-template-columns: 1fr; } }
-
-.features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 22px; }
-@media (max-width: 700px) { .features { grid-template-columns: 1fr; } }
-.feature {
-  background: var(--bg-soft); border: 1px solid var(--border);
-  border-radius: var(--radius); padding: 18px 18px 14px;
-}
-.feature h3 { margin: 0 0 6px; font-size: 15.5px; }
-.feature p { margin: 0; font-size: 14px; color: var(--dim); }
-
-details {
-  border-bottom: 1px solid var(--border); padding: 14px 0;
-}
-details summary {
-  cursor: pointer; font-weight: 600; font-size: 15.5px; list-style: none;
-  display: flex; justify-content: space-between; align-items: baseline;
-}
-details summary::after { content: "+"; color: var(--faint); font-weight: 400; }
-details[open] summary::after { content: "–"; }
-details p { color: var(--dim); font-size: 15px; }
-
-table { border-collapse: collapse; margin: 12px 0; width: 100%; font-size: 15px; }
-td, th { text-align: left; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--border); }
-td:first-child { font-family: ui-monospace, Menlo, monospace; font-size: 13.5px; white-space: nowrap; }
-
-footer {
-  margin-top: 96px; padding: 28px 24px 48px; border-top: 1px solid var(--border);
-  text-align: center; font-size: 14px; color: var(--faint);
-}
-footer a { color: var(--dim); margin: 0 10px; }
-</style>
+<title>Jotbay, markdown notes in sync across every machine you own</title>
+<meta name="description" content="Jotbay keeps a folder of markdown notes in sync across macOS, Windows, and Linux through a private git repository that you own. No server, no account, and nothing you wrote is ever discarded.">
+<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Jotbay">
+<meta property="og:description" content="The note you need is always on the other machine. Jotbay fixes that, through a private git repository that you own.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://nicglazkov.github.io/jotbay/">
+<meta property="og:image" content="https://nicglazkov.github.io/jotbay/images/icon.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="images/icon.png">
+<script>
+  // Applied before first paint so the page never flashes the wrong theme.
+  (function(){try{var s=localStorage.getItem("jotbay-theme");
+  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+</script>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main>
 
-<header>
-  <img class="mark" src="images/icon.png" alt="" width="96" height="96">
-  <h1>The note you need is always<br>on the other machine.</h1>
-  <p class="sub">Jotbay keeps a folder of markdown in sync across your Macs, Windows
-  and Linux machines, through a private git repository you own. No server, no
-  account, and no telemetry. Nothing you wrote is ever discarded.</p>
-  <div class="cta">
-    <a class="btn primary" href="https://github.com/nicglazkov/jotbay/releases/latest">Download</a>
-    <a class="btn quiet" href="https://github.com/nicglazkov/jotbay">GitHub</a>
+<div class="bar"><div class="shell">
+  <a class="brand" href="index.html"><img src="images/icon.png" alt=""><b>Jotbay</b></a>
+  <span class="grow"></span>
+  <nav>
+    <a href="#what">Features</a>
+    <a href="#install">Install</a>
+    <a href="#cli">Terminal</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/nicglazkov/jotbay">Source</a>
+  </nav>
+  <div class="themer" role="group" aria-label="Color theme">
+    <button type="button" id="lightBtn" aria-pressed="false" aria-label="Light theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6"/>
+      </svg></button>
+    <button type="button" id="darkBtn" aria-pressed="false" aria-label="Dark theme">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20.5 14.2A8.6 8.6 0 0 1 9.8 3.5a8.6 8.6 0 1 0 10.7 10.7z"/>
+      </svg></button>
   </div>
-  <p class="platforms faint">macOS 14+, Windows 10+, Linux. Free and open source, MIT.</p>
-</header>
+</div></div>
 
-<img class="shot" src="images/macos-main.png"
-     alt="The Jotbay window showing four machines and an activity feed">
-<p class="faint" style="text-align:center">Every machine reports in. The one that has
-been failing for six hours says so here, and in no commit log anywhere.</p>
+<div class="shell">
 
-<h2>Three things, and nothing else.</h2>
-<div class="features">
-  <div class="feature">
-    <h3>Syncs a folder</h3>
-    <p>Save a file and it is on your other machines seconds later. No button,
-    no commit, no thinking about it. Any file type; markdown is the point.</p>
-  </div>
-  <div class="feature">
-    <h3>Shows every machine</h3>
-    <p>A menu bar or tray icon that changes when something needs attention, and
-    an activity feed of what each machine actually did, including failing.</p>
-  </div>
-  <div class="feature">
-    <h3>Keeps both versions</h3>
-    <p>Edit the same note on two machines and the incoming copy keeps the
-    filename; yours is saved beside it. Sync never stalls on a conflict, and
-    no version is ever thrown away.</p>
-  </div>
-</div>
+  <header class="hero">
+    <img class="icon" src="images/icon.png" alt="" width="96" height="96">
+    <h1>The note you need is always<br>on the other machine.</h1>
+    <p class="lede">Jotbay keeps a folder of markdown in sync across your Macs, Windows,
+      and Linux machines, through a private git repository that you own.</p>
+    <div class="cta">
+      <a class="fill" href="https://github.com/nicglazkov/jotbay/releases/latest">Download</a>
+      <a class="ghost" href="https://github.com/nicglazkov/jotbay">View source</a>
+    </div>
+    <p class="fineprint">macOS 14+, Windows 10+, Linux. Free and open source under MIT.<br>
+      No server, no account, no telemetry.</p>
+  </header>
 
-<h2>A closer look</h2>
+  <figure class="stage">
+    <img class="shot only-light" src="images/macos-main.png" alt="The Jotbay window listing four machines beside a feed of what each one has done">
+    <img class="shot only-dark" src="images/macos-main-dark.png" alt="The Jotbay window listing four machines beside a feed of what each one has done">
+    <figcaption>Every machine reports in. The one that has been failing for six hours
+      says so here, and in no commit log anywhere.</figcaption>
+  </figure>
 
-<p class="dim">Reading a note without leaving the app. The browser is read-only
-by construction. The commands to write anything don't exist.</p>
-<img class="shot" src="images/tauri-preview.png"
-     alt="The file browser rendering a markdown note">
+  <section class="panel" id="what">
+    <h2>Three things, and nothing else</h2>
+    <p class="note">Jotbay syncs a folder of notes. It is deliberately not an editor, a database,
+      or somewhere to keep your photos.</p>
+    <div class="trio">
+      <div class="chip">
+        <h3>Syncs a folder</h3>
+        <p>Save a file and it reaches your other machines seconds later. No button, no commit,
+          nothing to remember. Any file type works, though markdown is the point.</p>
+      </div>
+      <div class="chip">
+        <h3>Shows every machine</h3>
+        <p>A menu bar or tray icon that changes when something needs attention, and a feed of
+          what each machine actually did, including the times it failed.</p>
+      </div>
+      <div class="chip">
+        <h3>Keeps both versions</h3>
+        <p>Edit one note on two machines and the incoming copy keeps the filename while yours is
+          saved beside it. Sync never stalls, and no version is discarded.</p>
+      </div>
+    </div>
+  </section>
 
-<p class="dim">The first launch asks one question: where should your notes live?
-It can create the private repository for you, clone one you already have, or
-adopt a folder that is already a clone. Prefer a terminal?
-<code>jotbay init</code> does the same thing.</p>
-<div class="pair">
-  <img class="shot" src="images/macos-first-run.png"
-       alt="First-run setup offering three routes">
-  <img class="shot" src="images/macos-ready.png"
-       alt="Setup complete, offering desktop shortcuts">
-</div>
+  <section class="panel">
+    <h2>A closer look</h2>
+    <p class="note">Read a note without leaving the app. The reader is read-only by
+      construction, because the commands to write anything don't exist.</p>
+    <figure>
+      <img class="shot" src="images/tauri-preview.png" alt="A markdown note rendered inside Jotbay, with headings, lists, and a code block">
+      <figcaption>The Windows and Linux app. macOS gets a native SwiftUI window that shows
+        the same three panes.</figcaption>
+    </figure>
+    <p class="note" style="margin:30px 0 22px">The first launch asks one question: where should
+      your notes live? Jotbay can create the private repository for you, clone one that you
+      already have, or adopt a folder that is already a clone.</p>
+    <figure>
+      <img class="shot only-light" src="images/macos-first-run.png" alt="First run offering three ways to set up">
+      <img class="shot only-dark" src="images/macos-first-run-dark.png" alt="First run offering three ways to set up">
+    </figure>
+  </section>
 
-<h2>Install</h2>
+  <section class="panel" id="install">
+    <h2>Install</h2>
+    <p class="note">Download the file for your platform from the
+      <a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a>.
+      Every installer includes the <code>jotbay</code> command, so choosing the app doesn't
+      cost you the terminal.</p>
 
-<h3>Download</h3>
-<p>Grab the installer for your platform from the
-<a href="https://github.com/nicglazkov/jotbay/releases/latest">latest release</a>:
-a notarized <code>.dmg</code> for macOS, <code>-setup.exe</code> for Windows,
-<code>.deb</code> or <code>.AppImage</code> for Linux. Every installer includes
-the command line tool.</p>
-<p class="faint">The Windows installer is unsigned, so SmartScreen stops it:
-<strong>More&nbsp;info</strong>, then <strong>Run&nbsp;anyway</strong>. It needs
-no administrator rights. <a href="#windows">Why that happens.</a></p>
+    <div class="plat">
+      <div class="os">
+        <h3>macOS <span class="badge ok">Signed</span></h3>
+        <p>Open the disk image and drag Jotbay to Applications.</p>
+        <span class="file">Jotbay.dmg</span>
+      </div>
+      <div class="os">
+        <h3>Windows <span class="badge warn">Unsigned</span></h3>
+        <p>Installs for your user only, so it needs no administrator rights. SmartScreen stops
+          it: choose More info, then Run anyway.</p>
+        <span class="file">Jotbay_&lt;version&gt;_x64-setup.exe</span>
+      </div>
+      <div class="os">
+        <h3>Linux</h3>
+        <p>Double-click the package, or use the AppImage on distributions without apt.</p>
+        <span class="file">Jotbay_&lt;version&gt;_amd64.deb<br>Jotbay_&lt;version&gt;_amd64.AppImage</span>
+      </div>
+    </div>
 
-<h3>Homebrew</h3>
-<pre><code>brew trust nicglazkov/tap
+    <h3 style="font-size:15.5px;margin:22px 0 2px">Homebrew</h3>
+    <pre><code>brew trust nicglazkov/tap
 brew install --cask nicglazkov/tap/jotbay</code></pre>
-<p class="faint">Homebrew 6 refuses to load a cask from a third-party tap until
-you trust it, so the first line is required once. It tells Homebrew that you
-accept casks from this tap, and nothing more.</p>
+    <p class="note" style="margin:8px 0 0">Homebrew refuses to load a cask from a third-party tap
+      until you trust it, so the first line is needed once.</p>
 
-<h3>Terminal</h3>
-<p class="faint">macOS and Linux:</p>
-<pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash</code></pre>
-<p class="faint">Windows, in PowerShell. This is the recommended route until the
-build is signed. It needs no administrator rights:</p>
-<pre><code>irm https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.ps1 -OutFile "$env:TEMP\jotbay-install.ps1"
-powershell -ExecutionPolicy Bypass -File "$env:TEMP\jotbay-install.ps1"</code></pre>
+    <h3 style="font-size:15.5px;margin:22px 0 2px">Terminal</h3>
+    <pre><code>curl -fsSL https://raw.githubusercontent.com/nicglazkov/jotbay/main/install/install.sh | bash
+jotbay init</code></pre>
+    <p class="note" style="margin:8px 0 0">On Windows, run <code>install.ps1</code> the same way.
+      On a headless server, add <code>--no-gui</code>. Jotbay requires <code>git</code>. Only the
+      create-a-repository route also needs <a href="https://cli.github.com">gh</a>.</p>
+  </section>
 
-<h2>Questions you should ask</h2>
+  <section class="panel" id="cli">
+    <h2>Everything the app shows, scriptable</h2>
+    <p class="note">The apps are front ends over one engine. Nothing behaves differently in a
+      terminal.</p>
+    <table>
+      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><td>jotbay</td><td>Shows the current state, locally and across every machine</td></tr>
+      <tr><td>jotbay sync</td><td>Commits, integrates the remote, and pushes</td></tr>
+      <tr><td>jotbay dash</td><td>Opens a live dashboard in the terminal</td></tr>
+      <tr><td>jotbay nodes</td><td>Lists every machine and asks them to report in</td></tr>
+      <tr><td>jotbay activity</td><td>Shows what every machine has done, including failures</td></tr>
+      <tr><td>jotbay path</td><td>Prints the path of your notes folder</td></tr>
+      <tr><td>jotbay upgrade</td><td>Fetches the current release and replaces this machine's binaries</td></tr>
+      <tr><td>jotbay init</td><td>Sets up a vault on a new machine</td></tr>
+    </table>
+  </section>
 
-<details open>
-  <summary>Where do my notes actually go?</summary>
-  <p>To a git repository that you own, usually a private one on GitHub. GitLab,
-  Codeberg, a self-hosted Forgejo or a bare repo over SSH all work. There is no
-  Jotbay server, no account with anyone, and the tool phones nothing home. The
-  one outbound request it makes on its own is checking its own releases page for
-  updates, and you can point that elsewhere or block it.</p>
-</details>
-<details>
-  <summary>What happens when two machines edit the same note?</summary>
-  <p>Both versions are kept. The incoming one takes the filename; yours is saved
-  beside it as <code>note.conflict-&lt;machine&gt;-&lt;time&gt;.md</code>. A
-  conflict is something to tidy up later, not something that stops your sync.</p>
-</details>
-<details>
-  <summary>Do I need to know git?</summary>
-  <p>No. Setup asks where your notes should live and handles the rest; the word
-  "commit" never appears in the interface. If you do know git, it's all real:
-  a normal repository you can inspect, clone and script against.</p>
-</details>
-<details>
-  <summary>What can the folder hold?</summary>
-  <p>Any file type, handled byte-exactly. The practical limits are git's:
-  anything at or over 100&nbsp;MB is left uncommitted (GitHub would reject it) and
-  flagged in the app until you deal with it, and large files you rewrite often
-  will grow the repository permanently. Markdown, screenshots and PDFs are all
-  comfortable; video belongs somewhere else.</p>
-</details>
-<details>
-  <summary>How fast is "sync"?</summary>
-  <p>Jotbay watches the folder and syncs about two seconds after you stop
-  editing, so a note is usually on your other machines within ten seconds. It
-  still isn't a real-time collaborative editor. It's built for notes that
-  need to be on the next machine you sit at, not for two people typing in one
-  document.</p>
-</details>
-<details id="windows">
-  <summary>Why does Windows warn me about the installer?</summary>
-  <p>Because it is not code-signed yet. Microsoft Defender SmartScreen stops
-  unrecognized apps, and says <em>"Windows protected your PC. Microsoft
-  Defender SmartScreen prevented an unrecognized app from starting"</em>. At
-  first the only button is <strong>Don't run</strong>; click
-  <strong>More info</strong> and it shows <em>Publisher: Unknown publisher</em>
-  with a <strong>Run anyway</strong> button. There is no browser warning and no
-  elevation prompt, because Jotbay installs entirely under your own profile.
-  Signing is coming. The macOS build is already signed and notarized.</p>
-  <p>For a day, this installer was also flagged as
-  <code>Trojan:Win32/Wacatac.C!ml</code> and quarantined outright. We withdrew
-  it rather than ask anyone to click past a malware warning. It turned out to be
-  a false positive in Defender's machine-learning model, which Microsoft
-  corrected in a definition update. The identical file, byte for byte, is clean
-  on current definitions. Nothing in the code was involved or changed. The
-  installer is back, and it is recorded here because a project that quietly
-  deletes its own incidents is not one worth trusting with your notes.</p>
-</details>
+  <section class="panel" id="faq">
+    <h2>Questions worth asking</h2>
 
-<h2>The command line</h2>
-<p class="dim">Everything the app shows, scriptable. The GUIs are front ends over
-the same engine. Nothing works differently in a terminal.</p>
-<table>
-  <tr><td>jotbay</td><td>current state, local and across every machine</td></tr>
-  <tr><td>jotbay sync</td><td>commit, integrate the remote, push</td></tr>
-  <tr><td>jotbay dash</td><td>live dashboard in the terminal</td></tr>
-  <tr><td>jotbay activity</td><td>what every machine has done: syncs, conflicts, failures</td></tr>
-  <tr><td>jotbay init</td><td>set up a vault on a new machine</td></tr>
-  <tr><td>jotbay upgrade</td><td>fetch the current release and replace this machine's binaries</td></tr>
-</table>
+    <details class="qa" open>
+      <summary>Where do my notes actually go?</summary>
+      <p>To a git repository that you own, usually a private one on GitHub. GitLab, Codeberg, a
+        self-hosted Forgejo, or a bare repository over SSH all work equally well. There is no
+        Jotbay server and no account with anyone.</p>
+      <p>The only request Jotbay makes on its own is checking its releases page for updates, and
+        you can point that elsewhere or block it.</p>
+    </details>
+
+    <details class="qa">
+      <summary>Do my machines need to be on the same network?</summary>
+      <p>No, and there is no benefit to it. Machines never contact each other. Each one talks
+        only to the git remote, so a laptop on hotel wifi and a desktop behind a home router
+        behave identically. You need no VPN, and there is nothing to discover or forward.</p>
+    </details>
+
+    <details class="qa">
+      <summary>What happens when two machines edit the same note?</summary>
+      <p>Both versions are kept. The incoming one takes the filename, and yours is saved beside
+        it as <code>note.conflict-&lt;machine&gt;-&lt;time&gt;.md</code>. A conflict is something
+        to tidy up later, never something that stops your notes syncing.</p>
+    </details>
+
+    <details class="qa">
+      <summary>Do I need to know git?</summary>
+      <p>No. Setup asks where your notes should live and handles the rest, and the word "commit"
+        never appears in the interface. If you do know git, everything is real: an ordinary
+        repository that you can inspect, clone, and script against.</p>
+    </details>
+
+    <details class="qa">
+      <summary>What can the folder hold?</summary>
+      <p>Any file type, handled byte for byte. The limits come from git rather than from Jotbay.
+        Anything at or over 100 MB is left uncommitted, because GitHub would reject the push, and
+        Jotbay flags it in the app until you deal with it.</p>
+      <p>The constraint that actually bites is churn rather than size. Git keeps a near-complete
+        copy of every version of a binary forever, so an image you rewrite twenty times costs
+        that twenty times over on every machine that clones it. Markdown, screenshots, and the
+        occasional PDF are comfortable. Video belongs somewhere else.</p>
+    </details>
+
+    <details class="qa">
+      <summary>How quickly does it sync?</summary>
+      <p>Jotbay syncs a couple of seconds after you stop editing, so a note is usually on your
+        other machines within ten seconds. When nothing is happening it goes quiet rather than
+        polling, and opening a window asks the other machines to report in.</p>
+      <p>It is still not a real-time collaborative editor. It is built for notes that need to be
+        on the next machine you sit at, not for two people typing in one document.</p>
+    </details>
+
+    <details class="qa">
+      <summary>Why does Windows warn me about the installer?</summary>
+      <p>Because it is not code-signed yet, so Microsoft Defender SmartScreen stops unrecognized
+        apps. Choose <strong>More info</strong>, then <strong>Run anyway</strong>. There is no
+        browser warning and no elevation prompt, because Jotbay installs entirely under your own
+        profile. The macOS build is signed and notarized.</p>
+    </details>
+  </section>
+
+</div>
 
 <footer>
   <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
   <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
-  <a href="https://github.com/nicglazkov/jotbay/blob/main/SECURITY.md">Security &amp; trust model</a>
-  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT licence</a>
-  <p style="margin-top:14px">Your notes go to your own remote and nowhere else.</p>
+  <a href="https://github.com/nicglazkov/jotbay/blob/main/SECURITY.md">Security</a>
+  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+  <p class="tag">Your notes go to your own remote and nowhere else.</p>
 </footer>
 
-</main>
+<script>
+  // The toggle writes a preference. With none stored, the page follows the system.
+  var root = document.documentElement;
+  var lightBtn = document.getElementById("lightBtn");
+  var darkBtn = document.getElementById("darkBtn");
+  function paint(){
+    var set = root.getAttribute("data-theme");
+    var dark = set ? set === "dark"
+                   : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    lightBtn.setAttribute("aria-pressed", String(!dark));
+    darkBtn.setAttribute("aria-pressed", String(dark));
+  }
+  function choose(theme){
+    root.setAttribute("data-theme", theme);
+    try { localStorage.setItem("jotbay-theme", theme); } catch (e) {}
+    paint();
+  }
+  lightBtn.addEventListener("click", function(){ choose("light"); });
+  darkBtn.addEventListener("click", function(){ choose("dark"); });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", paint);
+  paint();
+</script>
+
 </body>
 </html>
