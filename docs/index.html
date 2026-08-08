@@ -60,8 +60,7 @@
 
   <section class="panel getit" id="install">
     <h2>Install</h2>
-    <p class="note">Each installer contains the app and the <code>jotbay</code> command.
-      Jotbay needs <code>git</code>.</p>
+    <p class="note">Every download includes the app and the <code>jotbay</code> command.</p>
 
     <div class="tabrow">
       <div class="tabs" role="tablist" aria-label="Operating system">
@@ -74,7 +73,6 @@
       </div>
       <span class="ver" id="ver" hidden></span>
     </div>
-    <p class="detected" id="detected" hidden></p>
 
     <div class="osp" id="pane-macos" role="tabpanel" aria-labelledby="tab-macos" hidden>
       <div class="dlrow">
@@ -198,6 +196,17 @@ jotbay init</code></pre>
     </details>
 
     <details class="qa">
+      <summary>What must my machine have?</summary>
+      <p>Jotbay needs <code>git</code>. On macOS and on Windows, your machine must have git
+        before you start Jotbay. The Linux DEB package installs git for you.</p>
+      <p>The app needs macOS 14 or later, or Windows 10 or later. On Linux, the DEB package
+        also installs the GTK libraries that the app uses, and the AppImage contains those
+        libraries.</p>
+      <p>Only the setup option <strong>Create one for me</strong> needs
+        <a href="https://cli.github.com">gh</a>. The two other options need only git.</p>
+    </details>
+
+    <details class="qa">
       <summary>Must my machines be on the same network?</summary>
       <p>No. The machines do not connect to each other. Each machine connects only to the git
         repository. A laptop on a hotel network and a desktop at your home operate in the same
@@ -266,52 +275,33 @@ jotbay init</code></pre>
   // fetch below only upgrades the buttons from "the releases page" to the
   // exact file, and names the version. A failed fetch changes nothing.
   var REPO = "nicglazkov/jotbay";
-  var NAMES = {macos: "macOS", windows: "Windows", linux: "Linux"};
   var tabs = [].slice.call(document.querySelectorAll(".tabs button"));
-  var line = document.getElementById("detected");
 
-  // Android reports "Linux" and iOS reports a Mac-like platform, so both are
-  // tested first. Neither has a Jotbay build, and a guess for them would send
-  // a phone user to a file that cannot run.
-  function detect(){
-    var ua = navigator.userAgent || "";
-    var p = (navigator.userAgentData && navigator.userAgentData.platform) ||
-            navigator.platform || "";
-    if (/Android/i.test(ua)) return "mobile";
-    if (/iPhone|iPad|iPod/i.test(ua)) return "mobile";
-    if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return "macos";
-    if (/Win/i.test(p) || /Windows/i.test(ua)) return "windows";
-    if (/Linux|X11|CrOS/i.test(p + ua)) return "linux";
-    return null;
-  }
-  var found = detect();
-
-  // The line under the tabs describes the detected machine, so it must go away
-  // when the visitor selects a different tab. If it stays, the page says
-  // "This machine uses macOS" above the Linux downloads.
   function selectOS(os){
     tabs.forEach(function(t){
       var on = t.getAttribute("data-os") === os;
       t.setAttribute("aria-selected", String(on));
       document.getElementById("pane-" + t.getAttribute("data-os")).hidden = !on;
     });
-    if (found === "mobile") {
-      line.className = "detected plain";
-      line.textContent = "Jotbay operates on a desktop machine.";
-      line.hidden = false;
-    } else if (found && found === os) {
-      line.className = "detected";
-      line.textContent = "This machine uses " + NAMES[found] + ".";
-      line.hidden = false;
-    } else {
-      line.hidden = true;
-    }
   }
   tabs.forEach(function(t){
     t.addEventListener("click", function(){ selectOS(t.getAttribute("data-os")); });
   });
 
-  selectOS(found && found !== "mobile" ? found : "macos");
+  // The detected tab opens first. Android reports "Linux" and iOS reports a
+  // Mac-like platform, so both are tested first: neither has a Jotbay build,
+  // and a guess for them would open a pane of files that cannot run.
+  function detect(){
+    var ua = navigator.userAgent || "";
+    var p = (navigator.userAgentData && navigator.userAgentData.platform) ||
+            navigator.platform || "";
+    if (/Android|iPhone|iPad|iPod/i.test(ua)) return null;
+    if (/Mac/i.test(p) || /Mac OS X/i.test(ua)) return "macos";
+    if (/Win/i.test(p) || /Windows/i.test(ua)) return "windows";
+    if (/Linux|X11|CrOS/i.test(p + ua)) return "linux";
+    return null;
+  }
+  selectOS(detect() || "macos");
 
   fetch("https://api.github.com/repos/" + REPO + "/releases/latest")
     .then(function(r){ return r.ok ? r.json() : Promise.reject(); })
