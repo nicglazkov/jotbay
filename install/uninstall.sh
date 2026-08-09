@@ -22,6 +22,47 @@ say()  { printf '\033[1m==>\033[0m %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
 warn() { printf '\033[33m    %s\033[0m\n' "$*"; }
 
+# Drop Launch Services registrations for copies of the app that are no longer
+# on disk. macOS never prunes these, so a removed app keeps appearing in Open
+# With menus, and Finder can launch a ghost inside a DMG that was mounted once.
+#
+# The dump prints "path: <path> (0xHEX)". Paths can contain spaces, as the
+# volume name of every release DMG does, so match the whole path and read whole
+# lines rather than splitting on whitespace.
+prune_launch_services() {
+  lsr=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  [ -x "$lsr" ] || return 0
+
+  total=0
+  # Loop rather than sweep once. Unregistering rewrites the database while the
+  # sweep is reading it, and entries listed at the start can survive the pass:
+  # a first run on the author's machine cleared 30 of 32 and needed a second
+  # for the rest. Stop when a pass removes nothing.
+  for _pass in 1 2 3; do
+    gone=0
+    stale=$("$lsr" -dump 2>/dev/null |
+      sed -n 's/^[[:space:]]*path:[[:space:]]*\(.*\.app\) (0x[0-9a-f]*)$/\1/p' |
+      grep -E '/(Jotbay|Inkway)\.app$' |
+      sort -u) || true
+
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      [ -e "$path" ] && continue
+      "$lsr" -u "$path" >/dev/null 2>&1 && gone=$((gone + 1))
+    done <<EOF
+$stale
+EOF
+
+    total=$((total + gone))
+    [ "$gone" -eq 0 ] && break
+  done
+
+  if [ "$total" -gt 0 ]; then
+    info "removed $total stale Launch Services registration(s)"
+  fi
+  return 0
+}
+
 ALL=0
 [ "${1:-}" = "--all" ] && ALL=1
 
@@ -103,6 +144,11 @@ if [ "$OS" = macos ]; then
   done
   # install.sh kept a copy in the vault before the app and the notes came apart.
   [ -n "$VAULT" ] && rm -rf "$VAULT/Jotbay.app" "$VAULT/Inkway.app"
+  # Deleting a bundle leaves its Launch Services registration behind, so an
+  # uninstalled app stays in Open With menus and can still be launched by name.
+  # Prune every registration whose bundle is gone, which is all of ours by now,
+  # plus any left by a DMG that was mounted once and detached.
+  prune_launch_services
   # Homebrew owns its own symlink; say so rather than leaving a dangling link
   # or fighting brew over a file it will put back.
   if [ -L /opt/homebrew/bin/jotbay ] || [ -L /usr/local/bin/jotbay ]; then

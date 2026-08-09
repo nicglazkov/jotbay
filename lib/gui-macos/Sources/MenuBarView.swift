@@ -73,6 +73,17 @@ struct MenuBarView: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            // The menu bar is the whole interface once the window is closed,
+            // so a stale process has to be visible from here too.
+            if let installed = controller.replacedOnDisk {
+                Button("Restart for version \(installed)") {
+                    controller.restartIntoNewVersion()
+                }
+                .buttonStyle(.link)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.orange)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)

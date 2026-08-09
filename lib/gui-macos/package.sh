@@ -59,6 +59,47 @@ BUILT="build/Build/Products/Release/$APP_NAME.app"
 say() { printf '\033[1m==>\033[0m %s\n' "$*"; }
 die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Drop Launch Services registrations for copies of the app that no longer
+# exist. Nothing in macOS prunes these on its own, and Finder is free to launch
+# any registered copy, so a ghost inside a long-gone DMG can win over the real
+# install and serve a build from weeks ago.
+#
+# The dump prints "path: <path> (0xHEX)". Paths can contain spaces, as the
+# volume name of every release DMG does, so match the whole path and read whole
+# lines rather than splitting on whitespace.
+prune_launch_services() {
+  local lsr=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  [ -x "$lsr" ] || return 0
+
+  local total=0 gone stale path _pass
+  # Loop rather than sweep once. Unregistering rewrites the database while the
+  # sweep is reading it, and entries listed at the start can survive the pass:
+  # a first run on this machine cleared 30 of 32 and needed a second for the
+  # rest. Stop when a pass removes nothing, which is the only proof it is done.
+  for _pass in 1 2 3; do
+    gone=0
+    stale=$("$lsr" -dump 2>/dev/null |
+      sed -n 's/^[[:space:]]*path:[[:space:]]*\(.*Jotbay\.app\) (0x[0-9a-f]*)$/\1/p' |
+      sort -u) || true
+
+    while IFS= read -r path; do
+      [ -n "$path" ] || continue
+      [ -e "$path" ] && continue
+      "$lsr" -u "$path" >/dev/null 2>&1 && gone=$((gone + 1))
+    done <<EOF
+$stale
+EOF
+
+    total=$((total + gone))
+    [ "$gone" -eq 0 ] && break
+  done
+
+  if [ "$total" -gt 0 ]; then
+    say "pruned $total stale Launch Services registration(s)"
+  fi
+  return 0
+}
+
 # `notarytool submit --wait` exits 0 even when the submission comes back
 # Invalid, so the exit code proves nothing. Read the status, and on failure
 # print the log. It names the exact file, reason and architecture, and is the
@@ -172,6 +213,13 @@ create-dmg \
   "$DIST/$APP_NAME.dmg" "$DIST/dmgroot/" >/dev/null
 
 rm -rf "$DIST/dmgroot"
+
+# create-dmg mounts the image to lay out its window, and Launch Services
+# registers the copy of the app it sees inside. Detaching the volume does not
+# unregister it, so every build leaves another ghost behind: after twenty-odd
+# builds this machine had twenty-five registrations for one installed app, and
+# Finder is free to launch any of them. Prune the ones whose files are gone.
+prune_launch_services
 
 say "notarizing the disk image"
 notarize "$DIST/$APP_NAME.dmg"

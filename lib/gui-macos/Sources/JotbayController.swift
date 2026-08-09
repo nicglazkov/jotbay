@@ -26,6 +26,9 @@ final class JotbayController: ObservableObject {
     /// True only between finishing setup and dismissing the confirmation, so
     /// the shortcut offer appears once rather than on every launch.
     @Published var justSetUp = false
+    /// The version now sitting in /Applications, set once this process is no
+    /// longer running it. Nil while the running app is the installed one.
+    @Published var replacedOnDisk: String?
 
     private var timer: Timer?
 
@@ -45,6 +48,65 @@ final class JotbayController: ObservableObject {
 
     private static func locateBinary() -> URL? {
         candidatePaths.first { FileManager.default.isExecutableFile(atPath: $0.path) }
+    }
+
+    // MARK: - Detecting that the bundle was replaced underneath us
+
+    /// Which file this process is actually running, recorded at launch.
+    ///
+    /// macOS lets an app bundle be replaced while the app runs: the process
+    /// keeps the image it started with, and the new one sits on disk unused
+    /// until a relaunch. Homebrew, a DMG, and `jotbay upgrade` all do this. A
+    /// person then keeps clicking a button whose fix shipped a day ago.
+    ///
+    /// Comparing version strings is not enough, because a reinstall of the
+    /// same version swaps the file too and would compare equal. The file
+    /// identity is the only signal that catches every case, so that is what
+    /// gets recorded.
+    private static let launchedFile: FileID? = fileID(of: Bundle.main.executableURL)
+
+    private struct FileID: Equatable {
+        let device: dev_t
+        let inode: ino_t
+    }
+
+    private static func fileID(of url: URL?) -> FileID? {
+        guard let path = url?.path else { return nil }
+        var info = stat()
+        guard stat(path, &info) == 0 else { return nil }
+        return FileID(device: info.st_dev, inode: info.st_ino)
+    }
+
+    /// The version of the bundle on disk right now, read from the file rather
+    /// than from `Bundle.main`, whose info dictionary is cached from launch.
+    private static func versionOnDisk() -> String? {
+        let plist = Bundle.main.bundleURL.appendingPathComponent("Contents/Info.plist")
+        guard let data = try? Data(contentsOf: plist),
+              let parsed = try? PropertyListSerialization.propertyList(from: data, format: nil),
+              let dict = parsed as? [String: Any]
+        else { return nil }
+        return dict["CFBundleShortVersionString"] as? String
+    }
+
+    /// Nil out rather than latch: an install that is still in progress leaves
+    /// the executable missing for a moment, and reporting that as a stale
+    /// process would be a banner that never goes away.
+    func checkForReplacedBundle() {
+        guard let launched = Self.launchedFile,
+              let current = Self.fileID(of: Bundle.main.executableURL)
+        else { return }
+        replacedOnDisk = launched == current ? nil : (Self.versionOnDisk() ?? "A newer version")
+    }
+
+    /// Start the installed copy, then stand down. The new instance has to be
+    /// asked for explicitly, because macOS activates the running one instead
+    /// of launching the replacement otherwise.
+    func restartIntoNewVersion() {
+        let config = NSWorkspace.OpenConfiguration()
+        config.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     var jotbayRoot: URL {
@@ -72,6 +134,10 @@ final class JotbayController: ObservableObject {
     // MARK: - Lifecycle
 
     func start() {
+        // Touch this now, while the bundle is certainly still the one we
+        // launched from. A lazy static read after a replacement would record
+        // the new file as the original and never report anything.
+        _ = Self.launchedFile
         loadSettings()
         checkSetup()
         refresh(fetchRemote: true)
@@ -91,6 +157,7 @@ final class JotbayController: ObservableObject {
     // MARK: - Commands
 
     func refresh(fetchRemote: Bool) {
+        checkForReplacedBundle()
         Task {
             var args = ["status", "--json"]
             if !fetchRemote { args.append("--offline") }

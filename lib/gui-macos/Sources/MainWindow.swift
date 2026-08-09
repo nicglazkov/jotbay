@@ -196,7 +196,12 @@ private struct NodesPane: View {
             if controller.status.rebaseInProgress {
                 ConflictBanner(files: controller.status.conflicts)
             }
-            if let latest = controller.status.updateAvailable {
+            // Ahead of the update banner on purpose. If this process is stale,
+            // "a new version is available" is the wrong advice: the new
+            // version is already installed, and only a relaunch reaches it.
+            if let installed = controller.replacedOnDisk {
+                RestartBanner(version: installed)
+            } else if let latest = controller.status.updateAvailable {
                 UpdateBanner(version: latest)
             }
             if !controller.status.warnings.isEmpty {
@@ -630,6 +635,31 @@ private struct SettingsPanel: View {
 
 /// Offered rather than applied. The repository already carries the marker that
 /// says a release exists, so noticing costs nothing; installing stays a choice.
+/// Shown when the bundle on disk is no longer the one this process is running.
+///
+/// Without it the app keeps serving an old build indefinitely, and a bug that
+/// was fixed and shipped looks like a bug that came back.
+private struct RestartBanner: View {
+    let version: String
+    @EnvironmentObject private var controller: JotbayController
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.clockwise.circle.fill")
+                .foregroundStyle(Color.orange)
+            Text("Version \(version) is installed. This window is still running the old one.")
+                .font(.system(size: 12))
+            Button("Restart Jotbay") { controller.restartIntoNewVersion() }
+                .buttonStyle(.link)
+                .font(.system(size: 12))
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.orange.opacity(0.12))
+    }
+}
+
 private struct UpdateBanner: View {
     let version: String
     @EnvironmentObject private var controller: JotbayController
