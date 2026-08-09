@@ -295,8 +295,20 @@ pub fn run(jotbay: &Jotbay, mut on_event: impl FnMut(Event, Option<String>)) -> 
                 // Hold the base interval while somebody has a window open,
                 // so presence stays current in front of them rather than
                 // decaying to five-minute granularity.
+                //
+                // Unless the probe could not reach anything at all. A machine
+                // with no network gains nothing from asking twenty times a
+                // minute, and on a laptop that is a DNS lookup and a radio wake
+                // every twenty seconds for as long as the flight lasts. Back
+                // off even with a window open: there is no presence to keep
+                // current when nothing can be reached.
+                let offline = answer.is_none();
                 let watched = attentive_until.map(|t| Instant::now() < t).unwrap_or(false);
-                poll_every = if watched { POLL_REMOTE } else { backed_off(poll_every) };
+                poll_every = if watched && !offline {
+                    POLL_REMOTE
+                } else {
+                    backed_off(poll_every)
+                };
                 report("idle", files, probe_cost, Duration::ZERO, probe_started.elapsed());
             }
         }

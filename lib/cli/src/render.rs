@@ -29,6 +29,9 @@ fn colored_health(h: NodeHealth) -> String {
         NodeHealth::Behind => h.glyph().cyan().to_string(),
         NodeHealth::Diverged => h.glyph().yellow().to_string(),
         NodeHealth::Stale => h.glyph().bright_black().to_string(),
+        // Dimmed rather than red. There is nothing to fix, and colouring an
+        // ordinary commute as a failure is how red stops meaning anything.
+        NodeHealth::Offline => h.glyph().bright_black().to_string(),
         NodeHealth::Error => h.glyph().red().to_string(),
     }
 }
@@ -207,6 +210,7 @@ pub fn nodes(nodes: &[NodeStatus], local_head: &str) {
             NodeHealth::Behind => state.cyan().to_string(),
             NodeHealth::Diverged => state.yellow().to_string(),
             NodeHealth::Stale => state.bright_black().to_string(),
+            NodeHealth::Offline => state.bright_black().to_string(),
             NodeHealth::Error => state.red().to_string(),
         };
 
@@ -287,9 +291,11 @@ pub fn activity(events: &[ActivityEvent], verbose: bool) {
             EventKind::Changed => e.kind.glyph().cyan().to_string(),
             EventKind::Conflict => e.kind.glyph().yellow().to_string(),
             EventKind::Error => e.kind.glyph().red().to_string(),
+            EventKind::Offline => e.kind.glyph().bright_black().to_string(),
         };
         let summary = match e.kind {
             EventKind::Error => e.summary.red().to_string(),
+            EventKind::Offline => e.summary.bright_black().to_string(),
             _ => e.summary.clone(),
         };
         // Repeats are collapsed rather than printed N times: the same blocked
@@ -440,6 +446,22 @@ pub fn log(commits: &[CommitInfo]) {
         );
         println!("        {}", who.bright_black());
     }
+    println!();
+}
+
+/// A failure that is only the absence of a network.
+///
+/// Dimmed and without a "✖", because there is nothing wrong and nothing for
+/// the reader to do. Local work is already committed by the time any network
+/// call runs, so the sentence can promise that safely.
+pub fn offline_notice() {
+    println!();
+    println!(
+        "  {} {}",
+        "◌".bright_black(),
+        "Offline. Your work is saved here and will sync when the network is back."
+            .bright_black()
+    );
     println!();
 }
 

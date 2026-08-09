@@ -457,8 +457,15 @@ main { flex: 1; display: flex; min-height: 0; }
   margin: 6px 0 0;
   font-size: 12px;
 }
-.facts dt { color: var(--muted); }
+.facts dt { color: var(--text-faint); }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
 .facts dd.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11.5px; }
 .setting-actions { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
 .setting p.warn { color: var(--warn, #a8730b); }
+
+
+/* Offline is a state, not a fault: dimmed like "not answering" rather than
+   red. A laptop on a plane is working perfectly. */
+.dot[data-health="offline"] { background: var(--text-faint); }
+.event-glyph[data-kind="offline"],
+.event-summary[data-kind="offline"] { color: var(--text-faint); }

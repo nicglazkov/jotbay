@@ -117,8 +117,23 @@ private struct SummaryBar: View {
 
     private var health: NodeHealth {
         if controller.binaryMissing || controller.status.rebaseInProgress { return .error }
-        if controller.status.nodes.contains(where: { $0.lastError != nil }) { return .error }
+        // Asked of `health`, not of `lastError`. A machine that cannot reach
+        // the network also sets lastError, and testing that directly turned
+        // every commute into a red dot for the whole fleet.
+        if failingNodes > 0 { return .error }
         return controller.status.isClean ? .healthy : .diverged
+    }
+
+    private var failingNodes: Int {
+        controller.status.nodes.filter {
+            $0.health(localHead: controller.status.head) == .error
+        }.count
+    }
+
+    private var offlineNodes: Int {
+        controller.status.nodes.filter {
+            $0.health(localHead: controller.status.head) == .offline
+        }.count
     }
 
     private var headline: String {
@@ -130,7 +145,7 @@ private struct SummaryBar: View {
         // machine, so the two contradicted each other: a red dot beside "This
         // machine is in sync", with a machine that had not synced in six hours
         // listed directly underneath.
-        let failing = controller.status.nodes.filter { $0.lastError != nil }.count
+        let failing = failingNodes
 
         var local = "This machine is in sync"
         if !controller.status.isClean {
@@ -143,10 +158,19 @@ private struct SummaryBar: View {
             local = parts.joined(separator: ", ").capitalizedFirst
         }
 
-        guard failing > 0 else { return local }
-        return failing == 1
-            ? "\(local) · 1 machine needs attention"
-            : "\(local) · \(failing) machines need attention"
+        if failing > 0 {
+            return failing == 1
+                ? "\(local) · 1 machine needs attention"
+                : "\(local) · \(failing) machines need attention"
+        }
+        // Mentioned, never as a warning. A machine that is merely off the
+        // network needs nothing from anyone, and it comes back on its own.
+        if offlineNodes > 0 {
+            return offlineNodes == 1
+                ? "\(local) · 1 machine offline"
+                : "\(local) · \(offlineNodes) machines offline"
+        }
+        return local
     }
 }
 
@@ -530,6 +554,9 @@ private struct EventRow: View {
         case .changed: return .accentColor
         case .conflict: return .orange
         case .error: return .red
+        // Grey, like "stale". There is nothing to act on, and the next sync
+        // after the network returns clears it.
+        case .offline: return .secondary
         }
     }
 }

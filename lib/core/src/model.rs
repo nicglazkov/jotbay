@@ -17,6 +17,14 @@ pub struct NodeStatus {
     pub dirty: u32,
     pub conflicts_resolved: u32,
     pub last_error: Option<String>,
+    /// The last failure was the machine being unable to reach the remote,
+    /// rather than anything being wrong with it.
+    ///
+    /// Published alongside `last_error` rather than replacing it: the text is
+    /// still worth keeping, and a node running an older agent that never sets
+    /// this simply reads as false, which is what it meant before.
+    #[serde(default)]
+    pub offline: bool,
     /// Read-time annotation, not part of what a node publishes about itself:
     /// true when this node's head is an ancestor of the local head, i.e. the
     /// node is merely behind and will catch up on its next pull. Filled in by
@@ -49,7 +57,12 @@ impl NodeStatus {
     }
 
     pub fn health(&self, interval_secs: i64, local_head: &str) -> NodeHealth {
-        if self.last_error.is_some() {
+        if self.offline {
+            // Checked before `last_error`, which is also set: a machine that
+            // cannot reach the network is not a machine with a problem, and
+            // showing it in red trains people to ignore red.
+            NodeHealth::Offline
+        } else if self.last_error.is_some() {
             NodeHealth::Error
         } else if self.is_stale(interval_secs) {
             NodeHealth::Stale
@@ -77,6 +90,8 @@ pub enum NodeHealth {
     /// Holds commits the local head does not, needs a sync to reconcile.
     Diverged,
     Stale,
+    /// Reachable and working, but currently without a route to the remote.
+    Offline,
     Error,
 }
 
@@ -87,6 +102,7 @@ impl NodeHealth {
             NodeHealth::Behind => "◑",
             NodeHealth::Diverged => "◐",
             NodeHealth::Stale => "○",
+            NodeHealth::Offline => "◌",
             NodeHealth::Error => "✖",
         }
     }
@@ -97,6 +113,7 @@ impl NodeHealth {
             NodeHealth::Behind => "behind",
             NodeHealth::Diverged => "diverged",
             NodeHealth::Stale => "not answering",
+            NodeHealth::Offline => "offline",
             NodeHealth::Error => "error",
         }
     }
@@ -273,6 +290,9 @@ pub enum EventKind {
     Conflict,
     /// The sync failed.
     Error,
+    /// The machine could not reach the remote. Not a failure of anything on
+    /// it, and it resolves itself when the network comes back.
+    Offline,
 }
 
 impl EventKind {
@@ -281,6 +301,7 @@ impl EventKind {
             EventKind::Changed => "↕",
             EventKind::Conflict => "⚠",
             EventKind::Error => "✖",
+            EventKind::Offline => "◌",
         }
     }
 
@@ -289,6 +310,7 @@ impl EventKind {
             EventKind::Changed => "changed",
             EventKind::Conflict => "conflict",
             EventKind::Error => "error",
+            EventKind::Offline => "offline",
         }
     }
 }

@@ -50,7 +50,51 @@ pub struct NetOutcome {
     pub timed_out: bool,
 }
 
+/// Does this git failure mean "no network" rather than "something is wrong"?
+///
+/// The distinction is the whole difference between a red banner and a quiet
+/// note. A laptop on a plane is not broken, and a machine that spent the night
+/// off the network should not greet its owner with an error.
+///
+/// Deliberately generous. git surfaces the transport's wording, which differs
+/// per platform and per library: macOS says "Could not resolve host", glibc
+/// says "Temporary failure in name resolution", Windows schannel and a captive
+/// portal produce different text again. Under-matching here is the expensive
+/// direction, because it puts an ordinary commute in the error feed. The cost
+/// of over-matching is one misfiled event.
+pub fn looks_offline(text: &str) -> bool {
+    let t = text.to_lowercase();
+    const SIGNS: &[&str] = &[
+        "could not resolve host",
+        "could not resolve proxy",
+        "temporary failure in name resolution",
+        "name or service not known",
+        "nodename nor servname",
+        "network is unreachable",
+        "network is down",
+        "no route to host",
+        "connection timed out",
+        "operation timed out",
+        "timed out after",
+        "connection refused",
+        "connection reset by peer",
+        "failed to connect to",
+        "unable to access",
+        "ssl connect error",
+        "the remote end hung up unexpectedly",
+        "transfer closed with outstanding read data",
+        "empty reply from server",
+    ];
+    SIGNS.iter().any(|s| t.contains(s))
+}
+
 impl NetOutcome {
+    /// True when this call failed because the machine could not reach the
+    /// remote at all.
+    pub fn offline(&self) -> bool {
+        !self.success && (self.timed_out || looks_offline(&self.stderr))
+    }
+
     /// One sentence naming what happened, for an activity event.
     pub fn describe(&self, what: &str) -> String {
         if self.timed_out {
@@ -357,5 +401,42 @@ impl Git {
 
     pub fn stage_blob(&self, stage: u8, path: &str) -> Result<Vec<u8>> {
         self.run_bytes(&["show", &format!(":{stage}:{path}")])
+    }
+}
+
+#[cfg(test)]
+mod offline_tests {
+    use super::looks_offline;
+
+    #[test]
+    fn recognises_what_each_platform_says_when_the_network_is_gone() {
+        for text in [
+            "fatal: unable to access 'https://github.com/a/b.git/': Could not resolve host: github.com",
+            "ssh: Could not resolve hostname github.com: Name or service not known",
+            "ssh: connect to host github.com port 22: Network is unreachable",
+            "ssh: connect to host github.com port 22: Connection timed out",
+            "fatal: unable to access 'https://github.com/a/b.git/': Failed to connect to github.com port 443 after 75000 ms: Couldn't connect to server",
+            "ssh: Could not resolve hostname github.com: nodename nor servname provided, or not known",
+            "fetch timed out after 120s",
+            "fatal: the remote end hung up unexpectedly",
+        ] {
+            assert!(looks_offline(text), "should read as offline: {text}");
+        }
+    }
+
+    #[test]
+    fn does_not_swallow_a_real_failure() {
+        // These are problems a person has to act on. Filing them as "offline"
+        // would hide them behind a banner that says to wait for the network.
+        for text in [
+            "remote: error: GH007: Your push would publish a private email address.",
+            "fatal: Authentication failed for 'https://github.com/a/b.git/'",
+            "remote: error: File big.mov is 125.00 MB; this exceeds GitHub's file size limit of 100.00 MB",
+            "error: failed to push some refs to 'github.com:a/b.git'",
+            "fatal: not a git repository",
+            "Committer identity unknown",
+        ] {
+            assert!(!looks_offline(text), "should not read as offline: {text}");
+        }
     }
 }

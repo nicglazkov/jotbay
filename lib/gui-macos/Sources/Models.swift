@@ -17,6 +17,9 @@ struct NodeStatus: Codable, Identifiable, Hashable {
     let dirty: Int
     let conflictsResolved: Int
     let lastError: String?
+    /// The last failure was this machine being unable to reach the remote.
+    /// Optional so a node on an older agent, which never publishes it, decodes.
+    let offline: Bool?
     /// Strictly behind the local head. Optional so a node still running an
     /// older agent, whose published status lacks the field, still decodes.
     let behindLocal: Bool?
@@ -28,6 +31,7 @@ struct NodeStatus: Codable, Identifiable, Hashable {
         case conflictsResolved = "conflicts_resolved"
         case behindLocal = "behind_local"
         case lastError = "last_error"
+        case offline
     }
 
     /// Kept in step with `NodeHealth::health` in the Rust core.
@@ -37,6 +41,10 @@ struct NodeStatus: Codable, Identifiable, Hashable {
     /// different head purely because it has not pulled yet. `behindLocal` is
     /// computed remotely by `git merge-base --is-ancestor`.
     func health(localHead: String, interval: TimeInterval = 300) -> NodeHealth {
+        // Before the error check, which is also set. A machine with no route to
+        // the remote is not a machine with a problem, and painting an ordinary
+        // commute red is how red stops meaning anything.
+        if offline == true { return .offline }
         if lastError != nil { return .error }
         if Date().timeIntervalSince(lastSync) > interval * 3 { return .stale }
         if head != localHead { return (behindLocal ?? false) ? .behind : .diverged }
@@ -47,7 +55,7 @@ struct NodeStatus: Codable, Identifiable, Hashable {
 }
 
 enum NodeHealth {
-    case healthy, behind, diverged, stale, error
+    case healthy, behind, diverged, stale, offline, error
 
     var label: String {
         switch self {
@@ -55,6 +63,7 @@ enum NodeHealth {
         case .behind: return "behind"
         case .diverged: return "diverged"
         case .stale: return "not answering"
+        case .offline: return "offline"
         case .error: return "error"
         }
     }
@@ -266,12 +275,14 @@ enum EventKind: String, Codable {
     case changed
     case conflict
     case error
+    case offline
 
     var symbol: String {
         switch self {
         case .changed: return "arrow.up.arrow.down"
         case .conflict: return "exclamationmark.triangle.fill"
         case .error: return "xmark.octagon.fill"
+        case .offline: return "wifi.slash"
         }
     }
 }

@@ -6,7 +6,7 @@
 
 use crate::error::{Error, Result};
 use crate::git::Git;
-use crate::model::{ActivityEvent, NodeStatus, MAX_EVENTS_PER_NODE};
+use crate::model::{ActivityEvent, EventKind, NodeStatus, MAX_EVENTS_PER_NODE};
 
 pub const REFSPEC: &str = "+refs/jotbay-status/*:refs/jotbay-status/*";
 const STATUS_FILE: &str = "status.json";
@@ -147,6 +147,26 @@ pub fn read_all_events(git: &Git) -> Result<Vec<ActivityEvent>> {
 
 /// Append an event to a buffer, keeping it bounded.
 pub fn push_event(events: &mut Vec<ActivityEvent>, event: ActivityEvent) {
+    // A stretch offline is one condition, not one event per retry.
+    //
+    // This is not only tidiness. Each node keeps MAX_EVENTS_PER_NODE events, so
+    // a night on a plane would push fifty identical "offline" lines through the
+    // buffer and evict every real thing that happened before it. The history a
+    // person actually wants is the one destroyed by the least interesting event
+    // in the system.
+    //
+    // Refreshing the timestamp rather than dropping the new event keeps the
+    // entry honest about still being true.
+    if event.kind == EventKind::Offline {
+        if let Some(newest) = events.iter_mut().max_by_key(|e| e.at) {
+            if newest.kind == EventKind::Offline {
+                newest.at = event.at;
+                newest.head = event.head;
+                newest.detail = event.detail;
+                return;
+            }
+        }
+    }
     events.push(event);
     events.sort_by(|a, b| b.at.cmp(&a.at));
     events.truncate(MAX_EVENTS_PER_NODE);
@@ -166,6 +186,51 @@ pub fn forget(git: &Git, hostname: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn event(kind: EventKind, at: time::OffsetDateTime, summary: &str) -> ActivityEvent {
+        ActivityEvent {
+            at,
+            hostname: "h".into(),
+            kind,
+            summary: summary.into(),
+            files: Vec::new(),
+            detail: None,
+            head: "abc".into(),
+        }
+    }
+
+    #[test]
+    fn an_offline_stretch_stays_one_event_and_keeps_the_history() {
+        let t0 = time::OffsetDateTime::now_utc();
+        let mut events = vec![];
+
+        push_event(&mut events, event(EventKind::Changed, t0, "pushed 3 files"));
+        // Far more retries than the buffer holds. Before coalescing, these
+        // evicted the push above and left nothing but noise.
+        for i in 1..=80 {
+            let at = t0 + time::Duration::seconds(i * 20);
+            push_event(&mut events, event(EventKind::Offline, at, "Offline."));
+        }
+
+        assert_eq!(events.len(), 2, "one offline entry plus the real one");
+        assert!(events.iter().any(|e| e.summary == "pushed 3 files"));
+        let offline = events.iter().find(|e| e.kind == EventKind::Offline).unwrap();
+        assert_eq!(
+            offline.at,
+            t0 + time::Duration::seconds(80 * 20),
+            "the surviving entry carries the most recent time"
+        );
+    }
+
+    #[test]
+    fn coming_back_online_starts_a_new_entry() {
+        let t0 = time::OffsetDateTime::now_utc();
+        let mut events = vec![];
+        push_event(&mut events, event(EventKind::Offline, t0, "Offline."));
+        push_event(&mut events, event(EventKind::Changed, t0 + time::Duration::seconds(1), "pushed"));
+        push_event(&mut events, event(EventKind::Offline, t0 + time::Duration::seconds(2), "Offline."));
+        assert_eq!(events.len(), 3, "a later offline is a separate stretch");
+    }
 
     #[test]
     fn sanitizes_hostnames_into_valid_refs() {

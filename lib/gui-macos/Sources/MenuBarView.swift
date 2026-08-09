@@ -158,7 +158,11 @@ struct MenuBarView: View {
     private var overallHealth: NodeHealth {
         if controller.binaryMissing || controller.status.rebaseInProgress { return .error }
         if controller.status.warnings.contains(where: { $0.severity == .blocked }) { return .error }
-        if controller.status.nodes.contains(where: { $0.lastError != nil }) { return .error }
+        // Via `health`, so a machine that is only off the network does not
+        // turn the menu bar icon red for everyone watching it.
+        if controller.status.nodes.contains(where: {
+            $0.health(localHead: controller.status.head) == .error
+        }) { return .error }
         if !controller.status.isClean { return .diverged }
         return .healthy
     }
@@ -248,6 +252,7 @@ struct StatusDot: View {
         case .behind: return .cyan
         case .diverged: return .orange
         case .stale: return .secondary
+        case .offline: return .secondary
         case .error: return .red
         }
     }

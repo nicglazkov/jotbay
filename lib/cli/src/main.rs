@@ -154,7 +154,14 @@ fn main() -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            render::error(&e.to_string());
+            // Still a non-zero exit: the sync genuinely did not happen, and a
+            // script that pushes and then checks deserves to know. Only the
+            // wording softens, because there is no fault to report.
+            if jotbay_core::git::looks_offline(&e.to_string()) {
+                render::offline_notice();
+            } else {
+                render::error(&e.to_string());
+            }
             ExitCode::FAILURE
         }
     }

@@ -55,6 +55,26 @@ final class JotbayController: ObservableObject {
         candidatePaths.first { FileManager.default.isExecutableFile(atPath: $0.path) }
     }
 
+    /// Kept in step with `jotbay_core::git::looks_offline`.
+    ///
+    /// Duplicated deliberately and kept short: this reads the stderr of a CLI
+    /// call that already failed, before any JSON exists to carry a flag. The
+    /// engine remains the authority for what every machine *publishes*; this
+    /// only decides the wording of one line in this window.
+    static func looksOffline(_ text: String) -> Bool {
+        let t = text.lowercased()
+        let signs = [
+            "could not resolve host", "could not resolve proxy",
+            "temporary failure in name resolution", "name or service not known",
+            "nodename nor servname", "network is unreachable", "network is down",
+            "no route to host", "connection timed out", "operation timed out",
+            "timed out after", "connection refused", "connection reset by peer",
+            "failed to connect to", "unable to access", "ssl connect error",
+            "the remote end hung up unexpectedly",
+        ]
+        return signs.contains { t.contains($0) }
+    }
+
     // MARK: - Detecting that the bundle was replaced underneath us
 
     /// Which file this process is actually running, recorded at launch.
@@ -193,8 +213,17 @@ final class JotbayController: ObservableObject {
                 self.lastMessage = report.summary
                 self.lastMessageIsError = false
             } else if !self.binaryMissing {
-                self.lastMessage = self.lastStderr.isEmpty ? "Sync failed" : self.lastStderr
-                self.lastMessageIsError = true
+                // Being off the network is not a failure to report in red. The
+                // work is already committed locally, because sync commits
+                // before it touches the network, so there is nothing at risk
+                // and nothing for the reader to do.
+                if Self.looksOffline(self.lastStderr) {
+                    self.lastMessage = "Offline. Your work is saved here and will sync when the network is back."
+                    self.lastMessageIsError = false
+                } else {
+                    self.lastMessage = self.lastStderr.isEmpty ? "Sync failed" : self.lastStderr
+                    self.lastMessageIsError = true
+                }
             }
             self.isSyncing = false
             self.refresh(fetchRemote: false)

@@ -340,7 +340,14 @@ fn describe(
         // Keep the raw text, but lead with a sentence. Verbose mode shows the
         // rest; without this the feed fills with `remote: error: ` and URLs.
         detail = Some(err.clone());
-        (EventKind::Error, summarise_error(err))
+        // Being off the network is not a fault of this machine, and filing it
+        // as one puts a commute, a plane, and a hotel lobby in the error feed.
+        let kind = if crate::git::looks_offline(err) {
+            EventKind::Offline
+        } else {
+            EventKind::Error
+        };
+        (kind, summarise_error(err))
     } else if !blocked.is_empty() {
         // Worth a feed entry even when the pass was otherwise a no-op: from
         // the user's side a file they added simply is not syncing, and the
@@ -441,8 +448,11 @@ fn summarise_error(raw: &str) -> String {
     if lower.contains("exceeds github's file size limit") || lower.contains("gh001") {
         return "Push rejected: a file exceeds GitHub's 100 MB limit.".to_string();
     }
-    if lower.contains("could not resolve host") || lower.contains("network is unreachable") {
-        return "Offline. Couldn't reach the remote.".to_string();
+    if crate::git::looks_offline(raw) {
+        // No instruction to follow: there is nothing for the reader to fix,
+        // and the next sync after the network returns clears it.
+        return "Offline. Your work is saved here and will sync when the network is back."
+            .to_string();
     }
     if lower.contains("non-fast-forward") || lower.contains("rejected") && lower.contains("fetch first") {
         return "Push rejected: the remote moved on. The next sync reconciles it.".to_string();
@@ -494,6 +504,7 @@ fn publish_status(
         dirty: git.dirty_files().map(|f| f.len() as u32).unwrap_or(0),
         conflicts_resolved: report.conflicts.len() as u32,
         last_error: error.clone(),
+        offline: error.as_deref().is_some_and(crate::git::looks_offline),
         // Relative to whichever machine reads the record, so never published
         // with meaning; read_all recomputes it.
         behind_local: false,
