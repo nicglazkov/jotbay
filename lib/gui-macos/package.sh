@@ -67,8 +67,10 @@ die() { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 # The dump prints "path: <path> (0xHEX)". Paths can contain spaces, as the
 # volume name of every release DMG does, so match the whole path and read whole
 # lines rather than splitting on whitespace.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+
 prune_launch_services() {
-  local lsr=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  local lsr="$LSREGISTER"
   [ -x "$lsr" ] || return 0
 
   local total=0 gone stale path _pass
@@ -220,6 +222,13 @@ rm -rf "$DIST/dmgroot"
 # builds this machine had twenty-five registrations for one installed app, and
 # Finder is free to launch any of them. Prune the ones whose files are gone.
 prune_launch_services
+
+# Also drop the app we just built. It is a real file, so the prune above keeps
+# it, but a registered build tree competes with /Applications for launches and
+# has already won once: a DMG install was verified by opening what turned out
+# to be the source tree's copy. Anyone who wants the dev build can open it, and
+# opening it registers it again.
+"$LSREGISTER" -u "$PWD/$BUILT" >/dev/null 2>&1 || true
 
 say "notarizing the disk image"
 notarize "$DIST/$APP_NAME.dmg"
