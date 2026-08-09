@@ -98,6 +98,8 @@ enum Command {
     Watch,
     /// Fetch the current release and replace this machine's binaries
     Upgrade,
+    /// Show this machine: version, notes, remote, and background sync
+    About,
     /// Show or change per-machine preferences
     Settings {
         /// theme=system|light|dark, verbose=on|off
@@ -145,6 +147,7 @@ fn main() -> ExitCode {
         Command::Watch => cmd_watch(&jotbay),
         Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
         Command::Upgrade => cmd_upgrade(&jotbay),
+        Command::About => cmd_about(&jotbay, cli.json),
         Command::Settings { assignment } => cmd_settings(cli.json, assignment),
     };
 
@@ -155,6 +158,20 @@ fn main() -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Everything a settings panel shows, for people who do not open one.
+///
+/// Deliberately offline. Opening settings should not be a request to GitHub,
+/// so the update line reports the marker the repository already carries.
+fn cmd_about(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
+    let about = jotbay.about()?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&about)?);
+    } else {
+        render::about(&about);
+    }
+    Ok(())
 }
 
 fn cmd_status(jotbay: &Jotbay, json: bool, refresh: bool) -> jotbay_core::Result<()> {

@@ -588,53 +588,220 @@ private struct SettingsPanel: View {
     @EnvironmentObject private var controller: JotbayController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Appearance")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Picker("", selection: Binding(
-                    get: { controller.settings.theme },
-                    set: { controller.updateSettings(theme: $0) }
-                )) {
-                    Text("Match system").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                Text("Applies to this machine only. Settings never sync.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                about
+                Divider()
+                notes
+                Divider()
+                backgroundSync
+                Divider()
+                appearance
+                Divider()
+                advanced
+            }
+            .padding(16)
+        }
+        .frame(width: 380)
+        .frame(maxHeight: 560)
+        .onAppear { controller.loadAbout() }
+    }
+
+    // MARK: - Sections
+
+    private var about: some View {
+        Section("About") {
+            Row("Version", controller.about?.version ?? "-")
+            if let a = controller.about {
+                Row("This machine", "\(a.hostname), \(a.os) \(a.arch)")
             }
 
-            Divider()
-
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Advanced")
-                    .font(.system(size: 10.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Toggle("Verbose activity", isOn: Binding(
-                    get: { controller.settings.verbose },
-                    set: { controller.updateSettings(verbose: $0) }
-                ))
+            HStack(spacing: 8) {
+                Button(controller.checkingUpdates ? "Checking" : "Check for updates") {
+                    controller.checkForUpdates()
+                }
+                .disabled(controller.checkingUpdates)
                 .font(.system(size: 12))
-                Text("Show the raw underlying detail, including full git output on failures.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if controller.checkingUpdates { ProgressView().controlSize(.small) }
+            }
+            .padding(.top, 2)
+
+            // The update offer and the restart offer are different remedies
+            // and must not be confused: one downloads, the other only relaunches.
+            if let installed = controller.replacedOnDisk {
+                Note("Version \(installed) is installed. This window is still running the old one.",
+                     tone: .warning)
+                Button("Restart Jotbay") { controller.restartIntoNewVersion() }
+                    .font(.system(size: 12))
+            } else if let latest = controller.about?.updateAvailable {
+                Note("Version \(latest) is available.", tone: .warning)
+                Button("Update now") { controller.upgrade() }
+                    .font(.system(size: 12))
+            } else if let result = controller.updateCheckResult {
+                Note(result, tone: .plain)
             }
         }
-        .padding(16)
-        .frame(width: 320)
+    }
+
+    private var notes: some View {
+        Section("Notes") {
+            if let a = controller.about {
+                Row("Folder", a.notes, mono: true)
+                Row("Files", String(a.files))
+                Row("Branch", a.branch)
+                // Shown with any credentials removed by the engine, because a
+                // settings panel is a thing people screenshot.
+                Row("Remote", a.remote ?? "none", mono: true)
+            }
+            HStack(spacing: 8) {
+                Button("Open folder") { controller.revealDataDirectory() }
+                Button("Add desktop shortcuts") { controller.makeShortcuts() }
+            }
+            .font(.system(size: 12))
+            .padding(.top, 2)
+        }
+    }
+
+    /// The one section here that reports something no other surface does.
+    ///
+    /// Replacing the binaries does not restart the watcher, so this machine can
+    /// be fully upgraded and still sync with the old version, publishing that
+    /// version as its own to every other machine.
+    private var backgroundSync: some View {
+        Section("Background sync") {
+            if let s = controller.about?.sync {
+                Row("Schedule", s.scheduled ? "Installed" : "Not installed")
+                if let secs = s.lastReportSecs {
+                    Row("Last report", humanAge(secs))
+                }
+                if let running = s.runningVersion {
+                    Row("Running", running)
+                }
+                if !s.scheduled {
+                    Note("Nothing syncs in the background on this machine. Run jotbay schedule.",
+                         tone: .warning)
+                } else if s.restartNeeded {
+                    Note("The background sync is still running \(s.runningVersion ?? "an older version"). "
+                         + "Restart it to pick up \(controller.about?.version ?? "the new version").",
+                         tone: .warning)
+                }
+            } else {
+                Text("Loading").font(.system(size: 11)).foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var appearance: some View {
+        Section("Appearance") {
+            Picker("", selection: Binding(
+                get: { controller.settings.theme },
+                set: { controller.updateSettings(theme: $0) }
+            )) {
+                Text("Match system").tag("system")
+                Text("Light").tag("light")
+                Text("Dark").tag("dark")
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            Note("Applies to this machine only. Settings never sync.", tone: .plain)
+        }
+    }
+
+    private var advanced: some View {
+        Section("Advanced") {
+            Toggle("Verbose activity", isOn: Binding(
+                get: { controller.settings.verbose },
+                set: { controller.updateSettings(verbose: $0) }
+            ))
+            .font(.system(size: 12))
+            Note("Show the raw underlying detail, including full git output on failures.",
+                 tone: .plain)
+            if let a = controller.about {
+                Row("Updates from", a.toolRepo, mono: true)
+                Button("Show the settings file") { controller.revealConfigFile() }
+                    .font(.system(size: 12))
+                    .padding(.top, 2)
+            }
+        }
+    }
+
+    private func humanAge(_ secs: Int) -> String {
+        if secs < 60 { return "\(secs)s ago" }
+        if secs < 3600 { return "\(secs / 60)m ago" }
+        if secs < 86_400 { return "\(secs / 3600)h ago" }
+        return "\(secs / 86_400)d ago"
+    }
+}
+
+// MARK: - Settings panel building blocks
+
+private struct Section<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+            content
+        }
+    }
+}
+
+/// A label and a value. Values can be long paths, so they wrap and stay
+/// selectable rather than being truncated into uselessness.
+private struct Row: View {
+    let label: String
+    let value: String
+    var mono = false
+
+    init(_ label: String, _ value: String, mono: Bool = false) {
+        self.label = label
+        self.value = value
+        self.mono = mono
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 84, alignment: .leading)
+            Text(value)
+                .font(.system(size: 11, design: mono ? .monospaced : .default))
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct Note: View {
+    enum Tone { case plain, warning }
+    let text: String
+    let tone: Tone
+
+    init(_ text: String, tone: Tone) {
+        self.text = text
+        self.tone = tone
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 11))
+            .foregroundStyle(tone == .warning ? Color.orange : Color.secondary.opacity(0.8))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
 
-/// Offered rather than applied. The repository already carries the marker that
-/// says a release exists, so noticing costs nothing; installing stays a choice.
 /// Shown when the bundle on disk is no longer the one this process is running.
 ///
 /// Without it the app keeps serving an old build indefinitely, and a bug that
@@ -660,6 +827,8 @@ private struct RestartBanner: View {
     }
 }
 
+/// Offered rather than applied. The repository already carries the marker that
+/// says a release exists, so noticing costs nothing; installing stays a choice.
 private struct UpdateBanner: View {
     let version: String
     @EnvironmentObject private var controller: JotbayController

@@ -361,6 +361,62 @@ fn collapse(events: &[ActivityEvent]) -> Vec<Group<'_>> {
     out
 }
 
+/// The same facts the settings panels show.
+///
+/// The background sync block earns its place: a machine can be fully upgraded
+/// and still sync with the previous version, because replacing the binaries
+/// does not restart the watcher. That state is invisible everywhere else, and
+/// the version it publishes is the one other machines believe.
+pub fn about(a: &jotbay_core::about::About) {
+    println!();
+    println!("  {} {}", "jotbay".bold(), a.version.bold());
+    println!("    {} on {} {}", a.hostname, a.os, a.arch);
+    println!();
+
+    println!("  {}", "notes".bold());
+    println!("    folder    {}", a.notes.display());
+    if a.root != a.notes {
+        println!("    vault     {}", a.root.display());
+    }
+    println!("    files     {}", a.files);
+    println!("    branch    {}", a.branch);
+    match &a.remote {
+        Some(r) => println!("    remote    {r}"),
+        None => println!("    remote    {}", "none".bright_black()),
+    }
+    println!();
+
+    println!("  {}", "background sync".bold());
+    if a.sync.scheduled {
+        match a.sync.last_report_secs {
+            Some(secs) => println!("    schedule  installed, last reported {}", human_age(secs)),
+            None => println!("    schedule  installed, has never reported"),
+        }
+    } else {
+        println!("    schedule  {}", "not installed, run: jotbay schedule".yellow());
+    }
+    if let Some(running) = &a.sync.running_version {
+        if a.sync.restart_needed {
+            println!("    running   {}", format!("{running}, older than the installed {}", a.version).yellow());
+            println!("    {}", "restart the background sync to pick up the new version".yellow());
+        } else {
+            println!("    running   {running}");
+        }
+    }
+    println!();
+
+    println!("  {}", "updates".bold());
+    match &a.update_available {
+        Some(v) => println!("    {}", format!("version {v} is available, run: jotbay upgrade").green()),
+        None => println!("    up to date"),
+    }
+    println!("    source    {}", a.tool_repo.bright_black());
+    println!();
+
+    println!("  {}", a.config_path.display().to_string().bright_black());
+    println!();
+}
+
 pub fn settings(s: &jotbay_core::settings::Settings) {
     println!();
     println!("  {}", "settings".bold());

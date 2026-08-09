@@ -266,6 +266,28 @@ async fn do_upgrade() -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())?
 }
 
+/// Everything the settings panel shows, from the same engine call the CLI and
+/// the macOS app use. Local reads only, so opening settings sends no request.
+#[tauri::command]
+async fn get_about() -> Result<jotbay_core::about::About, String> {
+    tauri::async_runtime::spawn_blocking(|| jotbay()?.about().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Refresh the release marker, then re-read. `status` is what fetches the
+/// marker, so this is a real check rather than a re-read of what was known.
+#[tauri::command]
+async fn check_updates() -> Result<jotbay_core::about::About, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let jotbay = jotbay()?;
+        let _ = jotbay.status(true);
+        jotbay.about().map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn get_settings() -> Result<Settings, String> {
     tauri::async_runtime::spawn_blocking(Settings::load)
@@ -466,6 +488,8 @@ pub fn run() {
             do_upgrade,
             get_settings,
             set_settings,
+            get_about,
+            check_updates,
             get_nodes,
             forget_node,
             data_dir,

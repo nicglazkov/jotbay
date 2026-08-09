@@ -115,6 +115,42 @@
 
   <section id="settings-panel" hidden>
     <div class="setting">
+      <label>About</label>
+      <dl class="facts">
+        <dt>Version</dt><dd id="ab-version">-</dd>
+        <dt>This machine</dt><dd id="ab-machine">-</dd>
+      </dl>
+      <div class="setting-actions">
+        <button id="btn-check-updates" class="link">Check for updates</button>
+      </div>
+      <p id="ab-update" hidden></p>
+    </div>
+
+    <div class="setting">
+      <label>Notes</label>
+      <dl class="facts">
+        <dt>Folder</dt><dd id="ab-notes" class="mono">-</dd>
+        <dt>Files</dt><dd id="ab-files">-</dd>
+        <dt>Branch</dt><dd id="ab-branch">-</dd>
+        <dt>Remote</dt><dd id="ab-remote" class="mono">-</dd>
+      </dl>
+      <div class="setting-actions">
+        <button id="btn-open-notes" class="link">Open folder</button>
+        <button id="btn-shortcuts" class="link">Add desktop shortcuts</button>
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>Background sync</label>
+      <dl class="facts">
+        <dt>Schedule</dt><dd id="ab-sched">-</dd>
+        <dt>Last report</dt><dd id="ab-report">-</dd>
+        <dt>Running</dt><dd id="ab-running">-</dd>
+      </dl>
+      <p id="ab-sync-warn" class="warn" hidden></p>
+    </div>
+
+    <div class="setting">
       <label for="set-theme">Appearance</label>
       <select id="set-theme">
         <option value="system">Match system</option>
@@ -123,10 +159,15 @@
       </select>
       <p>Applies to this machine only, settings never sync.</p>
     </div>
+
     <div class="setting">
       <label for="set-verbose">Advanced</label>
       <label class="check"><input type="checkbox" id="set-verbose"> Verbose activity</label>
       <p>Show the raw underlying detail, including full git output on failures.</p>
+      <dl class="facts">
+        <dt>Updates from</dt><dd id="ab-repo" class="mono">-</dd>
+        <dt>Settings file</dt><dd id="ab-config" class="mono">-</dd>
+      </dl>
     </div>
   </section>
 

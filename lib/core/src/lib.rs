@@ -5,6 +5,7 @@
 //! conflict policy in particular is subtle enough that a second implementation
 //! would drift from the first.
 
+pub mod about;
 pub mod browse;
 pub mod conflict;
 pub mod error;

@@ -211,6 +211,49 @@ struct SetupCapabilities: Codable {
     }
 }
 
+/// What `jotbay about --json` reports. The settings panel renders this rather
+/// than assembling the same facts from four places.
+struct About: Codable {
+    let version: String
+    let hostname: String
+    let os: String
+    let arch: String
+    let root: String
+    let notes: String
+    let branch: String
+    let remote: String?
+    let files: Int
+    let configPath: String
+    let toolRepo: String
+    let updateAvailable: String?
+    let sync: SyncHealth
+
+    enum CodingKeys: String, CodingKey {
+        case version, hostname, os, arch, root, notes, branch, remote, files, sync
+        case configPath = "config_path"
+        case toolRepo = "tool_repo"
+        case updateAvailable = "update_available"
+    }
+}
+
+/// Whether the background sync is installed, and whether it is the version
+/// this machine has installed. The two can differ: replacing the binaries does
+/// not restart the watcher, and the watcher is what publishes this machine's
+/// version to everyone else.
+struct SyncHealth: Codable {
+    let scheduled: Bool
+    let runningVersion: String?
+    let lastReportSecs: Int?
+    let restartNeeded: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case scheduled
+        case runningVersion = "running_version"
+        case lastReportSecs = "last_report_secs"
+        case restartNeeded = "restart_needed"
+    }
+}
+
 /// Per-machine preferences, read from the same file the CLI writes.
 struct AppSettings: Codable {
     var theme: String

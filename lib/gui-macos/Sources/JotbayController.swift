@@ -29,6 +29,11 @@ final class JotbayController: ObservableObject {
     /// The version now sitting in /Applications, set once this process is no
     /// longer running it. Nil while the running app is the installed one.
     @Published var replacedOnDisk: String?
+    /// Everything the settings panel shows. Loaded when the panel opens rather
+    /// than on every tick, because none of it changes minute to minute.
+    @Published var about: About?
+    @Published var checkingUpdates = false
+    @Published var updateCheckResult: String?
 
     private var timer: Timer?
 
@@ -316,6 +321,55 @@ final class JotbayController: ObservableObject {
                 self.lastMessageIsError = true
             }
             self.refresh(fetchRemote: false)
+        }
+    }
+
+    func loadAbout() {
+        Task {
+            if let data = await run(["about", "--json"]),
+               let decoded = try? Self.decoder.decode(About.self, from: data) {
+                self.about = decoded
+            }
+        }
+    }
+
+    /// Refresh the release marker, then re-read. `status` is what fetches the
+    /// marker, so this is a real check rather than a re-read of what was
+    /// already known.
+    func checkForUpdates() {
+        guard !checkingUpdates else { return }
+        checkingUpdates = true
+        updateCheckResult = nil
+        Task {
+            _ = await run(["status", "--json"])
+            if let data = await run(["about", "--json"]),
+               let decoded = try? Self.decoder.decode(About.self, from: data) {
+                self.about = decoded
+                self.updateCheckResult = decoded.updateAvailable
+                    .map { "Version \($0) is available" } ?? "This is the newest version"
+            } else {
+                self.updateCheckResult = "Could not check"
+            }
+            self.checkingUpdates = false
+        }
+    }
+
+    /// Open the file that holds the preferences, for the settings this window
+    /// deliberately does not offer a control for.
+    func revealConfigFile() {
+        guard let path = about?.configPath else { return }
+        NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath:
+            (path as NSString).deletingLastPathComponent)
+    }
+
+    func makeShortcuts() {
+        Task {
+            if await run(["shortcut"]) != nil {
+                self.lastMessage = "Shortcuts added to the desktop"
+            } else {
+                self.lastMessage = self.lastStderr.isEmpty ? "Could not make shortcuts" : self.lastStderr
+                self.lastMessageIsError = true
+            }
         }
     }
 
