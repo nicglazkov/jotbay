@@ -217,6 +217,17 @@ private struct NodesPane: View {
                 }
             }
 
+            // Every message this window produced went to `lastMessage`, which
+            // only the menu bar popover rendered. From the window itself,
+            // pressing "Update now" or hitting a sync failure looked like
+            // pressing a dead button: the app had plenty to say and nowhere
+            // to say it.
+            if !controller.lastMessage.isEmpty {
+                MessageBar(
+                    text: controller.lastMessage,
+                    isError: controller.lastMessageIsError
+                ) { controller.lastMessage = "" }
+            }
             if controller.status.rebaseInProgress {
                 ConflictBanner(files: controller.status.conflicts)
             }
@@ -226,7 +237,7 @@ private struct NodesPane: View {
             if let installed = controller.replacedOnDisk {
                 RestartBanner(version: installed)
             } else if let latest = controller.status.updateAvailable {
-                UpdateBanner(version: latest)
+                UpdateBanner(version: latest, about: controller.about)
             }
             if !controller.status.warnings.isEmpty {
                 FileLimitBanner(warnings: controller.status.warnings)
@@ -662,8 +673,17 @@ private struct SettingsPanel: View {
                     .font(.system(size: 12))
             } else if let latest = controller.about?.updateAvailable {
                 Note("Version \(latest) is available.", tone: .warning)
-                Button("Update now") { controller.upgrade() }
-                    .font(.system(size: 12))
+                // Same rule as the banner: only offer the button that can work.
+                if controller.about?.upgradeInPlace == false {
+                    if let how = controller.about?.upgradeInstructions {
+                        Note(how, tone: .plain)
+                    }
+                    Button("Open the releases page") { controller.openReleasesPage() }
+                        .font(.system(size: 12))
+                } else {
+                    Button("Update now") { controller.upgrade() }
+                        .font(.system(size: 12))
+                }
             } else if let result = controller.updateCheckResult {
                 Note(result, tone: .plain)
             }
@@ -856,23 +876,78 @@ private struct RestartBanner: View {
 
 /// Offered rather than applied. The repository already carries the marker that
 /// says a release exists, so noticing costs nothing; installing stays a choice.
+///
+/// The offer depends on whether this copy can actually be replaced. A cask, a
+/// `.deb`, and anything inside Jotbay.app all belong to their installer, and
+/// `jotbay upgrade` correctly refuses them. Showing "Update now" anyway is a
+/// button whose only outcome is an error, which is what it did here: the
+/// engine refused with a good explanation and the window had nowhere to print
+/// it, so the button read as broken.
 private struct UpdateBanner: View {
     let version: String
+    let about: About?
     @EnvironmentObject private var controller: JotbayController
 
+    private var managed: Bool { about?.upgradeInPlace == false }
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "arrow.down.circle.fill")
                 .foregroundStyle(Color.accentColor)
-            Text("Version \(version) is available.")
-                .font(.system(size: 12))
-            Button("Update now") { controller.upgrade() }
-                .buttonStyle(.link)
-                .font(.system(size: 12))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Version \(version) is available.")
+                    .font(.system(size: 12))
+                if managed, let how = about?.upgradeInstructions {
+                    Text(how)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if managed {
+                Button("Releases page") { controller.openReleasesPage() }
+                    .buttonStyle(.link)
+                    .font(.system(size: 12))
+            } else {
+                Button("Update now") { controller.upgrade() }
+                    .buttonStyle(.link)
+                    .font(.system(size: 12))
+            }
             Spacer()
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(Color.accentColor.opacity(0.10))
+    }
+}
+
+/// Anything the app has to say, where the person can see it.
+private struct MessageBar: View {
+    let text: String
+    let isError: Bool
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: isError ? "exclamationmark.circle.fill" : "info.circle.fill")
+                .foregroundStyle(isError ? Color.red : Color.secondary)
+            Text(text)
+                .font(.system(size: 12))
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background((isError ? Color.red : Color.secondary).opacity(0.10))
     }
 }

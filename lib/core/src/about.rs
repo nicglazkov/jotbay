@@ -36,6 +36,16 @@ pub struct About {
     /// than surprising.
     pub tool_repo: String,
     pub update_available: Option<String>,
+    /// Whether `jotbay upgrade` can actually replace this copy.
+    ///
+    /// False for every install whose files belong to something else: a
+    /// Homebrew cask, a `.deb`, anything inside `Jotbay.app`. Published so no
+    /// interface has to guess, because guessing produced an "Update now"
+    /// button that could only ever fail.
+    pub upgrade_in_place: bool,
+    /// What to do instead, when it cannot. Written by the engine so the CLI
+    /// and both windows give the same instruction.
+    pub upgrade_instructions: Option<String>,
 
     pub sync: SyncHealth,
 }
@@ -119,6 +129,9 @@ impl Jotbay {
         let last_report_secs = mine
             .as_ref()
             .map(|n| (OffsetDateTime::now_utc() - n.last_sync).whole_seconds());
+        // Asked once, here, rather than discovered by a button that fails.
+        let upgrade_route = update::install_target();
+
         let restart_needed = running_version
             .as_deref()
             .is_some_and(|running| running != installed);
@@ -135,6 +148,8 @@ impl Jotbay {
             files: count_files(&self.data_dir()) as usize,
             config_path: settings::settings_path(),
             tool_repo: update::tool_repo(),
+            upgrade_in_place: upgrade_route.is_ok(),
+            upgrade_instructions: upgrade_route.err().map(|e| e.to_string()),
             update_available: {
                 let u = update::check(self.git.root());
                 if u.available { u.latest } else { None }

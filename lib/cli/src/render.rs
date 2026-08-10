@@ -412,9 +412,19 @@ pub fn about(a: &jotbay_core::about::About) {
     println!();
 
     println!("  {}", "updates".bold());
-    match &a.update_available {
-        Some(v) => println!("    {}", format!("version {v} is available, run: jotbay upgrade").green()),
-        None => println!("    up to date"),
+    match (&a.update_available, a.upgrade_in_place) {
+        (Some(v), true) => {
+            println!("    {}", format!("version {v} is available, run: jotbay upgrade").green())
+        }
+        // Naming the command that cannot work here would send someone to an
+        // error. The engine already knows which one applies.
+        (Some(v), false) => {
+            println!("    {}", format!("version {v} is available").green());
+            if let Some(how) = &a.upgrade_instructions {
+                println!("    {}", how.bright_black());
+            }
+        }
+        (None, _) => println!("    up to date"),
     }
     println!("    source    {}", a.tool_repo.bright_black());
     println!();

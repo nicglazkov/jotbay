@@ -332,6 +332,16 @@ pub fn other_copies_on_path(installed: &std::path::Path) -> Vec<std::path::PathB
 /// everyone, including the owner, while it is. Falls back to a plain HTTPS
 /// download so this keeps working unchanged once the repository is public.
 pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
+    // Before the download, not after it.
+    //
+    // This used to be resolved once the tarball was already unpacked, so a
+    // Homebrew or .deb install paid for several megabytes it could never use,
+    // and, worse, any download problem answered first: the honest "this copy
+    // belongs to its installer" was replaced by "couldn't download, check that
+    // gh is signed in", which sends someone to fix an authentication problem
+    // they do not have.
+    let dir = install_target()?;
+
     let repo = tool_repo();
     let asset = asset_name();
     let tmp = std::env::temp_dir().join(format!("jotbay-upgrade-{version}"));
@@ -396,9 +406,7 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
         return Err(Error::Other("could not unpack the release".into()));
     }
 
-    // Resolved before anything is written, so a packaged install fails with an
-    // instruction rather than quietly growing a second copy.
-    let dir = install_target()?;
+
     std::fs::create_dir_all(&dir)?;
     let mut replaced = Vec::new();
 

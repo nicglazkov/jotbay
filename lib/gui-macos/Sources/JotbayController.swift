@@ -164,6 +164,7 @@ final class JotbayController: ObservableObject {
         // the new file as the original and never report anything.
         _ = Self.launchedFile
         loadSettings()
+        loadAbout()
         checkSetup()
         refresh(fetchRemote: true)
         // Fetches on every tick now that a watcher is doing the syncing: the
@@ -345,9 +346,16 @@ final class JotbayController: ObservableObject {
             self.lastMessageIsError = false
             if await run(["upgrade"]) != nil {
                 self.lastMessage = "Updated. Restart Jotbay to finish."
+                self.lastMessageIsError = false
+                self.loadAbout()
             } else {
-                self.lastMessage = self.lastStderr.isEmpty ? "Update failed" : self.lastStderr
-                self.lastMessageIsError = true
+                // The engine's refusal for a managed install is an instruction,
+                // not a fault, so it is worth showing plainly rather than in red.
+                let managed = self.about?.upgradeInPlace == false
+                self.lastMessage = self.lastStderr.isEmpty
+                    ? (self.about?.upgradeInstructions ?? "Update failed")
+                    : self.lastStderr
+                self.lastMessageIsError = !managed
             }
             self.refresh(fetchRemote: false)
         }
@@ -399,6 +407,13 @@ final class JotbayController: ObservableObject {
                 self.lastMessage = self.lastStderr.isEmpty ? "Could not make shortcuts" : self.lastStderr
                 self.lastMessageIsError = true
             }
+        }
+    }
+
+    func openReleasesPage() {
+        let repo = about?.toolRepo ?? "nicglazkov/jotbay"
+        if let url = URL(string: "https://github.com/\(repo)/releases/latest") {
+            NSWorkspace.shared.open(url)
         }
     }
 

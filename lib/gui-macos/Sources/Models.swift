@@ -235,6 +235,11 @@ struct About: Codable {
     let configPath: String
     let toolRepo: String
     let updateAvailable: String?
+    /// Whether `jotbay upgrade` can replace this copy at all. False for a
+    /// cask, a .deb, or anything inside Jotbay.app.
+    let upgradeInPlace: Bool
+    /// What to do instead, written by the engine.
+    let upgradeInstructions: String?
     let sync: SyncHealth
 
     enum CodingKeys: String, CodingKey {
@@ -242,6 +247,8 @@ struct About: Codable {
         case configPath = "config_path"
         case toolRepo = "tool_repo"
         case updateAvailable = "update_available"
+        case upgradeInPlace = "upgrade_in_place"
+        case upgradeInstructions = "upgrade_instructions"
     }
 }
 
