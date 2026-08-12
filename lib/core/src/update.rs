@@ -401,6 +401,27 @@ pub fn other_copies_on_path(installed: &std::path::Path) -> Vec<std::path::PathB
 /// repository may be private, `releases/latest/download/` returns 404 to
 /// everyone, including the owner, while it is. Falls back to a plain HTTPS
 /// download so this keeps working unchanged once the repository is public.
+/// Run the installed executable and ask what version it is now.
+///
+/// The running process cannot answer this: it is the old build, and it keeps
+/// its own image even after the file underneath it is replaced. Executing the
+/// path gives the new one.
+fn installed_version() -> Option<String> {
+    let exe = std::env::current_exe().ok()?;
+    let out = crate::proc::quiet(&exe.to_string_lossy())
+        .arg("--version")
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    // "jotbay 1.9.1"
+    String::from_utf8_lossy(&out.stdout)
+        .split_whitespace()
+        .last()
+        .map(|s| s.trim().to_string())
+}
+
 /// What an upgrade did, so every surface can say the same thing.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Outcome {
@@ -432,14 +453,51 @@ pub fn perform(root: &Path, version: &str) -> Result<Outcome> {
         Route::Binaries => install(root, version)?,
         Route::HomebrewCask => run_brew()?,
         Route::AptPackage => run_apt(version)?,
-        Route::WindowsInstaller => run_windows_installer(version)?,
+        // Not the .exe installer. NSIS cannot overwrite jotbay.exe while
+        // jotbay.exe is the process asking for the upgrade, and it exits 0
+        // having replaced nothing: a machine reported "ran the installer" and
+        // stayed on the old version. Replacing the two binaries directly works,
+        // because they sit in a directory this account owns and
+        // `replace_binary` already renames a running image out of the way,
+        // which is the one thing Windows does allow.
+        Route::WindowsInstaller => install(root, version)?,
         Route::MacAppBundle => install(root, version)?,
     };
 
-    // Always, and on every route. This is the half that was missing: three
-    // upgrades on this fleet replaced the files and left the old watcher
-    // running, so each machine kept syncing with, and reporting, the previous
-    // version until it was restarted by hand.
+    // Ask the file whether it is actually the new version, rather than
+    // believing the tool that claimed to replace it.
+    //
+    // Every route here delegates to something that can succeed while doing
+    // nothing: brew exits 0 against a stale tap, apt exits 0 when the package
+    // is already current, an installer can decline silently. This project has
+    // shipped that bug in five different places, so the check is here rather
+    // than in each route: the only evidence that counts is the version the
+    // binary on disk reports when you run it.
+    match installed_version() {
+        Some(found) if found == version => {}
+        Some(found) => {
+            return Err(Error::Other(format!(
+                "{how} reported success, but this machine is still on {found}. \
+                 Try again, or install {version} the way you installed Jotbay.",
+                how = match route {
+                    Route::HomebrewCask => "brew",
+                    Route::AptPackage => "apt",
+                    Route::WindowsInstaller => "the installer",
+                    _ => "the upgrade",
+                }
+            )))
+        }
+        // Could not run it to ask. Not proof of failure, so say nothing and
+        // let the rest of the outcome speak.
+        None => {}
+    }
+
+    // Only once the new version is confirmed on disk. Restarting the watcher
+    // onto an unchanged binary would look like a completed upgrade.
+    //
+    // This is the half that was missing entirely: three upgrades on this fleet
+    // replaced the files and left the old watcher running, so each machine
+    // kept syncing with, and reporting, the previous version.
     let sync_restarted = crate::schedule::restart();
 
     Ok(Outcome {
@@ -453,7 +511,15 @@ pub fn perform(root: &Path, version: &str) -> Result<Outcome> {
 }
 
 /// Let Homebrew replace the files it owns.
+///
+/// `brew update` first, and it is not optional. Homebrew upgrades against its
+/// local copy of the tap, so without it brew compares the installed version
+/// against whatever it last fetched, finds nothing to do, and exits 0. The
+/// first run of this reported "upgraded the Homebrew cask" while leaving the
+/// machine exactly where it was.
 fn run_brew() -> Result<Vec<String>> {
+    let _ = crate::proc::quiet("brew").args(["update", "--quiet"]).output();
+
     let out = crate::proc::quiet("brew")
         .args(["upgrade", "--cask", "jotbay"])
         .output()
@@ -502,16 +568,21 @@ fn run_apt(version: &str) -> Result<Vec<String>> {
         .map(|s| s.success())
         .unwrap_or(false);
 
+    // Captured, not streamed. apt writes package lists, progress bars and
+    // debconf complaints about there being no terminal, none of which belongs
+    // in the output of a one-line upgrade.
     let status = if passwordless {
         crate::proc::quiet("sudo")
             .args(["-n", "apt-get", "install", "-y", &path])
-            .status()
+            .output()
+            .map(|o| o.status)
     // resolve() falls back to the bare name when it finds nothing, so an
     // absolute path is the signal that pkexec actually exists here.
     } else if std::path::Path::new(&crate::proc::resolve("pkexec")).is_absolute() {
         crate::proc::quiet("pkexec")
             .args(["apt-get", "install", "-y", &path])
-            .status()
+            .output()
+            .map(|o| o.status)
     } else {
         return Err(Error::Other(format!(
             "installing the package needs administrator rights. Run: sudo apt-get install -y {path}"
@@ -525,41 +596,6 @@ fn run_apt(version: &str) -> Result<Vec<String>> {
     }
     let _ = std::fs::remove_file(&tmp);
     Ok(vec!["jotbay".into(), "jotbay-gui".into()])
-}
-
-/// Fetch the Windows installer and run it silently.
-///
-/// It installs per user, so nothing is elevated and nothing prompts. The
-/// running processes have to stand down first, because Windows refuses to
-/// overwrite a running image at all.
-fn run_windows_installer(version: &str) -> Result<Vec<String>> {
-    let repo = tool_repo();
-    let asset = format!("Jotbay_{version}_x64-setup.exe");
-    let tmp = std::env::temp_dir().join(&asset);
-    let url = format!("https://github.com/{repo}/releases/download/v{version}/{asset}");
-
-    let ok = crate::proc::quiet("curl")
-        .args(["-fsSL", "-o", &tmp.to_string_lossy(), &url])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false);
-    if !ok {
-        return Err(Error::Other(format!("could not download {asset}")));
-    }
-
-    // The window, not this process: killing ourselves mid-upgrade would leave
-    // the installer with nobody to report to.
-    let _ = crate::proc::quiet("taskkill").args(["/im", "jotbay-gui.exe", "/f"]).output();
-
-    let status = crate::proc::quiet(&tmp.to_string_lossy())
-        .arg("/S")
-        .status()
-        .map_err(|e| Error::Other(format!("could not run the installer: {e}")))?;
-    if !status.success() {
-        return Err(Error::Other("the installer did not finish".into()));
-    }
-    let _ = std::fs::remove_file(&tmp);
-    Ok(vec!["Jotbay".into(), "jotbay.exe".into()])
 }
 
 pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {

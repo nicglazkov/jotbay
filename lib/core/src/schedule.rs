@@ -63,11 +63,33 @@ pub fn restart() -> bool {
             .map(|o| o.status.success())
             .unwrap_or(false)
     } else if cfg!(target_os = "windows") {
-        // End then Run: Start alone is ignored while an instance is running,
-        // which is exactly the case here.
+        // `schtasks /end` reports success and leaves the watcher running.
+        //
+        // The task's top-level process is conhost, which is what gets
+        // terminated; the jotbay.exe it launched is orphaned and carries on.
+        // Following it with /run then starts a second one. Measured on a real
+        // machine after a few attempts: three watchers alive at once, two of
+        // them orphans, all syncing the same vault.
+        //
+        // So end the task, then kill the watchers by what they are actually
+        // running, and only then start it again.
         let _ = crate::proc::quiet("schtasks")
             .args(["/end", "/tn", "jotbay-sync"])
             .output();
+
+        // Matched on the command line, and never this process: `jotbay upgrade`
+        // is also jotbay.exe, and killing by image name would kill the upgrade
+        // partway through.
+        let script = format!(
+            "Get-CimInstance Win32_Process -Filter \"Name='jotbay.exe'\" | \
+             Where-Object {{ $_.CommandLine -like '* watch*' -and $_.ProcessId -ne {} }} | \
+             ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}",
+            std::process::id()
+        );
+        let _ = crate::proc::quiet("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .output();
+
         crate::proc::quiet("schtasks")
             .args(["/run", "/tn", "jotbay-sync"])
             .output()
