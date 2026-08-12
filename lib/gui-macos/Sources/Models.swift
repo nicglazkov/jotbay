@@ -324,6 +324,41 @@ struct UpgradeOutcome: Codable {
     }
 }
 
+/// A search result. Name matches come first and carry no line.
+struct Hit: Codable, Identifiable, Hashable {
+    var id: String { path + (excerpt ?? "") }
+    let path: String
+    let line: Int?
+    let excerpt: String?
+    let nameMatch: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case path, line, excerpt
+        case nameMatch = "name_match"
+    }
+}
+
+/// One version of one note.
+struct Version: Codable, Identifiable, Hashable {
+    var id: String { sha }
+    let sha: String
+    let short: String
+    let at: Date
+    let machine: String?
+    let subject: String
+    let deleted: Bool
+}
+
+/// A note that was removed and can be brought back.
+struct DeletedNote: Codable, Identifiable, Hashable {
+    var id: String { path + sha }
+    let path: String
+    let sha: String
+    let short: String
+    let at: Date
+    let machine: String?
+}
+
 /// Per-machine preferences, read from the same file the CLI writes.
 struct AppSettings: Codable {
     var theme: String

@@ -294,6 +294,85 @@ async fn open_settings_window(app: AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
+// --- notes: finding them, and seeing them over time -------------------------
+//
+// Same engine calls the macOS window and the CLI use, so all three agree about
+// what a version is and where the notes live.
+
+#[tauri::command]
+async fn search_notes(query: String, limit: usize) -> Result<Vec<jotbay_core::notes::Hit>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.search(&query, limit).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn note_history(rel: String, limit: u32) -> Result<Vec<jotbay_core::notes::Version>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.history(&rel, limit).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn deleted_notes(limit: u32) -> Result<Vec<jotbay_core::notes::Deleted>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.deleted_notes(limit).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Restore an old version, or a note that is gone. One command for both: the
+/// engine already works out which is being asked for.
+#[tauri::command]
+async fn restore_note(rel: String, version: Option<String>) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let jotbay = jotbay()?;
+        let written = match version {
+            Some(sha) => jotbay.restore_version(&rel, &sha),
+            None => {
+                let gone = jotbay.deleted_notes(200).map_err(|e| e.to_string())?;
+                let entry = gone
+                    .iter()
+                    .find(|d| d.path == rel)
+                    .ok_or_else(|| format!("{rel} is not a deleted note"))?;
+                jotbay.restore_deleted(&rel, &entry.sha)
+            }
+        };
+        written
+            .map(|p| p.display().to_string())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn create_note(name: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?
+            .create_note(&name, "")
+            .map(|p| p.display().to_string())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Hand the note to whatever this person writes in. Jotbay is not an editor.
+#[tauri::command]
+async fn open_note(rel: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.open_note_externally(&rel).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn get_about() -> Result<jotbay_core::about::About, String> {
     tauri::async_runtime::spawn_blocking(|| jotbay()?.about().map_err(|e| e.to_string()))
@@ -527,6 +606,12 @@ pub fn run() {
             get_settings,
             set_settings,
             get_about,
+            search_notes,
+            note_history,
+            deleted_notes,
+            restore_note,
+            create_note,
+            open_note,
             open_settings_window,
             check_updates,
             get_nodes,

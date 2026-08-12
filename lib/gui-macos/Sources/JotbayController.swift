@@ -399,6 +399,79 @@ final class JotbayController: ObservableObject {
         }
     }
 
+    // --- notes: finding them, and seeing them over time ---------------------
+    //
+    // Every one of these goes through the CLI, like everything else this
+    // window knows. The engine decides what a version is and where the notes
+    // are; this asks and renders.
+
+    func search(_ query: String) async -> [Hit] {
+        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        guard let data = await run(["find", query, "--json", "-n", "40"]),
+              let hits = try? Self.decoder.decode([Hit].self, from: data)
+        else { return [] }
+        return hits
+    }
+
+    func history(of rel: String) async -> [Version] {
+        guard let data = await run(["history", rel, "--json", "-n", "50"]),
+              let versions = try? Self.decoder.decode([Version].self, from: data)
+        else { return [] }
+        return versions
+    }
+
+    func deletedNotes() async -> [DeletedNote] {
+        guard let data = await run(["deleted", "--json", "-n", "100"]),
+              let gone = try? Self.decoder.decode([DeletedNote].self, from: data)
+        else { return [] }
+        return gone
+    }
+
+    /// Restore an old version, or a note that is gone. One call for both,
+    /// because the engine already works out which is being asked for.
+    func restore(_ rel: String, version: String?) {
+        Task {
+            var args = ["restore", rel]
+            if let version { args.append(version) }
+            if await run(args) != nil {
+                self.lastMessage = "Restored \(rel). It will sync with the next change."
+                self.lastMessageIsError = false
+            } else {
+                self.lastMessage = self.lastStderr.isEmpty ? "Could not restore \(rel)" : self.lastStderr
+                self.lastMessageIsError = true
+            }
+            self.refresh(fetchRemote: false)
+        }
+    }
+
+    func createNote(_ name: String, then done: @escaping (Bool) -> Void) {
+        Task {
+            let ok = await run(["new", name]) != nil
+            if ok {
+                self.lastMessage = "Created \(name)"
+                self.lastMessageIsError = false
+            } else {
+                self.lastMessage = self.lastStderr.isEmpty ? "Could not create that note" : self.lastStderr
+                self.lastMessageIsError = true
+            }
+            done(ok)
+            self.refresh(fetchRemote: false)
+        }
+    }
+
+    /// Hand the note to whatever the person writes in.
+    ///
+    /// Jotbay is not an editor. This is the whole of "let me edit in the app"
+    /// that can be offered without a write path through this window.
+    func openInEditor(_ rel: String) {
+        Task {
+            if await run(["edit", rel]) == nil {
+                self.lastMessage = self.lastStderr.isEmpty ? "Could not open that note" : self.lastStderr
+                self.lastMessageIsError = true
+            }
+        }
+    }
+
     func loadAbout() {
         Task {
             if let data = await run(["about", "--json"]),

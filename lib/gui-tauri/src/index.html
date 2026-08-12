@@ -179,6 +179,18 @@
     </div>
   </section>
 
+  <dialog id="sheet">
+    <div class="sheet-head">
+      <div>
+        <strong id="sheet-title"></strong>
+        <div id="sheet-sub" class="sheet-sub"></div>
+      </div>
+      <button id="sheet-close" class="link">Done</button>
+    </div>
+    <div id="sheet-body" class="sheet-body"></div>
+    <div id="sheet-foot" class="sheet-foot" hidden></div>
+  </dialog>
+
   <main>
     <section class="pane">
       <div class="pane-header"><span>Machines</span><span id="nodes-count" class="count">0</span></div>
@@ -196,9 +208,19 @@
       </div>
       <div id="log" class="pane-body" hidden></div>
       <div id="files" class="pane-body">
+        <div class="files-toolbar">
+          <input id="files-search" type="search" placeholder="Search notes" autocomplete="off">
+          <button id="btn-new-note" class="link">New note</button>
+          <button id="btn-deleted" class="link">Deleted</button>
+        </div>
+        <div id="search-results" hidden></div>
         <div id="files-crumbs" class="crumbs"></div>
         <div id="files-list"></div>
         <div id="file-preview" hidden>
+          <div class="preview-actions">
+            <button id="btn-open-editor" class="link">Open in editor</button>
+            <button id="btn-history" class="link">History</button>
+          </div>
           <div id="preview-meta" class="preview-meta"></div>
           <div id="preview-body" class="preview-body"></div>
         </div>

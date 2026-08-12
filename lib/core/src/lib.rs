@@ -14,6 +14,7 @@ pub mod git;
 pub mod limits;
 pub mod lock;
 pub mod model;
+pub mod notes;
 pub mod presence;
 pub mod proc;
 pub mod schedule;
@@ -242,6 +243,48 @@ impl Jotbay {
         let mut folded = crate::changes::summarise(&events);
         folded.truncate(limit);
         Ok(folded)
+    }
+
+    // --- notes: finding them, and seeing them over time ---------------------
+    //
+    // Thin on purpose. Each one pairs the notes directory with the repository,
+    // which is the one thing a caller would otherwise have to work out, and
+    // getting it wrong is how the folder button broke when vaults went flat.
+
+    pub fn search(&self, query: &str, limit: usize) -> Result<Vec<notes::Hit>> {
+        notes::search(&self.git, &self.data_dir(), query, limit)
+    }
+
+    pub fn history(&self, rel: &str, limit: u32) -> Result<Vec<notes::Version>> {
+        notes::history(&self.git, &self.data_dir(), rel, limit)
+    }
+
+    pub fn version_content(&self, rel: &str, sha: &str) -> Result<String> {
+        notes::version_content(&self.git, &self.data_dir(), rel, sha)
+    }
+
+    pub fn restore_version(&self, rel: &str, sha: &str) -> Result<std::path::PathBuf> {
+        notes::restore(&self.git, &self.data_dir(), rel, sha)
+    }
+
+    pub fn deleted_notes(&self, limit: u32) -> Result<Vec<notes::Deleted>> {
+        notes::deleted(&self.git, &self.data_dir(), limit)
+    }
+
+    pub fn restore_deleted(&self, rel: &str, sha: &str) -> Result<std::path::PathBuf> {
+        notes::restore_deleted(&self.git, &self.data_dir(), rel, sha)
+    }
+
+    pub fn create_note(&self, name: &str, body: &str) -> Result<std::path::PathBuf> {
+        notes::create(&self.data_dir(), name, body)
+    }
+
+    pub fn append_note(&self, rel: &str, text: &str) -> Result<std::path::PathBuf> {
+        notes::append(&self.data_dir(), rel, text)
+    }
+
+    pub fn open_note_externally(&self, rel: &str) -> Result<()> {
+        notes::open_externally(&self.data_dir().join(rel))
     }
 
     pub fn log(&self, limit: u32) -> Result<Vec<CommitInfo>> {

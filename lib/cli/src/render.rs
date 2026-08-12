@@ -577,6 +577,79 @@ pub fn upgrade(o: &jotbay_core::update::Outcome) {
     println!();
 }
 
+/// Search results. Name matches first, because that is usually the answer.
+pub fn hits(hits: &[jotbay_core::notes::Hit], query: &str) {
+    println!();
+    if hits.is_empty() {
+        println!("  {}", format!("nothing matches {query}").bright_black());
+        println!();
+        return;
+    }
+    for h in hits {
+        let mark = if h.name_match { "◆".cyan().to_string() } else { "·".bright_black().to_string() };
+        println!("  {mark} {}", h.path);
+        if let (Some(line), Some(excerpt)) = (h.line, &h.excerpt) {
+            println!("      {}", format!("{line}: {excerpt}").bright_black());
+        }
+    }
+    println!();
+}
+
+/// One note over time.
+pub fn history(versions: &[jotbay_core::notes::Version], file: &str) {
+    println!();
+    println!("  {}", file.bold());
+    if versions.is_empty() {
+        println!("  {}", "no history yet, it has never been committed".bright_black());
+        println!();
+        return;
+    }
+    for v in versions {
+        let when = v.at.get(..16).unwrap_or(&v.at).replace('T', " ");
+        let who = v.machine.clone().unwrap_or_else(|| "-".into());
+        let what = if v.deleted { " deleted".red().to_string() } else { String::new() };
+        println!("  {}  {}  {}{}", v.short.cyan(), when.bright_black(), who, what);
+    }
+    println!();
+    println!(
+        "  {}",
+        format!("restore one with: jotbay restore {file} <version>").bright_black()
+    );
+    println!();
+}
+
+pub fn deleted(gone: &[jotbay_core::notes::Deleted]) {
+    println!();
+    if gone.is_empty() {
+        println!("  {}", "nothing has been deleted".bright_black());
+        println!();
+        return;
+    }
+    for d in gone {
+        let when = d.at.get(..16).unwrap_or(&d.at).replace('T', " ");
+        let who = d.machine.clone().unwrap_or_else(|| "-".into());
+        println!("  {}  {}  {}", d.path, when.bright_black(), who.bright_black());
+    }
+    println!();
+    println!(
+        "  {}",
+        "bring one back with: jotbay restore <file>".bright_black()
+    );
+    println!();
+}
+
+/// Says where the file went, and that nothing has been sent yet.
+///
+/// Restoring and creating both leave an ordinary uncommitted change, which the
+/// watcher picks up like any other edit. Saying so avoids the question of
+/// whether something still needs pushing.
+pub fn wrote(path: &std::path::Path, verb: &str) {
+    println!();
+    println!("  {} {verb} {}", "✓".green(), path.display());
+    println!("  {}", "it will sync with the next change".bright_black());
+    println!();
+}
+
 pub fn error(msg: &str) {
     eprintln!("  {} {}", "✖".red(), msg);
 }

@@ -14,12 +14,39 @@ struct FilesPane: View {
     @State private var preview: Preview?
     @State private var problem: String?
 
+    // Finding, and the two sheets that show a note over time. Sheets rather
+    // than windows on purpose: settings is about the app and gets a window,
+    // these are about what is in front of you and belong over it.
+    @State private var query = ""
+    @State private var hits: [Hit] = []
+    @State private var searching = false
+    @State private var historyFor: String?
+    @State private var showDeleted = false
+    @State private var newNote = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            toolbar
+            Divider()
             crumbs
             Divider()
-            if let preview {
-                PreviewView(preview: preview)
+            if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                results
+            } else if let preview {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 12) {
+                        // The honest answer to "let me edit in the app": hand
+                        // the note to whatever this person already writes in.
+                        Button("Open in editor") { controller.openInEditor(preview.rel) }
+                        Button("History") { historyFor = preview.rel }
+                        Spacer()
+                    }
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 7)
+                    Divider()
+                    PreviewView(preview: preview)
+                }
             } else if let problem {
                 EmptyPane(symbol: "exclamationmark.triangle", title: "Can't read that",
                           detail: problem)
@@ -31,6 +58,114 @@ struct FilesPane: View {
             }
         }
         .onAppear { load() }
+        .sheet(item: Binding(
+            get: { historyFor.map { HistoryTarget(rel: $0) } },
+            set: { historyFor = $0?.rel }
+        )) { target in
+            HistorySheet(rel: target.rel).environmentObject(controller)
+        }
+        .sheet(isPresented: $showDeleted) {
+            DeletedSheet().environmentObject(controller)
+        }
+        .sheet(isPresented: $newNote) {
+            NewNoteSheet { load() }.environmentObject(controller)
+        }
+    }
+
+    // MARK: - Finding, and the two ways back in time
+
+    private var toolbar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
+            TextField("Search notes", text: $query)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .onChange(of: query) { _, next in runSearch(next) }
+            if !query.isEmpty {
+                Button {
+                    query = ""
+                    hits = []
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 11))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+            }
+            Spacer()
+            Button("New note") { newNote = true }
+                .font(.system(size: 11))
+            Button("Deleted") { showDeleted = true }
+                .font(.system(size: 11))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+    }
+
+    private var results: some View {
+        Group {
+            if searching && hits.isEmpty {
+                EmptyPane(symbol: "magnifyingglass", title: "Searching", detail: "")
+            } else if hits.isEmpty {
+                EmptyPane(symbol: "magnifyingglass", title: "No matches",
+                          detail: "Nothing here contains that. Only notes that have synced at least once can be searched by content.")
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(hits) { hit in
+                            Button {
+                                query = ""
+                                hits = []
+                                openFile(hit.path)
+                            } label: {
+                                HStack(alignment: .top, spacing: 10) {
+                                    Image(systemName: hit.nameMatch ? "doc.text.fill" : "text.magnifyingglass")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(hit.nameMatch ? Color.accentColor : .secondary)
+                                        .frame(width: 14)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(hit.path).font(.system(size: 12))
+                                        if let excerpt = hit.excerpt {
+                                            Text(excerpt)
+                                                .font(.system(size: 10, design: .monospaced))
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(2)
+                                        }
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 7)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            Divider().padding(.leading, 20)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Searched on a short delay rather than per keystroke: each search is a
+    /// process, and typing "postgres" would otherwise start eight of them.
+    private func runSearch(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
+            hits = []
+            searching = false
+            return
+        }
+        searching = true
+        Task {
+            try? await Task.sleep(for: .milliseconds(180))
+            guard query.trimmingCharacters(in: .whitespaces) == trimmed else { return }
+            let found = await controller.search(trimmed)
+            guard query.trimmingCharacters(in: .whitespaces) == trimmed else { return }
+            hits = found
+            searching = false
+        }
     }
 
     // MARK: - Navigation
@@ -97,6 +232,17 @@ struct FilesPane: View {
     }
 
     // MARK: - Data
+
+    /// Jump straight to a note, which is what a search result is asking for.
+    private func openFile(_ rel: String) {
+        let parent = (rel as NSString).deletingLastPathComponent
+        relPath = parent
+        problem = nil
+        load()
+        if let match = entries.first(where: { $0.rel == rel && !$0.isDir }) {
+            show(match)
+        }
+    }
 
     private func open(_ rel: String) {
         relPath = rel
@@ -501,5 +647,223 @@ private struct TableBlock: View {
             .frame(maxHeight: .infinity, alignment: .topLeading)
             .background(head ? AnyShapeStyle(.quaternary.opacity(0.5)) : AnyShapeStyle(.clear))
             .border(.quaternary, width: 0.5)
+    }
+}
+
+
+// MARK: - A note over time
+//
+// History, undelete and conflicts are one idea: versions of a note. They are
+// sheets rather than windows because they are about the thing in front of you,
+// where settings is about the app and gets a window of its own.
+
+/// Sheets take an Identifiable, and a bare path is not one.
+private struct HistoryTarget: Identifiable {
+    let rel: String
+    var id: String { rel }
+}
+
+private struct HistorySheet: View {
+    let rel: String
+    @EnvironmentObject private var controller: JotbayController
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var versions: [Version] = []
+    @State private var loading = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "History", subtitle: rel) { dismiss() }
+            Divider()
+
+            if loading {
+                EmptyPane(symbol: "clock", title: "Reading history", detail: "")
+            } else if versions.isEmpty {
+                EmptyPane(symbol: "clock", title: "No history yet",
+                          detail: "This note has not been synced, so there is nothing to go back to.")
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(versions.enumerated()), id: \.element.id) { index, v in
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    HStack(spacing: 6) {
+                                        Text(v.at, format: .dateTime.month().day().hour().minute())
+                                            .font(.system(size: 12))
+                                        if index == 0 {
+                                            Text("current")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        if v.deleted {
+                                            Text("deleted")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(.orange)
+                                        }
+                                    }
+                                    Text([v.machine, v.short].compactMap { $0 }.joined(separator: " · "))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                // Not offered for the version already on disk:
+                                // restoring it would be a no-op that still
+                                // looks like it did something.
+                                if index > 0 {
+                                    Button("Restore") {
+                                        controller.restore(rel, version: v.sha)
+                                        dismiss()
+                                    }
+                                    .font(.system(size: 11))
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 9)
+                            Divider().padding(.leading, 20)
+                        }
+                    }
+                }
+                Divider()
+                Text("Restoring writes the old text back as an ordinary change. Nothing is rewritten, and the newer version stays in the history.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+            }
+        }
+        .frame(width: 460, height: 460)
+        .task {
+            versions = await controller.history(of: rel)
+            loading = false
+        }
+    }
+}
+
+private struct DeletedSheet: View {
+    @EnvironmentObject private var controller: JotbayController
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var gone: [DeletedNote] = []
+    @State private var loading = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Deleted notes", subtitle: "Still in the history, and recoverable") {
+                dismiss()
+            }
+            Divider()
+
+            if loading {
+                EmptyPane(symbol: "trash", title: "Looking", detail: "")
+            } else if gone.isEmpty {
+                EmptyPane(symbol: "trash", title: "Nothing has been deleted",
+                          detail: "Notes removed on any machine would show up here.")
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(gone) { d in
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(d.path).font(.system(size: 12))
+                                    Text([d.machine, "removed"].compactMap { $0 }.joined(separator: " · "))
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Text(d.at, format: .dateTime.month().day())
+                                    .font(.system(size: 10))
+                                    .foregroundStyle(.tertiary)
+                                Button("Restore") {
+                                    controller.restore(d.path, version: nil)
+                                    dismiss()
+                                }
+                                .font(.system(size: 11))
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 9)
+                            Divider().padding(.leading, 20)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(width: 480, height: 420)
+        .task {
+            gone = await controller.deletedNotes()
+            loading = false
+        }
+    }
+}
+
+private struct NewNoteSheet: View {
+    let done: () -> Void
+    @EnvironmentObject private var controller: JotbayController
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "New note", subtitle: nil) { dismiss() }
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                TextField("Name", text: $name)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(create)
+                Text("Created in your notes folder, and opened in your editor. Without an extension it becomes a .md file.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { dismiss() }
+                    Button("Create", action: create)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+            .padding(20)
+        }
+        .frame(width: 420)
+    }
+
+    private func create() {
+        let wanted = name.trimmingCharacters(in: .whitespaces)
+        guard !wanted.isEmpty else { return }
+        controller.createNote(wanted) { ok in
+            if ok {
+                // Straight into the editor: creating a note and then having to
+                // find it is most of the friction this is meant to remove.
+                let named = wanted.contains(".") ? wanted : wanted + ".md"
+                controller.openInEditor(named)
+                done()
+                dismiss()
+            }
+        }
+    }
+}
+
+private struct SheetHeader: View {
+    let title: String
+    let subtitle: String?
+    let close: () -> Void
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                }
+            }
+            Spacer()
+            Button("Done", action: close).font(.system(size: 11))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 }

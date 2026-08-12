@@ -101,6 +101,42 @@ enum Command {
     Watch,
     /// Fetch the current release and replace this machine's binaries
     Upgrade,
+    /// Find a note by name or by what is in it
+    Find {
+        query: Vec<String>,
+        #[arg(short = 'n', long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// Every version of one note
+    History {
+        file: String,
+        #[arg(short = 'n', long, default_value_t = 20)]
+        limit: u32,
+    },
+    /// Notes that were deleted and can be brought back
+    Deleted {
+        #[arg(short = 'n', long, default_value_t = 50)]
+        limit: u32,
+    },
+    /// Put a note, or an old version of one, back
+    Restore {
+        file: String,
+        /// The version to restore. Omit for a deleted note's last version.
+        version: Option<String>,
+    },
+    /// Start a note
+    New {
+        name: String,
+        /// Text to put in it. Otherwise it is created empty.
+        text: Vec<String>,
+    },
+    /// Add a line to a note, creating it if needed
+    Add {
+        file: String,
+        text: Vec<String>,
+    },
+    /// Open a note in whichever editor this machine uses
+    Edit { file: String },
     /// Show this machine: version, notes, remote, and background sync
     About,
     /// Show or change per-machine preferences
@@ -150,6 +186,13 @@ fn main() -> ExitCode {
         Command::Watch => cmd_watch(&jotbay),
         Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
         Command::Upgrade => cmd_upgrade(&jotbay, cli.json),
+        Command::Find { query, limit } => cmd_find(&jotbay, cli.json, &query.join(" "), limit),
+        Command::History { file, limit } => cmd_history(&jotbay, cli.json, &file, limit),
+        Command::Deleted { limit } => cmd_deleted(&jotbay, cli.json, limit),
+        Command::Restore { file, version } => cmd_restore(&jotbay, &file, version),
+        Command::New { name, text } => cmd_new(&jotbay, &name, &text.join(" ")),
+        Command::Add { file, text } => cmd_add(&jotbay, &file, &text.join(" ")),
+        Command::Edit { file } => cmd_edit(&jotbay, &file),
         Command::About => cmd_about(&jotbay, cli.json),
         Command::Settings { assignment } => cmd_settings(cli.json, assignment),
     };
@@ -174,6 +217,78 @@ fn main() -> ExitCode {
 ///
 /// Deliberately offline. Opening settings should not be a request to GitHub,
 /// so the update line reports the marker the repository already carries.
+fn cmd_find(jotbay: &Jotbay, json: bool, query: &str, limit: usize) -> jotbay_core::Result<()> {
+    let hits = jotbay.search(query, limit)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&hits)?);
+    } else {
+        render::hits(&hits, query);
+    }
+    Ok(())
+}
+
+fn cmd_history(jotbay: &Jotbay, json: bool, file: &str, limit: u32) -> jotbay_core::Result<()> {
+    let versions = jotbay.history(file, limit)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&versions)?);
+    } else {
+        render::history(&versions, file);
+    }
+    Ok(())
+}
+
+fn cmd_deleted(jotbay: &Jotbay, json: bool, limit: u32) -> jotbay_core::Result<()> {
+    let gone = jotbay.deleted_notes(limit)?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&gone)?);
+    } else {
+        render::deleted(&gone);
+    }
+    Ok(())
+}
+
+/// Restore an old version, or a note that is gone entirely.
+///
+/// One command for both, because from the outside they are the same request.
+/// Which one it is can be worked out rather than asked: a note that is not
+/// there is being undeleted.
+fn cmd_restore(jotbay: &Jotbay, file: &str, version: Option<String>) -> jotbay_core::Result<()> {
+    let written = match version {
+        Some(sha) => jotbay.restore_version(file, &sha)?,
+        None => {
+            let gone = jotbay.deleted_notes(200)?;
+            let entry = gone.iter().find(|d| d.path == file).ok_or_else(|| {
+                jotbay_core::Error::Other(format!(
+                    "{file} is not a deleted note. Give a version from `jotbay history {file}`."
+                ))
+            })?;
+            jotbay.restore_deleted(file, &entry.sha)?
+        }
+    };
+    render::wrote(&written, "restored");
+    Ok(())
+}
+
+fn cmd_new(jotbay: &Jotbay, name: &str, text: &str) -> jotbay_core::Result<()> {
+    let written = jotbay.create_note(name, text)?;
+    render::wrote(&written, "created");
+    Ok(())
+}
+
+fn cmd_add(jotbay: &Jotbay, file: &str, text: &str) -> jotbay_core::Result<()> {
+    if text.trim().is_empty() {
+        return Err(jotbay_core::Error::Other("nothing to add".into()));
+    }
+    let written = jotbay.append_note(file, text)?;
+    render::wrote(&written, "added to");
+    Ok(())
+}
+
+fn cmd_edit(jotbay: &Jotbay, file: &str) -> jotbay_core::Result<()> {
+    jotbay.open_note_externally(file)?;
+    Ok(())
+}
+
 fn cmd_about(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
     let about = jotbay.about()?;
     if json {
