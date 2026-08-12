@@ -551,7 +551,7 @@ pub fn upgrade(o: &jotbay_core::update::Outcome) {
         Route::Binaries => "replaced the binaries",
         Route::HomebrewCask => "upgraded the Homebrew cask",
         Route::AptPackage => "installed the new package",
-        Route::WindowsInstaller => "ran the installer",
+        Route::WindowsInstaller => "replaced the program files",
         Route::MacAppBundle => "replaced Jotbay.app",
     };
     println!("  {} {}", "✓".green(), format!("now on {} · {how}", o.version));

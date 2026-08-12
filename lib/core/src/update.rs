@@ -627,6 +627,11 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
     let _sweep = Sweep(tmp.clone());
 
     let downloaded = tmp.join(asset);
+    // Output captured, not inherited. This is a probe: gh is tried first
+    // because it works against a private repository, and on a machine where
+    // it is not signed in it prints a 401 from the GitHub API before curl
+    // quietly succeeds. That 401 was appearing in the middle of a successful
+    // upgrade, which reads like the thing went wrong.
     let fetched_with_gh = crate::proc::quiet("gh")
         .args([
             "release", "download", &format!("v{version}"),
@@ -635,8 +640,8 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
             "--dir", &tmp.to_string_lossy(),
             "--clobber",
         ])
-        .status()
-        .map(|s| s.success())
+        .output()
+        .map(|o| o.status.success())
         .unwrap_or(false);
 
     if !fetched_with_gh {
@@ -675,6 +680,22 @@ pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
 
 
     std::fs::create_dir_all(&dir)?;
+
+    // Windows cannot overwrite a running image, so `replace_binary` renames
+    // the outgoing one to .old and leaves it there: it is still in use at that
+    // moment and cannot be deleted. Sweep the previous upgrade's leftovers
+    // now, when nothing holds them, rather than letting one accumulate per
+    // upgrade forever.
+    if cfg!(target_os = "windows") {
+        if let Ok(entries) = std::fs::read_dir(&dir) {
+            for entry in entries.flatten() {
+                if entry.path().extension().is_some_and(|e| e == "old") {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+
     let mut replaced = Vec::new();
 
     for name in binaries() {
