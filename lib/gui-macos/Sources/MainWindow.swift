@@ -28,7 +28,8 @@ struct RootView: View {
 
 struct MainWindow: View {
     @EnvironmentObject private var controller: JotbayController
-    @State private var showSettings = false
+    /// Opens the `Settings` scene, the same one Cmd+, reaches.
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(spacing: 0) {
@@ -69,14 +70,11 @@ struct MainWindow: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    showSettings.toggle()
+                    openSettings()
                 } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
-                .help("Appearance and advanced options")
-                .popover(isPresented: $showSettings, arrowEdge: .bottom) {
-                    SettingsPanel().environmentObject(controller)
-                }
+                .help("Settings")
             }
         }
     }
@@ -735,7 +733,7 @@ struct EmptyPane: View {
 
 /// Per-machine preferences. Deliberately not synced: a laptop following the
 /// system theme and a desktop pinned to dark are both correct at once.
-private struct SettingsPanel: View {
+struct SettingsWindow: View {
     @EnvironmentObject private var controller: JotbayController
 
     var body: some View {
@@ -751,10 +749,11 @@ private struct SettingsPanel: View {
                 Divider()
                 advanced
             }
-            .padding(16)
+            .padding(20)
         }
-        .frame(width: 380)
-        .frame(maxHeight: 560)
+        // A window, so it gets a floor and a ceiling rather than the fixed
+        // height a popover needed, and the person can resize it.
+        .frame(minWidth: 460, idealWidth: 500, minHeight: 420, idealHeight: 620)
         .onAppear { controller.loadAbout() }
     }
 

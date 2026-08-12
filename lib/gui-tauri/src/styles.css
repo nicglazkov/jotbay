@@ -477,3 +477,19 @@ main { flex: 1; display: flex; min-height: 0; }
 .event-glyph[data-kind="conflict"] { color: var(--warn); }
 .event-glyph[data-kind="problem"]  { color: var(--bad); }
 .event-summary[data-kind="problem"] { color: var(--bad); }
+
+
+/* Settings as its own window: the same page, with everything that belongs to
+   the main window taken out of it. */
+body.settings-only header.summary,
+body.settings-only main,
+body.settings-only .banner,
+body.settings-only #toast { display: none !important; }
+body.settings-only #settings-panel {
+  display: block;
+  border: 0;
+  margin: 0;
+  padding: 18px 20px 28px;
+  max-height: none;
+  overflow-y: auto;
+}

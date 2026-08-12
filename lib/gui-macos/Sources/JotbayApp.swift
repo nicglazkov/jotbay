@@ -14,6 +14,18 @@ struct JotbayApp: App {
         .defaultSize(width: 860, height: 560)
         .windowToolbarStyle(.unified(showsTitle: true))
 
+        // A real window rather than a popover hanging off the toolbar.
+        //
+        // The panel had grown to five sections with selectable paths in it, and
+        // a popover is the wrong container for that: it cannot be resized, it
+        // dismisses when you click away to check something, and text you meant
+        // to copy takes the panel with it. `Settings` is the macOS scene for
+        // this, so it also arrives on Cmd+, and in the app menu for free.
+        Settings {
+            SettingsWindow()
+                .environmentObject(controller)
+        }
+
         // The menu bar item is the surface used ninety percent of the time;
         // .window style gives a real popover instead of a plain NSMenu.
         MenuBarExtra {

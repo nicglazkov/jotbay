@@ -268,6 +268,32 @@ async fn do_upgrade() -> Result<jotbay_core::update::Outcome, String> {
 
 /// Everything the settings panel shows, from the same engine call the CLI and
 /// the macOS app use. Local reads only, so opening settings sends no request.
+/// Open settings as its own window.
+///
+/// Built here rather than from JavaScript so the frontend needs no
+/// window-creation capability. It loads the same page in a settings-only mode:
+/// one copy of the settings code, which cannot drift from the main window's.
+#[tauri::command]
+async fn open_settings_window(app: AppHandle) -> Result<(), String> {
+    if let Some(existing) = app.get_webview_window("settings") {
+        // Raise the one that is already open rather than stacking another.
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+    tauri::WebviewWindowBuilder::new(
+        &app,
+        "settings",
+        tauri::WebviewUrl::App("index.html?view=settings".into()),
+    )
+    .title("Jotbay Settings")
+    .inner_size(520.0, 680.0)
+    .min_inner_size(460.0, 420.0)
+    .resizable(true)
+    .build()
+    .map(|_| ())
+    .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 async fn get_about() -> Result<jotbay_core::about::About, String> {
     tauri::async_runtime::spawn_blocking(|| jotbay()?.about().map_err(|e| e.to_string()))
@@ -501,6 +527,7 @@ pub fn run() {
             get_settings,
             set_settings,
             get_about,
+            open_settings_window,
             check_updates,
             get_nodes,
             forget_node,
