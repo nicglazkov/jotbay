@@ -19,6 +19,17 @@ const WARN: Color = Color::Rgb(224, 175, 104);
 const BAD: Color = Color::Rgb(224, 108, 118);
 
 pub fn run(jotbay: &Jotbay) -> std::io::Result<()> {
+    // `ratatui::init()` panics if it cannot take over the terminal, so a
+    // full-screen dashboard asked for from a cron job, a pipe, or a CI log
+    // answered with a Rust panic and a backtrace. Ask first and say the plain
+    // thing instead.
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        return Err(std::io::Error::other(
+            "the dashboard needs a terminal. Try `jotbay` or `jotbay activity` instead.",
+        ));
+    }
+
     let mut terminal = ratatui::init();
     let result = event_loop(jotbay, &mut terminal);
     ratatui::restore();
