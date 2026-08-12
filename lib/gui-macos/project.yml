@@ -14,7 +14,7 @@ settings:
     # Swift 6's strict concurrency checking buys nothing here beyond noise.
     SWIFT_VERSION: "5.0"
     PRODUCT_BUNDLE_IDENTIFIER: ${JOTBAY_BUNDLE_PREFIX}.jotbay
-    MARKETING_VERSION: "1.8.8"
+    MARKETING_VERSION: "1.8.9"
     CURRENT_PROJECT_VERSION: "1"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGNING_REQUIRED: "NO"
