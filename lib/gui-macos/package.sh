@@ -136,12 +136,30 @@ security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY" \
 # a credential that was never stored, so it says "No Keychain password item
 # found" either way, and that sends you off to re-create credentials which are
 # perfectly fine. Ask the screen first, and say the true thing.
-if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
-  if ioreg -n Root -d1 -a 2>/dev/null | grep -q "CGSSessionScreenIsLocked"; then
-    die "this Mac's screen is locked, so the notarization credentials cannot be
+screen_locked() {
+  # True only when the key is present *and* set. Testing for the key alone was
+  # not enough: it raced a lock that happened between the check and the call,
+  # and reported the wrong cause for a build that had just failed.
+  ioreg -n Root -d1 -a 2>/dev/null |
+    plutil -extract IOConsoleLocked raw -o - - 2>/dev/null |
+    grep -qx "true"
+}
+
+notary_ready() {
+  xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1
+}
+
+if ! notary_ready; then
+  # Retried once. The credential lives in the data protection keychain, and a
+  # single read has come back empty on a machine where the next one worked.
+  sleep 3
+  if ! notary_ready; then
+    if screen_locked; then
+      die "this Mac's screen is locked, so the notarization credentials cannot be
        read. Unlock it and run this again. Nothing is wrong with the profile."
+    fi
+    die "no notarytool profile named '$PROFILE', see the publishing guide"
   fi
-  die "no notarytool profile named '$PROFILE', see the publishing guide"
 fi
 command -v create-dmg >/dev/null || die "create-dmg not found (brew install create-dmg)"
 
