@@ -131,8 +131,18 @@ notarize() {
   || die "no signing identity, copy signing.env.example to signing.env and fill it in"
 security find-identity -v -p codesigning 2>/dev/null | grep -qF "$IDENTITY" \
   || die "no Developer ID certificate on this machine matching $IDENTITY"
-xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1 \
-  || die "no notarytool profile named '$PROFILE', see the publishing guide"
+# The credential lives in the data protection keychain, which the system makes
+# unreadable while the screen is locked. notarytool cannot tell that apart from
+# a credential that was never stored, so it says "No Keychain password item
+# found" either way, and that sends you off to re-create credentials which are
+# perfectly fine. Ask the screen first, and say the true thing.
+if ! xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1; then
+  if ioreg -n Root -d1 -a 2>/dev/null | grep -q "CGSSessionScreenIsLocked"; then
+    die "this Mac's screen is locked, so the notarization credentials cannot be
+       read. Unlock it and run this again. Nothing is wrong with the profile."
+  fi
+  die "no notarytool profile named '$PROFILE', see the publishing guide"
+fi
 command -v create-dmg >/dev/null || die "create-dmg not found (brew install create-dmg)"
 
 VERSION=$(grep -m1 'MARKETING_VERSION' project.yml | cut -d'"' -f2)
