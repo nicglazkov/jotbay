@@ -189,13 +189,13 @@
       <div class="pane-header">
         <!-- One pane, two lenses: what happened, and what is there. -->
         <div class="pane-tabs" role="tablist">
-          <button id="tab-activity" class="pane-tab" role="tab" aria-selected="true">Activity</button>
-          <button id="tab-files" class="pane-tab" role="tab" aria-selected="false">Files</button>
+          <button id="tab-files" class="pane-tab" role="tab" aria-selected="true">Files</button>
+          <button id="tab-activity" class="pane-tab" role="tab" aria-selected="false">Activity</button>
         </div>
-        <span id="log-count" class="count">0</span>
+        <span id="log-count" class="count" hidden>0</span>
       </div>
-      <div id="log" class="pane-body"></div>
-      <div id="files" class="pane-body" hidden>
+      <div id="log" class="pane-body" hidden></div>
+      <div id="files" class="pane-body">
         <div id="files-crumbs" class="crumbs"></div>
         <div id="files-list"></div>
         <div id="file-preview" hidden>

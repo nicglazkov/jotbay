@@ -412,11 +412,15 @@ private struct ConflictBanner: View {
 /// One pane, two lenses: what happened, and what is there.
 private struct RightPane: View {
     @EnvironmentObject private var controller: JotbayController
-    @State private var tab: Tab = .activity
+    // Files, not Activity. The notes are the reason the window is open; what
+    // the machines did about them is the second question, and only
+    // occasionally the interesting one.
+    @State private var tab: Tab = .files
 
+    /// Declaration order is display order.
     enum Tab: String, CaseIterable {
-        case activity = "Activity"
         case files = "Files"
+        case activity = "Activity"
     }
 
     var body: some View {
