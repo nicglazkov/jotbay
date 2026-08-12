@@ -266,6 +266,19 @@ pub struct ActivityEvent {
     /// "pushed 2 files, which two?" without going to the commit log.
     #[serde(default)]
     pub files: Vec<String>,
+    /// How many times in a row this machine reported exactly this.
+    ///
+    /// One condition, one entry. A failure retried on the watcher's 20 second
+    /// poll used to append a record per attempt: one real incident lasting
+    /// eleven minutes wrote 34 identical events, which is 68% of everything
+    /// this node can remember, and it permanently evicted the history behind
+    /// it. Counting is the difference between "this is still happening" and
+    /// "your history is gone".
+    #[serde(default = "one")]
+    pub repeats: u32,
+    /// When the run started, as against `at`, which tracks the latest report.
+    #[serde(default, with = "time::serde::rfc3339::option")]
+    pub first_at: Option<OffsetDateTime>,
     /// The raw underlying text, when there is one, full git stderr for a
     /// failure. Shown only in verbose mode: a push rejected for a private
     /// email produced five lines of `remote: error: ` that told a first-time
@@ -314,6 +327,8 @@ impl EventKind {
         }
     }
 }
+
+fn one() -> u32 { 1 }
 
 /// How many events each machine keeps. The feed merges every machine's buffer,
 /// so the visible history is this times the number of machines.

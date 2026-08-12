@@ -60,6 +60,13 @@ pub struct Settings {
     /// lines of `remote: error: ` with URLs in it, which told a first-time
     /// user nothing and swamped the pane it appeared in.
     pub verbose: bool,
+    /// Show the feed as machines report it, rather than as changes.
+    ///
+    /// Off by default. The grouped view answers "what happened to my notes";
+    /// this one answers "what did each machine do", which is what you want the
+    /// moment something is wrong and noise the rest of the time.
+    #[serde(default)]
+    pub raw_activity: bool,
 }
 
 /// `~/Library/Application Support/Jotbay` · `~/.config/jotbay` ·

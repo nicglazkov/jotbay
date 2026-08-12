@@ -423,6 +423,9 @@ fn describe(
         files,
         detail,
         head: head.to_string(),
+        // Both filled in by push_event when this turns out to repeat.
+        repeats: 1,
+        first_at: None,
     })
 }
 

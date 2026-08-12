@@ -9,6 +9,9 @@ import SwiftUI
 final class JotbayController: ObservableObject {
     @Published var status: JotbayStatus = .empty
     @Published var activity: [ActivityEvent] = []
+    /// The folded feed: one entry per change rather than per machine. Used
+    /// unless the raw setting is on.
+    @Published var changes: [Change] = []
     @Published var isSyncing = false
     @Published var lastMessage: String = ""
     @Published var lastMessageIsError = false
@@ -193,11 +196,20 @@ final class JotbayController: ObservableObject {
                     self.status = decoded
                 }
             }
+            // Both shapes come from `activity --json`; --raw decides which.
+            // Fetched according to the setting so the window never holds a
+            // feed the user is not looking at.
             var activityArgs = ["activity", "--json", "-n", "60"]
             if !fetchRemote { activityArgs.append("--offline") }
-            if let data = await run(activityArgs),
-               let decoded = try? Self.decoder.decode([ActivityEvent].self, from: data) {
-                self.activity = decoded
+            if self.settings.rawActivity {
+                activityArgs.append("--raw")
+                if let data = await run(activityArgs),
+                   let decoded = try? Self.decoder.decode([ActivityEvent].self, from: data) {
+                    self.activity = decoded
+                }
+            } else if let data = await run(activityArgs),
+                      let decoded = try? Self.decoder.decode([Change].self, from: data) {
+                self.changes = decoded
             }
         }
     }
@@ -332,11 +344,17 @@ final class JotbayController: ObservableObject {
 
     /// Written through the CLI rather than to the file directly, so there is
     /// one implementation of where settings live and what they mean.
-    func updateSettings(theme: String? = nil, verbose: Bool? = nil) {
+    func updateSettings(theme: String? = nil, verbose: Bool? = nil, rawActivity: Bool? = nil) {
         Task {
             if let theme { _ = await run(["settings", "theme=\(theme)"]) }
             if let verbose { _ = await run(["settings", "verbose=\(verbose ? "on" : "off")"]) }
+            if let rawActivity {
+                _ = await run(["settings", "raw_activity=\(rawActivity ? "on" : "off")"])
+            }
             self.loadSettings()
+            // The feed is a different shape in each mode, so it has to be
+            // fetched again rather than re-rendered.
+            self.refresh(fetchRemote: false)
         }
     }
 

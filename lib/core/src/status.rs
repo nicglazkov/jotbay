@@ -147,22 +147,29 @@ pub fn read_all_events(git: &Git) -> Result<Vec<ActivityEvent>> {
 
 /// Append an event to a buffer, keeping it bounded.
 pub fn push_event(events: &mut Vec<ActivityEvent>, event: ActivityEvent) {
-    // A stretch offline is one condition, not one event per retry.
+    // One condition, one entry, whatever the condition is.
     //
-    // This is not only tidiness. Each node keeps MAX_EVENTS_PER_NODE events, so
-    // a night on a plane would push fifty identical "offline" lines through the
-    // buffer and evict every real thing that happened before it. The history a
-    // person actually wants is the one destroyed by the least interesting event
-    // in the system.
+    // This began as a special case for being offline and should never have
+    // been one. Every repeating state has the same shape: the watcher retries
+    // on its poll interval, the attempt fails the same way, and a record is
+    // written. A real push rejection that lasted eleven minutes wrote 34
+    // identical events here, 68% of everything that node can remember, and
+    // evicted the genuine history behind it. The buffer holds
+    // MAX_EVENTS_PER_NODE, so roughly seventeen minutes of any repeating
+    // failure erases a machine's entire past.
     //
-    // Refreshing the timestamp rather than dropping the new event keeps the
-    // entry honest about still being true.
-    if event.kind == EventKind::Offline {
+    // Matched on kind and summary rather than on the raw detail, because the
+    // detail carries a timestamp or a transient host and would never compare
+    // equal. Changed events are excluded: two identical-looking syncs are two
+    // real things that moved, and folding them would lose work.
+    if event.kind != EventKind::Changed {
         if let Some(newest) = events.iter_mut().max_by_key(|e| e.at) {
-            if newest.kind == EventKind::Offline {
+            if newest.kind == event.kind && newest.summary == event.summary {
+                newest.first_at = newest.first_at.or(Some(newest.at));
                 newest.at = event.at;
                 newest.head = event.head;
                 newest.detail = event.detail;
+                newest.repeats = newest.repeats.saturating_add(1);
                 return;
             }
         }
@@ -196,7 +203,40 @@ mod tests {
             files: Vec::new(),
             detail: None,
             head: "abc".into(),
+            repeats: 1,
+            first_at: None,
         }
+    }
+
+    #[test]
+    fn a_repeating_failure_stays_one_event_and_keeps_the_history() {
+        // The real incident: a push rejected for a private email, retried on
+        // the 20 second poll for eleven minutes. It wrote 34 records and took
+        // most of this node's memory with it.
+        let t0 = time::OffsetDateTime::now_utc();
+        let mut events = vec![];
+        push_event(&mut events, event(EventKind::Changed, t0, "pushed 3 files"));
+        for i in 1..=34 {
+            let at = t0 + time::Duration::seconds(i * 20);
+            push_event(&mut events, event(EventKind::Error, at, "Push rejected: your commit email is private."));
+        }
+        assert_eq!(events.len(), 2, "one failure entry plus the real history");
+        assert!(events.iter().any(|e| e.summary == "pushed 3 files"));
+        let err = events.iter().find(|e| e.kind == EventKind::Error).unwrap();
+        assert_eq!(err.repeats, 34);
+        assert_eq!(err.first_at, Some(t0 + time::Duration::seconds(20)));
+        assert_eq!(err.at, t0 + time::Duration::seconds(34 * 20));
+    }
+
+    #[test]
+    fn two_real_changes_are_never_folded_together() {
+        // Changed events are excluded from coalescing on purpose: two syncs
+        // that look identical moved two different sets of work.
+        let t0 = time::OffsetDateTime::now_utc();
+        let mut events = vec![];
+        push_event(&mut events, event(EventKind::Changed, t0, "pulled 1 commit"));
+        push_event(&mut events, event(EventKind::Changed, t0 + time::Duration::seconds(30), "pulled 1 commit"));
+        assert_eq!(events.len(), 2, "two pulls are two events");
     }
 
     #[test]

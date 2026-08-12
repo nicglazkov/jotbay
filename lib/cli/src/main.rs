@@ -43,13 +43,16 @@ enum Command {
         #[arg(long, value_name = "HOSTNAME")]
         forget: Option<String>,
     },
-    /// What every machine has actually done: syncs, conflicts, failures
+    /// What happened to your notes
     Activity {
         #[arg(short = 'n', long, default_value_t = 25)]
         limit: usize,
         /// Skip the network fetch
         #[arg(long)]
         offline: bool,
+        /// Show what each machine did, rather than what changed
+        #[arg(long)]
+        raw: bool,
     },
     /// Commit history: what changed
     Log {
@@ -134,7 +137,7 @@ fn main() -> ExitCode {
         Command::Status { offline } => cmd_status(&jotbay, cli.json, !offline),
         Command::Sync => cmd_sync(&jotbay, cli.json),
         Command::Nodes { forget } => cmd_nodes(&jotbay, cli.json, forget),
-        Command::Activity { limit, offline } => cmd_activity(&jotbay, cli.json, limit, !offline),
+        Command::Activity { limit, offline, raw } => cmd_activity(&jotbay, cli.json, limit, !offline, raw),
         Command::Log { limit } => cmd_log(&jotbay, cli.json, limit),
         Command::Resolve { abort } => cmd_resolve(&jotbay, abort),
         Command::Dash => dash::run(&jotbay).map_err(|e| jotbay_core::Error::Other(e.to_string())),
@@ -475,6 +478,10 @@ fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     Ok(())
 }
 
+fn on(value: &str) -> bool {
+    matches!(value.trim().to_lowercase().as_str(), "on" | "true" | "yes" | "1")
+}
+
 fn cmd_settings(json: bool, assignment: Option<String>) -> jotbay_core::Result<()> {
     use jotbay_core::settings::{Settings, Theme};
     let mut settings = Settings::load();
@@ -490,11 +497,14 @@ fn cmd_settings(json: bool, assignment: Option<String>) -> jotbay_core::Result<(
                 })?
             }
             "verbose" => {
-                settings.verbose = matches!(value.trim().to_lowercase().as_str(), "on" | "true" | "yes" | "1")
+                settings.verbose = on(value);
+            }
+            "raw_activity" | "raw-activity" => {
+                settings.raw_activity = on(value);
             }
             other => {
                 return Err(jotbay_core::Error::Other(format!(
-                    "Unknown setting '{other}'. Try theme or verbose."
+                    "Unknown setting '{other}'. Try theme, verbose or raw_activity."
                 )))
             }
         }
@@ -509,12 +519,31 @@ fn cmd_settings(json: bool, assignment: Option<String>) -> jotbay_core::Result<(
     Ok(())
 }
 
-fn cmd_activity(jotbay: &Jotbay, json: bool, limit: usize, refresh: bool) -> jotbay_core::Result<()> {
-    let events = jotbay.activity(refresh, limit)?;
-    if json {
-        println!("{}", serde_json::to_string_pretty(&events)?);
+fn cmd_activity(
+    jotbay: &Jotbay,
+    json: bool,
+    limit: usize,
+    refresh: bool,
+    raw: bool,
+) -> jotbay_core::Result<()> {
+    let settings = jotbay_core::settings::Settings::load();
+    // The flag is a one-off override of the preference, not a second setting.
+    let raw = raw || settings.raw_activity;
+
+    if raw {
+        let events = jotbay.activity(refresh, limit)?;
+        if json {
+            println!("{}", serde_json::to_string_pretty(&events)?);
+        } else {
+            render::activity(&events, settings.verbose);
+        }
     } else {
-        render::activity(&events, jotbay_core::settings::Settings::load().verbose);
+        let changes = jotbay.changes(refresh, limit)?;
+        if json {
+            println!("{}", serde_json::to_string_pretty(&changes)?);
+        } else {
+            render::changes(&changes, settings.verbose);
+        }
     }
     Ok(())
 }

@@ -348,6 +348,74 @@ pub fn activity(events: &[ActivityEvent], verbose: bool) {
     println!();
 }
 
+/// The feed as changes rather than as machine chatter.
+pub fn changes(items: &[jotbay_core::changes::Change], verbose: bool) {
+    use jotbay_core::changes::ChangeKind;
+
+    println!();
+    if items.is_empty() {
+        println!("  {}", "nothing has happened yet".bright_black());
+        println!();
+        return;
+    }
+
+    for c in items {
+        let glyph = match c.kind {
+            ChangeKind::Updated => c.kind.glyph().cyan().to_string(),
+            ChangeKind::Conflict => c.kind.glyph().yellow().to_string(),
+            ChangeKind::Offline => c.kind.glyph().bright_black().to_string(),
+            ChangeKind::Problem => c.kind.glyph().red().to_string(),
+        };
+        let summary = match c.kind {
+            ChangeKind::Problem => c.summary.red().to_string(),
+            ChangeKind::Offline => c.summary.bright_black().to_string(),
+            _ => c.summary.clone(),
+        };
+        // "still happening" rather than "happened 34 times": the count is
+        // there to show persistence, not to be counted.
+        let repeat = if c.repeats > 1 {
+            format!(" {}", format!("×{}", c.repeats).bright_black())
+        } else {
+            String::new()
+        };
+        println!("  {glyph} {summary}{repeat}");
+
+        let mut meta: Vec<String> = Vec::new();
+        match (&c.origin, c.machines.len()) {
+            // The machine that made it, when the commit event is still in the
+            // buffer to say so.
+            (Some(origin), _) => meta.push(origin.clone()),
+            // Otherwise name who has it rather than implying authorship: this
+            // machine only received the change and cannot say who made it.
+            (None, 1) => meta.push(c.machines[0].clone()),
+            (None, _) => {}
+        }
+        if c.machines.len() > 1 {
+            meta.push(format!("on {} machines", c.machines.len()));
+        }
+        meta.push(human_age((time::OffsetDateTime::now_utc() - c.at).whole_seconds()));
+        println!("      {}", meta.join("  ·  ").bright_black());
+
+        if verbose {
+            for f in &c.files {
+                println!("      {} {}", "·".bright_black(), f.bright_black());
+            }
+            if let Some(d) = &c.detail {
+                println!("      {}", d.bright_black());
+            }
+        }
+    }
+
+    if !verbose {
+        println!();
+        println!(
+            "  {}",
+            "run `jotbay activity --raw` to see what each machine did".bright_black()
+        );
+    }
+    println!();
+}
+
 struct Group<'a> {
     first: &'a ActivityEvent,
     count: usize,

@@ -464,11 +464,15 @@ private struct RightPane: View {
 private struct ActivityPane: View {
     @EnvironmentObject private var controller: JotbayController
 
+    private var raw: Bool { controller.settings.rawActivity }
+    private var count: Int { raw ? controller.activity.count : controller.changes.count }
+    private var isEmpty: Bool { raw ? controller.activity.isEmpty : controller.changes.isEmpty }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PaneHeader(title: "Activity", count: controller.activity.count)
+            PaneHeader(title: raw ? "Machine activity" : "Activity", count: count)
 
-            if controller.activity.isEmpty {
+            if isEmpty {
                 EmptyPane(
                     symbol: "clock",
                     title: "Nothing has happened yet",
@@ -477,14 +481,119 @@ private struct ActivityPane: View {
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(controller.activity) { event in
-                            EventRow(event: event, verbose: controller.settings.verbose)
-                            Divider().padding(.leading, 20)
+                        if raw {
+                            ForEach(controller.activity) { event in
+                                EventRow(event: event, verbose: controller.settings.verbose)
+                                Divider().padding(.leading, 20)
+                            }
+                        } else {
+                            ForEach(controller.changes) { change in
+                                ChangeRow(change: change, verbose: controller.settings.verbose)
+                                Divider().padding(.leading, 20)
+                            }
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/// One change, however many machines reported it.
+private struct ChangeRow: View {
+    let change: Change
+    let verbose: Bool
+
+    @State private var expanded = false
+
+    private var canExpand: Bool { !change.files.isEmpty || (verbose && change.detail != nil) }
+
+    private var tint: Color {
+        switch change.kind {
+        case .updated: return .accentColor
+        case .conflict: return .orange
+        case .offline: return .secondary
+        case .problem: return .red
+        }
+    }
+
+    /// Who and where, without claiming authorship this machine cannot know.
+    private var attribution: String {
+        var parts: [String] = []
+        if let origin = change.origin {
+            parts.append(origin)
+        } else if change.machines.count == 1 {
+            parts.append(change.machines[0])
+        }
+        if change.machines.count > 1 {
+            parts.append("on \(change.machines.count) machines")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: change.kind.symbol)
+                    .font(.system(size: 11))
+                    .foregroundStyle(tint)
+                    .frame(width: 14)
+                    .padding(.top, 2)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(change.summary)
+                            .font(.system(size: 12))
+                            .foregroundStyle(change.kind == .problem ? Color.red : .primary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        // Persistence, not a tally: it says this is still going.
+                        if change.repeats > 1 {
+                            Text("×\(change.repeats)")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    HStack(spacing: 6) {
+                        if !attribution.isEmpty {
+                            Text(attribution)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(change.at, format: .relative(presentation: .numeric))
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                        if canExpand {
+                            Button(expanded ? "▾ hide" : "▸ details") { expanded.toggle() }
+                                .buttonStyle(.plain)
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+
+                    if expanded {
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(change.files, id: \.self) { f in
+                                Text(f)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.secondary)
+                            }
+                            if verbose, let detail = change.detail {
+                                Text(detail)
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(.tertiary)
+                                    .textSelection(.enabled)
+                            }
+                        }
+                        .padding(.top, 2)
+                    }
+                }
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 9)
     }
 }
 
@@ -756,11 +865,20 @@ private struct SettingsPanel: View {
 
     private var advanced: some View {
         Section("Advanced") {
+            Toggle("Show what each machine did", isOn: Binding(
+                get: { controller.settings.rawActivity },
+                set: { controller.updateSettings(rawActivity: $0) }
+            ))
+            .font(.system(size: 12))
+            Note("The feed normally shows one line per change. Turn this on to see "
+                 + "every commit, push and pull, per machine.", tone: .plain)
+
             Toggle("Verbose activity", isOn: Binding(
                 get: { controller.settings.verbose },
                 set: { controller.updateSettings(verbose: $0) }
             ))
             .font(.system(size: 12))
+            .padding(.top, 4)
             Note("Show the raw underlying detail, including full git output on failures.",
                  tone: .plain)
             if let a = controller.about {

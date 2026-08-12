@@ -469,3 +469,11 @@ main { flex: 1; display: flex; min-height: 0; }
 .dot[data-health="offline"] { background: var(--text-faint); }
 .event-glyph[data-kind="offline"],
 .event-summary[data-kind="offline"] { color: var(--text-faint); }
+
+
+/* Change glyphs. Each kind gets its own colour so the feed is readable at a
+   glance rather than a column of identical marks. */
+.event-glyph[data-kind="updated"]  { color: var(--accent); }
+.event-glyph[data-kind="conflict"] { color: var(--warn); }
+.event-glyph[data-kind="problem"]  { color: var(--bad); }
+.event-summary[data-kind="problem"] { color: var(--bad); }

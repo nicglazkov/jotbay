@@ -296,7 +296,7 @@ async fn get_settings() -> Result<Settings, String> {
 }
 
 #[tauri::command]
-async fn set_settings(theme: String, verbose: bool) -> Result<Settings, String> {
+async fn set_settings(theme: String, verbose: bool, raw_activity: bool) -> Result<Settings, String> {
     tauri::async_runtime::spawn_blocking(move || {
         // Load and mutate rather than construct. Building a fresh Settings here
         // silently discarded every field this dialog does not show, vault_path
@@ -305,6 +305,7 @@ async fn set_settings(theme: String, verbose: bool) -> Result<Settings, String> 
         let mut settings = Settings::load();
         settings.theme = Theme::parse(&theme).unwrap_or_default();
         settings.verbose = verbose;
+        settings.raw_activity = raw_activity;
         settings.save().map_err(|e| e.to_string()).map(|_| settings)
     })
     .await
@@ -315,6 +316,16 @@ async fn set_settings(theme: String, verbose: bool) -> Result<Settings, String> 
 async fn get_activity(refresh: bool, limit: usize) -> Result<Vec<ActivityEvent>, String> {
     tauri::async_runtime::spawn_blocking(move || {
         jotbay()?.activity(refresh, limit).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The folded feed: one entry per change rather than per machine.
+#[tauri::command]
+async fn get_changes(refresh: bool, limit: usize) -> Result<Vec<jotbay_core::changes::Change>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.changes(refresh, limit).map_err(|e| e.to_string())
     })
     .await
     .map_err(|e| e.to_string())?
@@ -485,6 +496,7 @@ pub fn run() {
             do_sync,
             get_log,
             get_activity,
+            get_changes,
             do_upgrade,
             get_settings,
             set_settings,

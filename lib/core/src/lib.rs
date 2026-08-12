@@ -7,6 +7,7 @@
 
 pub mod about;
 pub mod browse;
+pub mod changes;
 pub mod conflict;
 pub mod error;
 pub mod git;
@@ -230,6 +231,17 @@ impl Jotbay {
         let mut events = status::read_all_events(&self.git)?;
         events.truncate(limit);
         Ok(events)
+    }
+
+    /// The feed as a person reads it: one line per change, not one per machine.
+    pub fn changes(&self, refresh: bool, limit: usize) -> Result<Vec<crate::changes::Change>> {
+        // Read wide, then fold. Grouping happens across machines, so taking
+        // only `limit` raw events first would split a change whose reports
+        // straddled the cut and show it twice.
+        let events = self.activity(refresh, limit.saturating_mul(4).max(200))?;
+        let mut folded = crate::changes::summarise(&events);
+        folded.truncate(limit);
+        Ok(folded)
     }
 
     pub fn log(&self, limit: u32) -> Result<Vec<CommitInfo>> {

@@ -201,6 +201,39 @@ struct ActivityEvent: Codable, Identifiable, Hashable {
     var id2: String { "\(hostname)-\(at.timeIntervalSince1970)" }
 }
 
+/// One thing that happened to the notes, folded across every machine that
+/// reported it. What `jotbay activity --json` returns unless raw mode is on.
+struct Change: Codable, Identifiable, Hashable {
+    var id: String { "\(at.timeIntervalSince1970)-\(summary)" }
+
+    let at: Date
+    let kind: ChangeKind
+    let summary: String
+    let files: [String]
+    /// The machine that made it, when the commit report is still in the buffer.
+    let origin: String?
+    /// Every machine that has reported this change.
+    let machines: [String]
+    /// Above one only for a condition that kept repeating.
+    let repeats: Int
+    let detail: String?
+}
+
+enum ChangeKind: String, Codable {
+    case updated, conflict, offline, problem
+
+    /// Distinct per kind. One pair of arrows for everything meant the feed
+    /// looked identical whether a note had synced or a push had been rejected.
+    var symbol: String {
+        switch self {
+        case .updated: return "doc.text.fill"
+        case .conflict: return "exclamationmark.triangle.fill"
+        case .offline: return "wifi.slash"
+        case .problem: return "xmark.octagon.fill"
+        }
+    }
+}
+
 /// What `jotbay init --json` reports a machine can offer, so the first-run
 /// screen can disable a route rather than let someone pick one that fails.
 struct SetupCapabilities: Codable {
@@ -274,8 +307,15 @@ struct SyncHealth: Codable {
 struct AppSettings: Codable {
     var theme: String
     var verbose: Bool
+    /// Show what each machine did instead of what changed.
+    var rawActivity: Bool
 
-    static let fallback = AppSettings(theme: "system", verbose: false)
+    enum CodingKeys: String, CodingKey {
+        case theme, verbose
+        case rawActivity = "raw_activity"
+    }
+
+    static let fallback = AppSettings(theme: "system", verbose: false, rawActivity: false)
 }
 
 enum EventKind: String, Codable {
