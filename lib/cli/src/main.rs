@@ -149,7 +149,7 @@ fn main() -> ExitCode {
         Command::Schedule => cmd_schedule(),
         Command::Watch => cmd_watch(&jotbay),
         Command::Shortcut { what, at } => cmd_shortcut(&jotbay, what, at),
-        Command::Upgrade => cmd_upgrade(&jotbay),
+        Command::Upgrade => cmd_upgrade(&jotbay, cli.json),
         Command::About => cmd_about(&jotbay, cli.json),
         Command::Settings { assignment } => cmd_settings(cli.json, assignment),
     };
@@ -419,62 +419,51 @@ fn cmd_watch(jotbay: &Jotbay) -> jotbay_core::Result<()> {
     })
 }
 
-fn cmd_upgrade(jotbay: &Jotbay) -> jotbay_core::Result<()> {
+fn cmd_upgrade(jotbay: &Jotbay, json: bool) -> jotbay_core::Result<()> {
     // Asking to upgrade is exactly the moment to find out what "latest" is,
-    // rather than trusting a cache that may be six hours old. This used to call
-    // refresh_remote(), which honours that cache, so the comment was true and
-    // the code was not, and a machine could be unable to reach a new release
-    // until the cache aged out.
+    // rather than trusting a cache that may be six hours old.
     jotbay_core::update::refresh_remote_now();
 
     let status = jotbay.update_status();
     match (&status.latest, status.available) {
         (None, _) => {
-            println!("  No release found. Check your connection, or sync first.");
-            return Ok(());
+            if !json {
+                println!("  No release found. Check your connection, or sync first.");
+            }
+            return Err(jotbay_core::Error::Other("no release found".into()));
         }
         (Some(latest), false) => {
-            println!("  already on {} (latest is {latest})", status.current);
+            // Nothing to do is a success. Reporting it as an error made the
+            // window show a red failure for a machine that was up to date.
+            if json {
+                let outcome = jotbay_core::update::Outcome {
+                    route: jotbay_core::update::route(),
+                    version: status.current.clone(),
+                    replaced: Vec::new(),
+                    sync_restarted: false,
+                    restart_app: false,
+                    already_current: true,
+                };
+                println!("{}", serde_json::to_string_pretty(&outcome)?);
+            } else {
+                println!("  already on {} (latest is {latest})", status.current);
+            }
             return Ok(());
         }
         (Some(latest), true) => {
-            println!();
-            println!("  upgrading {} → {latest}", status.current);
-        }
-    }
-
-    let replaced = jotbay.upgrade()?;
-    // Name the directory, not just the files. An upgrade that wrote to the
-    // wrong place used to print exactly this line and look identical to one
-    // that worked.
-    let target = jotbay_core::update::install_target()
-        .map(|d| d.display().to_string())
-        .unwrap_or_default();
-    if target.is_empty() {
-        println!("  replaced {}", replaced.join(", "));
-    } else {
-        println!("  replaced {} in {}", replaced.join(", "), target);
-    }
-
-    // A second copy on PATH is what a split install looks like from outside,
-    // and it is invisible until the two disagree: PATH answers with one, the
-    // scheduler runs the other, and the version you are shown is not the
-    // version doing the work.
-    if let Ok(dir) = jotbay_core::update::install_target() {
-        let others = jotbay_core::update::other_copies_on_path(&dir);
-        if !others.is_empty() {
-            println!();
-            println!("  warning: other copies of jotbay are also on PATH:");
-            for o in &others {
-                println!("    {}", o.display());
+            if !json {
+                println!();
+                println!("  upgrading {} → {latest}", status.current);
             }
-            println!("  only the one above was upgraded. Remove the others, or the");
-            println!("  background watcher may keep running an older build.");
         }
     }
 
-    println!("  {}", "restart the app if it is running");
-    println!();
+    let outcome = jotbay.upgrade()?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&outcome)?);
+    } else {
+        render::upgrade(&outcome);
+    }
     Ok(())
 }
 

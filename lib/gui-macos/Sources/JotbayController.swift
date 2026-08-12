@@ -36,6 +36,7 @@ final class JotbayController: ObservableObject {
     /// than on every tick, because none of it changes minute to minute.
     @Published var about: About?
     @Published var checkingUpdates = false
+    @Published var upgrading = false
     @Published var updateCheckResult: String?
 
     private var timer: Timer?
@@ -359,10 +360,28 @@ final class JotbayController: ObservableObject {
     }
 
     func upgrade() {
+        guard !upgrading else { return }
+        upgrading = true
         Task {
-            self.lastMessage = "Downloading update"
+            self.lastMessage = "Updating"
             self.lastMessageIsError = false
-            if await run(["upgrade"]) != nil {
+            if let data = await run(["upgrade", "--json"]),
+               let outcome = try? Self.decoder.decode(UpgradeOutcome.self, from: data) {
+                var message = outcome.alreadyCurrent
+                    ? "Already on \(outcome.version)."
+                    : "Updated to \(outcome.version)."
+                if !outcome.alreadyCurrent && !outcome.syncRestarted {
+                    message += " No background sync is set up on this machine."
+                }
+                if outcome.restartApp {
+                    message += " Restart Jotbay to use it."
+                }
+                self.lastMessage = message
+                self.lastMessageIsError = false
+                self.loadAbout()
+                self.refresh(fetchRemote: false)
+            } else if await run(["upgrade"]) != nil {
+                // An older engine that does not know --json still upgrades.
                 self.lastMessage = "Updated. Restart Jotbay to finish."
                 self.lastMessageIsError = false
                 self.loadAbout()
@@ -375,6 +394,7 @@ final class JotbayController: ObservableObject {
                     : self.lastStderr
                 self.lastMessageIsError = !managed
             }
+            self.upgrading = false
             self.refresh(fetchRemote: false)
         }
     }

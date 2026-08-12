@@ -248,6 +248,76 @@ pub fn bin_dir() -> std::path::PathBuf {
 /// not ours to replace. Refusing is the honest outcome. A package manager
 /// owns those files, and writing a shadow copy somewhere else only recreates
 /// the split.
+/// How this copy of Jotbay is managed, and therefore how to upgrade it.
+///
+/// Detected rather than configured, because the answer is a property of the
+/// machine and a person should never have to know it. Every route ends in the
+/// same place: the new version on disk and the background sync restarted onto
+/// it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+#[serde(tag = "route", rename_all = "snake_case")]
+pub enum Route {
+    /// Loose binaries this account owns. Replace them.
+    Binaries,
+    /// A Homebrew cask. Drive brew, which owns these files.
+    HomebrewCask,
+    /// A .deb. Fetch the new one and let apt install it.
+    AptPackage,
+    /// The Windows installer. Fetch it and run it silently.
+    WindowsInstaller,
+    /// A .app installed from the disk image, with no package manager behind it.
+    MacAppBundle,
+}
+
+/// Work out which one applies to the running executable.
+pub fn route() -> Route {
+    let exe = std::env::current_exe()
+        .map(|p| p.canonicalize().unwrap_or(p))
+        .unwrap_or_default();
+    let path = exe.to_string_lossy().to_string();
+
+    if cfg!(target_os = "windows") {
+        // The installer puts everything in %LOCALAPPDATA%\Jotbay; the script
+        // install uses %LOCALAPPDATA%\Programs\jotbay. Only the first has an
+        // uninstaller beside it, which is the reliable tell.
+        if exe.parent().map(|d| d.join("uninstall.exe").exists()).unwrap_or(false) {
+            return Route::WindowsInstaller;
+        }
+        return Route::Binaries;
+    }
+
+    if cfg!(target_os = "macos") && path.contains(".app/") {
+        // A cask's binary is a symlink into the same bundle, so the path alone
+        // cannot tell them apart. Ask brew, which is definitive.
+        if brew_owns_it() {
+            return Route::HomebrewCask;
+        }
+        return Route::MacAppBundle;
+    }
+
+    if cfg!(target_os = "linux") && dpkg_owns(&path) {
+        return Route::AptPackage;
+    }
+
+    Route::Binaries
+}
+
+fn brew_owns_it() -> bool {
+    crate::proc::quiet("brew")
+        .args(["list", "--cask", "jotbay"])
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn dpkg_owns(path: &str) -> bool {
+    crate::proc::quiet("dpkg")
+        .args(["-S", path])
+        .output()
+        .map(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).starts_with("jotbay"))
+        .unwrap_or(false)
+}
+
 pub fn install_target() -> Result<std::path::PathBuf> {
     let exe = match std::env::current_exe() {
         Ok(p) => p.canonicalize().unwrap_or(p),
@@ -331,6 +401,167 @@ pub fn other_copies_on_path(installed: &std::path::Path) -> Vec<std::path::PathB
 /// repository may be private, `releases/latest/download/` returns 404 to
 /// everyone, including the owner, while it is. Falls back to a plain HTTPS
 /// download so this keeps working unchanged once the repository is public.
+/// What an upgrade did, so every surface can say the same thing.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Outcome {
+    pub route: Route,
+    pub version: String,
+    /// Human-readable list of what was replaced or which tool did it.
+    pub replaced: Vec<String>,
+    /// The background sync is now running the new version.
+    pub sync_restarted: bool,
+    /// The window the person is looking at is still the old build, because a
+    /// running process keeps its image. Only ever true where there is an app.
+    pub restart_app: bool,
+    /// Nothing was done because there was nothing to do. Success, not failure,
+    /// and every surface needs to be able to tell the two apart.
+    #[serde(default)]
+    pub already_current: bool,
+}
+
+/// Do the whole upgrade, whatever this machine is.
+///
+/// One entry point for the CLI and both windows, so "check for updates" is a
+/// single action everywhere instead of a message telling someone to go and run
+/// a different tool. Each route ends the same way: new version on disk, and
+/// the background sync restarted onto it, because replacing files never
+/// replaces a running process.
+pub fn perform(root: &Path, version: &str) -> Result<Outcome> {
+    let route = route();
+    let replaced = match route {
+        Route::Binaries => install(root, version)?,
+        Route::HomebrewCask => run_brew()?,
+        Route::AptPackage => run_apt(version)?,
+        Route::WindowsInstaller => run_windows_installer(version)?,
+        Route::MacAppBundle => install(root, version)?,
+    };
+
+    // Always, and on every route. This is the half that was missing: three
+    // upgrades on this fleet replaced the files and left the old watcher
+    // running, so each machine kept syncing with, and reporting, the previous
+    // version until it was restarted by hand.
+    let sync_restarted = crate::schedule::restart();
+
+    Ok(Outcome {
+        route,
+        version: version.to_string(),
+        replaced,
+        sync_restarted,
+        restart_app: cfg!(target_os = "macos") || cfg!(target_os = "windows"),
+        already_current: false,
+    })
+}
+
+/// Let Homebrew replace the files it owns.
+fn run_brew() -> Result<Vec<String>> {
+    let out = crate::proc::quiet("brew")
+        .args(["upgrade", "--cask", "jotbay"])
+        .output()
+        .map_err(|e| Error::Other(format!("could not run brew: {e}")))?;
+
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        // brew exits non-zero when there is nothing to do, which is not a
+        // failure worth showing anyone.
+        if stderr.contains("already installed") || stderr.contains("up-to-date") {
+            return Ok(vec!["Jotbay.app".into()]);
+        }
+        return Err(Error::Other(format!(
+            "brew could not upgrade the cask: {}",
+            stderr.lines().next().unwrap_or("unknown error").trim()
+        )));
+    }
+    Ok(vec!["Jotbay.app".into(), "jotbay".into()])
+}
+
+/// Fetch the new .deb and let apt install it.
+///
+/// Needs privileges, so it tries the two ways a machine might already have
+/// them before asking anyone to type anything: a passwordless sudo, then
+/// pkexec, which raises a graphical prompt and is what a person clicking a
+/// button in a window expects.
+fn run_apt(version: &str) -> Result<Vec<String>> {
+    let repo = tool_repo();
+    let asset = format!("Jotbay_{version}_amd64.deb");
+    let tmp = std::env::temp_dir().join(&asset);
+    let url = format!("https://github.com/{repo}/releases/download/v{version}/{asset}");
+
+    let ok = crate::proc::quiet("curl")
+        .args(["-fsSL", "-o", &tmp.to_string_lossy(), &url])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !ok {
+        return Err(Error::Other(format!("could not download {asset}")));
+    }
+
+    let path = tmp.to_string_lossy().to_string();
+    let passwordless = crate::proc::quiet("sudo")
+        .args(["-n", "true"])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+
+    let status = if passwordless {
+        crate::proc::quiet("sudo")
+            .args(["-n", "apt-get", "install", "-y", &path])
+            .status()
+    // resolve() falls back to the bare name when it finds nothing, so an
+    // absolute path is the signal that pkexec actually exists here.
+    } else if std::path::Path::new(&crate::proc::resolve("pkexec")).is_absolute() {
+        crate::proc::quiet("pkexec")
+            .args(["apt-get", "install", "-y", &path])
+            .status()
+    } else {
+        return Err(Error::Other(format!(
+            "installing the package needs administrator rights. Run: sudo apt-get install -y {path}"
+        )));
+    };
+
+    if !status.map(|s| s.success()).unwrap_or(false) {
+        return Err(Error::Other(format!(
+            "apt could not install the package. Run: sudo apt-get install -y {path}"
+        )));
+    }
+    let _ = std::fs::remove_file(&tmp);
+    Ok(vec!["jotbay".into(), "jotbay-gui".into()])
+}
+
+/// Fetch the Windows installer and run it silently.
+///
+/// It installs per user, so nothing is elevated and nothing prompts. The
+/// running processes have to stand down first, because Windows refuses to
+/// overwrite a running image at all.
+fn run_windows_installer(version: &str) -> Result<Vec<String>> {
+    let repo = tool_repo();
+    let asset = format!("Jotbay_{version}_x64-setup.exe");
+    let tmp = std::env::temp_dir().join(&asset);
+    let url = format!("https://github.com/{repo}/releases/download/v{version}/{asset}");
+
+    let ok = crate::proc::quiet("curl")
+        .args(["-fsSL", "-o", &tmp.to_string_lossy(), &url])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !ok {
+        return Err(Error::Other(format!("could not download {asset}")));
+    }
+
+    // The window, not this process: killing ourselves mid-upgrade would leave
+    // the installer with nobody to report to.
+    let _ = crate::proc::quiet("taskkill").args(["/im", "jotbay-gui.exe", "/f"]).output();
+
+    let status = crate::proc::quiet(&tmp.to_string_lossy())
+        .arg("/S")
+        .status()
+        .map_err(|e| Error::Other(format!("could not run the installer: {e}")))?;
+    if !status.success() {
+        return Err(Error::Other("the installer did not finish".into()));
+    }
+    let _ = std::fs::remove_file(&tmp);
+    Ok(vec!["Jotbay".into(), "jotbay.exe".into()])
+}
+
 pub fn install(root: &Path, version: &str) -> Result<Vec<String>> {
     // Before the download, not after it.
     //

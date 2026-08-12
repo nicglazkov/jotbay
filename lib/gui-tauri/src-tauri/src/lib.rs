@@ -260,7 +260,7 @@ async fn get_log(limit: u32) -> Result<Vec<CommitInfo>, String> {
 }
 
 #[tauri::command]
-async fn do_upgrade() -> Result<Vec<String>, String> {
+async fn do_upgrade() -> Result<jotbay_core::update::Outcome, String> {
     tauri::async_runtime::spawn_blocking(|| jotbay()?.upgrade().map_err(|e| e.to_string()))
         .await
         .map_err(|e| e.to_string())?

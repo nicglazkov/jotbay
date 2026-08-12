@@ -283,7 +283,13 @@ impl Jotbay {
     }
 
     /// Fetch that release and replace this machine's binaries.
-    pub fn upgrade(&self) -> Result<Vec<String>> {
+    /// Upgrade this machine, whatever it was installed with.
+    ///
+    /// One call for every surface. It works out whether these files belong to
+    /// Homebrew, to apt, to the Windows installer or to nobody, does the right
+    /// thing, and restarts the background sync so the machine is actually
+    /// running what was installed rather than merely holding it on disk.
+    pub fn upgrade(&self) -> Result<update::Outcome> {
         let status = self.update_status();
         let version = status
             .latest
@@ -291,7 +297,7 @@ impl Jotbay {
         if !status.available {
             return Err(Error::Other(format!("already on {}", status.current)));
         }
-        update::install(self.root(), &version)
+        update::perform(self.root(), &version)
     }
 
     /// Remember this vault as the one this machine uses.

@@ -543,6 +543,40 @@ pub fn offline_notice() {
     println!();
 }
 
+/// What the upgrade did, in the terms a person cares about.
+pub fn upgrade(o: &jotbay_core::update::Outcome) {
+    use jotbay_core::update::Route;
+
+    let how = match o.route {
+        Route::Binaries => "replaced the binaries",
+        Route::HomebrewCask => "upgraded the Homebrew cask",
+        Route::AptPackage => "installed the new package",
+        Route::WindowsInstaller => "ran the installer",
+        Route::MacAppBundle => "replaced Jotbay.app",
+    };
+    println!("  {} {}", "✓".green(), format!("now on {} · {how}", o.version));
+
+    // Said either way. Silence about the background sync is what let three
+    // machines keep running the old version after a successful upgrade.
+    if o.sync_restarted {
+        println!("  {} background sync restarted", "✓".green());
+    } else {
+        println!(
+            "  {} {}",
+            "·".bright_black(),
+            "no background sync is set up here, run `jotbay schedule`".bright_black()
+        );
+    }
+    if o.restart_app {
+        println!(
+            "  {} {}",
+            "·".bright_black(),
+            "quit and reopen the Jotbay window to use the new version".bright_black()
+        );
+    }
+    println!();
+}
+
 pub fn error(msg: &str) {
     eprintln!("  {} {}", "✖".red(), msg);
 }

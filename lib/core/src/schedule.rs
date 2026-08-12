@@ -38,6 +38,64 @@ pub fn is_installed() -> bool {
     }
 }
 
+/// Restart the background sync so it runs the binaries that are on disk now.
+///
+/// Replacing the files does not replace the running process. Every operating
+/// system here keeps a started process on the image it started with, so a
+/// machine can be fully upgraded and still sync with the previous version
+/// indefinitely, publishing that version as its own to every other machine.
+/// Three upgrades in a row on this fleet needed this done by hand before the
+/// node list stopped lying.
+///
+/// Never fatal: a machine whose scheduler will not restart is still upgraded,
+/// and the caller says so rather than calling the whole upgrade a failure.
+pub fn restart() -> bool {
+    if !is_installed() {
+        return false;
+    }
+    if cfg!(target_os = "macos") {
+        // kickstart -k terminates the running job and starts it again. Unload
+        // and load races with launchd's own restart of a KeepAlive job.
+        let target = format!("gui/{}/{LABEL}", uid());
+        crate::proc::quiet("launchctl")
+            .args(["kickstart", "-k", &target])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    } else if cfg!(target_os = "windows") {
+        // End then Run: Start alone is ignored while an instance is running,
+        // which is exactly the case here.
+        let _ = crate::proc::quiet("schtasks")
+            .args(["/end", "/tn", "jotbay-sync"])
+            .output();
+        crate::proc::quiet("schtasks")
+            .args(["/run", "/tn", "jotbay-sync"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    } else {
+        crate::proc::quiet("systemctl")
+            .args(["--user", "restart", "jotbay-sync.service"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
+    }
+}
+
+/// This account's numeric id, which is what launchd's domain target needs.
+///
+/// Read by asking `id`, rather than taking a dependency on libc for one call
+/// that runs only when an upgrade finishes.
+fn uid() -> String {
+    crate::proc::quiet("id")
+        .arg("-u")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
 /// Register it if it is not already there.
 ///
 /// Never fatal to the caller: a machine where this fails still syncs whenever

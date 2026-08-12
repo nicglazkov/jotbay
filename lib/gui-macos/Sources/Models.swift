@@ -303,6 +303,27 @@ struct SyncHealth: Codable {
     }
 }
 
+/// What `jotbay upgrade --json` reports it did.
+struct UpgradeOutcome: Codable {
+    let version: String
+    let replaced: [String]
+    /// The background sync now runs the new version. False when this machine
+    /// has none registered.
+    let syncRestarted: Bool
+    /// This window is still the old build, because a running process keeps
+    /// the image it started with.
+    let restartApp: Bool
+    /// Nothing was done because nothing needed doing.
+    let alreadyCurrent: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case version, replaced
+        case syncRestarted = "sync_restarted"
+        case restartApp = "restart_app"
+        case alreadyCurrent = "already_current"
+    }
+}
+
 /// Per-machine preferences, read from the same file the CLI writes.
 struct AppSettings: Codable {
     var theme: String

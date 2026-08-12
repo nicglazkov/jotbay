@@ -43,6 +43,9 @@ pub struct About {
     /// interface has to guess, because guessing produced an "Update now"
     /// button that could only ever fail.
     pub upgrade_in_place: bool,
+    /// How this copy will actually be upgraded, so a machine can be checked
+    /// without running an upgrade on it.
+    pub upgrade_route: update::Route,
     /// What to do instead, when it cannot. Written by the engine so the CLI
     /// and both windows give the same instruction.
     pub upgrade_instructions: Option<String>,
@@ -149,6 +152,7 @@ impl Jotbay {
             config_path: settings::settings_path(),
             tool_repo: update::tool_repo(),
             upgrade_in_place: upgrade_route.is_ok(),
+            upgrade_route: update::route(),
             upgrade_instructions: upgrade_route.err().map(|e| e.to_string()),
             update_available: {
                 let u = update::check(self.git.root());
