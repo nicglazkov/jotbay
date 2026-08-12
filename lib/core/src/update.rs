@@ -461,7 +461,7 @@ pub fn perform(root: &Path, version: &str) -> Result<Outcome> {
         // `replace_binary` already renames a running image out of the way,
         // which is the one thing Windows does allow.
         Route::WindowsInstaller => install(root, version)?,
-        Route::MacAppBundle => install(root, version)?,
+        Route::MacAppBundle => run_mac_dmg(version)?,
     };
 
     // Ask the file whether it is actually the new version, rather than
@@ -538,6 +538,132 @@ fn run_brew() -> Result<Vec<String>> {
         )));
     }
     Ok(vec!["Jotbay.app".into(), "jotbay".into()])
+}
+
+/// Replace Jotbay.app from the notarized disk image.
+///
+/// Not from `jotbay-macos-universal.tar.gz`, even though it carries a copy of
+/// the app. CI has no signing identity, so the app in that archive is adhoc
+/// signed with no notarization ticket, and `spctl` rejects it. Installing it
+/// over a notarized copy would leave a machine with an app Gatekeeper refuses
+/// to launch, which is a far worse outcome than not upgrading. The .dmg is the
+/// only macOS artefact that is signed and stapled.
+fn run_mac_dmg(version: &str) -> Result<Vec<String>> {
+    let installed = installed_app_bundle()
+        .ok_or_else(|| Error::Other("could not find the installed Jotbay.app".into()))?;
+
+    let repo = tool_repo();
+    let tmp = std::env::temp_dir().join(format!("jotbay-{version}.dmg"));
+    let url = format!("https://github.com/{repo}/releases/download/v{version}/Jotbay.dmg");
+    let ok = crate::proc::quiet("curl")
+        .args(["-fsSL", "-o", &tmp.to_string_lossy(), &url])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !ok {
+        return Err(Error::Other("could not download Jotbay.dmg".into()));
+    }
+
+    let mount = attach_dmg(&tmp)?;
+    let result = replace_bundle_from(&mount, &installed);
+    // Detached whatever happened, or the volume stays mounted forever and the
+    // next attempt finds a second one.
+    let _ = crate::proc::quiet("hdiutil")
+        .args(["detach", &mount.to_string_lossy(), "-quiet"])
+        .output();
+    let _ = std::fs::remove_file(&tmp);
+    result?;
+    Ok(vec!["Jotbay.app".into()])
+}
+
+/// Which Jotbay.app this process is running inside.
+fn installed_app_bundle() -> Option<std::path::PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let exe = exe.canonicalize().unwrap_or(exe);
+    exe.ancestors()
+        .find(|p| p.extension().is_some_and(|e| e == "app"))
+        .map(|p| p.to_path_buf())
+}
+
+/// Mount the image and return where it landed.
+///
+/// Read as a plist rather than scraped from the text output. The volume name
+/// carries the version and therefore a space, so splitting the last line on
+/// whitespace yields "/Volumes/Jotbay" and the copy fails with "No such file
+/// or directory".
+fn attach_dmg(dmg: &std::path::Path) -> Result<std::path::PathBuf> {
+    let out = crate::proc::quiet("hdiutil")
+        .args(["attach", "-nobrowse", "-readonly", "-plist", &dmg.to_string_lossy()])
+        .output()
+        .map_err(|e| Error::Other(format!("could not mount the disk image: {e}")))?;
+    if !out.status.success() {
+        return Err(Error::Other("could not mount the disk image".into()));
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    // <key>mount-point</key><string>/Volumes/Jotbay 1.9.4</string>
+    let point = text
+        .split("<key>mount-point</key>")
+        .nth(1)
+        .and_then(|rest| rest.split("<string>").nth(1))
+        .and_then(|rest| rest.split("</string>").next())
+        .map(|s| s.trim().to_string())
+        .ok_or_else(|| Error::Other("the disk image mounted with no mount point".into()))?;
+    Ok(std::path::PathBuf::from(point))
+}
+
+/// Swap the new bundle in, having checked macOS will accept it.
+fn replace_bundle_from(mount: &std::path::Path, installed: &std::path::Path) -> Result<()> {
+    let incoming = mount.join("Jotbay.app");
+    if !incoming.is_dir() {
+        return Err(Error::Other("the disk image contains no Jotbay.app".into()));
+    }
+
+    // Refuse anything Gatekeeper would refuse, before touching what works.
+    let verdict = crate::proc::quiet("spctl")
+        .args(["-a", "-vv", &incoming.to_string_lossy()])
+        .output()
+        .map_err(|e| Error::Other(format!("could not check the signature: {e}")))?;
+    if !verdict.status.success() {
+        return Err(Error::Other(
+            "the downloaded app is not accepted by Gatekeeper, so it was not installed".into(),
+        ));
+    }
+
+    let staging = installed.with_file_name(".Jotbay.app.incoming");
+    let outgoing = installed.with_file_name(".Jotbay.app.outgoing");
+    let _ = std::fs::remove_dir_all(&staging);
+    let _ = std::fs::remove_dir_all(&outgoing);
+
+    // Copied beside the live bundle and swapped by rename, so a copy that dies
+    // halfway cannot leave a broken app where the working one was. `ditto`
+    // rather than a recursive copy: it preserves the signature's metadata,
+    // which a plain copy can strip and thereby break the very thing just
+    // verified.
+    let copied = crate::proc::quiet("ditto")
+        .arg(incoming.as_os_str())
+        .arg(staging.as_os_str())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if !copied {
+        let _ = std::fs::remove_dir_all(&staging);
+        return Err(Error::Other(
+            "could not copy the new app into place. If this is /Applications, the terminal              may need App Management permission in System Settings, Privacy and Security."
+                .into(),
+        ));
+    }
+
+    std::fs::rename(installed, &outgoing).map_err(|e| {
+        let _ = std::fs::remove_dir_all(&staging);
+        Error::Other(format!("could not move the old app aside: {e}"))
+    })?;
+    if let Err(e) = std::fs::rename(&staging, installed) {
+        // Put it back rather than leaving the machine with no app at all.
+        let _ = std::fs::rename(&outgoing, installed);
+        return Err(Error::Other(format!("could not move the new app into place: {e}")));
+    }
+    let _ = std::fs::remove_dir_all(&outgoing);
+    Ok(())
 }
 
 /// Fetch the new .deb and let apt install it.
