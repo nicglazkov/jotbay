@@ -189,10 +189,64 @@ jobs:
         shell: bash
         run: rm -rf "lib/gui-tauri/src-tauri/target/${{ matrix.target }}/release/bundle"
 
+      # The AppImage bundler fetches its own tooling from a GitHub release
+      # while it runs, with no retry and no cache. Three consecutive 1.9.0
+      # builds died there, each with a different message: "failed to run
+      # linuxdeploy", "http status: 503", and "io: Peer disconnected". The .deb
+      # was already built each time, so a working release was blocked entirely
+      # by somebody else's download.
+      #
+      # Fetch the same files first, with retries, into the cache the bundler
+      # checks before reaching for the network. If this step cannot get them
+      # either, the build carries on and fails the old way rather than hiding
+      # a real problem behind a missing file.
+      - name: Pre-fetch the AppImage tooling
+        if: matrix.os == 'linux'
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          cache="$HOME/.cache/tauri"
+          mkdir -p "$cache"
+          get() {
+            curl --location --silent --show-error --fail \
+                 --retry 6 --retry-delay 5 --retry-all-errors \
+                 --connect-timeout 20 --max-time 300 \
+                 -o "$cache/$2" "$1" && echo "  cached $2" || echo "  could not cache $2"
+          }
+          base=https://github.com/tauri-apps/binary-releases/releases/download
+          get "$base/apprun-old/AppRun-x86_64" AppRun-x86_64
+          get "$base/linuxdeploy/linuxdeploy-x86_64.AppImage" linuxdeploy-x86_64.AppImage
+          chmod +x "$cache"/* 2>/dev/null || true
+          ls -la "$cache"
+
+      # Retried, because the AppImage step reaches out to the network partway
+      # through and has no retry of its own. The pre-fetch above may or may not
+      # land in the directory this version of the bundler looks in, and that is
+      # not worth guessing at: three attempts costs a few minutes on a bad day
+      # and nothing on a good one, and it does not depend on any internal
+      # detail staying true.
+      #
+      # Only genuinely transient failures benefit. A real compile error fails
+      # all three the same way and still stops the release.
       - name: Build desktop app and installers (Windows and Linux)
         if: matrix.os != 'macos'
         working-directory: lib/gui-tauri/src-tauri
-        run: tauri build --target ${{ matrix.target }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            echo "::group::bundle attempt $attempt"
+            if tauri build --target ${{ matrix.target }}; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "attempt $attempt failed"
+            sleep 15
+          done
+          echo "::error::the bundler failed three times"
+          exit 1
 
       # Names the exact files that will be published. A bundler that silently
       # produces nothing for a target looks identical to a successful build
