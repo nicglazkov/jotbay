@@ -566,3 +566,14 @@ body.settings-only #settings-panel {
   color: var(--text-dim);
 }
 .frow.deleted-row .fmeta { font-size: 14px; }
+
+/* The two-versions row sits above the file list only while pairs exist. */
+.conflicts-row {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; font: inherit; font-size: 12px; text-align: left;
+  padding: 8px 16px; border: 0; border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  color: var(--text); cursor: pointer;
+}
+.conflicts-row .review { color: var(--accent); font-weight: 500; }
+.cchoices { display: flex; gap: 12px; margin-top: 5px; }

@@ -132,6 +132,20 @@ impl Drop for SyncGuard {
 /// Every command opens Jotbay fresh. Sync passes are seconds apart at most
 /// and git is the real source of truth, so caching a handle would only create
 /// a way for the UI to show something git no longer agrees with.
+fn run_quiet(program: &str, args: &[&str]) -> Result<(), String> {
+    jotbay_core::proc::quiet(program)
+        .args(args)
+        .output()
+        .map_err(|e| format!("could not run {program}: {e}"))
+        .and_then(|o| {
+            if o.status.success() {
+                Ok(())
+            } else {
+                Err(format!("{program} failed"))
+            }
+        })
+}
+
 fn jotbay() -> Result<Jotbay, String> {
     // for_app, not discover: this process's working directory is wherever the
     // launcher left it, which on Windows is the install directory.
@@ -373,6 +387,53 @@ async fn open_note(rel: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+/// Post a system notification, without a plugin.
+///
+/// `notify-send` on Linux and a WinRT toast via PowerShell on Windows, both
+/// through proc::quiet like every other external tool here. A plugin would add
+/// a crate, a capability file and an npm package to deliver these two calls.
+/// The frontend decides *when* to notify, because it already computes health
+/// for the window; this only delivers.
+#[tauri::command]
+async fn notify(title: String, body: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        if cfg!(target_os = "windows") {
+            let clean = |s: &str| s.replace('\'', " ").replace('"', " ");
+            let script = format!(
+                "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null; \
+                 $x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02); \
+                 $t = $x.GetElementsByTagName('text'); \
+                 $t.Item(0).AppendChild($x.CreateTextNode('{}')) | Out-Null; \
+                 $t.Item(1).AppendChild($x.CreateTextNode('{}')) | Out-Null; \
+                 [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Jotbay').Show([Windows.UI.Notifications.ToastNotification]::new($x))",
+                clean(&title),
+                clean(&body)
+            );
+            run_quiet("powershell", &["-NoProfile", "-Command", &script])
+        } else {
+            run_quiet("notify-send", &["--app-name=Jotbay", &title, &body])
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn conflict_pairs() -> Result<Vec<jotbay_core::pairs::ConflictPair>, String> {
+    tauri::async_runtime::spawn_blocking(|| jotbay()?.conflict_pairs().map_err(|e| e.to_string()))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn settle_conflict(copy: String, choice: jotbay_core::pairs::Settle) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        jotbay()?.settle_conflict(&copy, choice).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 async fn get_about() -> Result<jotbay_core::about::About, String> {
     tauri::async_runtime::spawn_blocking(|| jotbay()?.about().map_err(|e| e.to_string()))
@@ -606,6 +667,9 @@ pub fn run() {
             get_settings,
             set_settings,
             get_about,
+            conflict_pairs,
+            settle_conflict,
+            notify,
             search_notes,
             note_history,
             deleted_notes,

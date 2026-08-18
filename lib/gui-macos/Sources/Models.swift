@@ -364,6 +364,16 @@ struct DeletedNote: Codable, Identifiable, Hashable {
     let machine: String?
 }
 
+/// A conflict copy still sitting in the vault, paired with its note.
+struct ConflictPair: Codable, Identifiable, Hashable {
+    var id: String { copy }
+    let original: String
+    let copy: String
+    let machine: String?
+    let at: String?
+    let identical: Bool
+}
+
 /// Per-machine preferences, read from the same file the CLI writes.
 struct AppSettings: Codable {
     var theme: String

@@ -653,6 +653,40 @@ pub fn wrote(path: &std::path::Path, verb: &str) {
     println!();
 }
 
+pub fn settled() {
+    println!();
+    println!("  {} settled. It will sync with the next change.", "✓".green());
+    println!();
+}
+
+/// Conflict copies waiting for a decision.
+pub fn conflict_pairs(pairs: &[jotbay_core::pairs::ConflictPair]) {
+    println!();
+    if pairs.is_empty() {
+        println!("  {}", "no conflicts waiting".bright_black());
+        println!();
+        return;
+    }
+    for p in pairs {
+        let when = p.at.as_deref().map(|a| a.get(..16).unwrap_or(a).replace('T', " ")).unwrap_or_default();
+        let who = p.machine.clone().unwrap_or_else(|| "another machine".into());
+        println!("  {} {}", "⚠".yellow(), p.original.bold());
+        if p.identical {
+            println!("      {}", format!("both versions are identical · {who} · {when}").bright_black());
+        } else {
+            println!("      {}", format!("also edited on {who} · {when}").bright_black());
+            println!("      {}", format!("their copy: {}", p.copy).bright_black());
+        }
+    }
+    println!();
+    println!(
+        "  {}",
+        "settle one with: jotbay conflicts <copy> --settle keep-current | keep-copy | keep-both"
+            .bright_black()
+    );
+    println!();
+}
+
 pub fn error(msg: &str) {
     eprintln!("  {} {}", "✖".red(), msg);
 }

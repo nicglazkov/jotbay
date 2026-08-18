@@ -171,6 +171,7 @@ final class JotbayController: ObservableObject {
         // launched from. A lazy static read after a replacement would record
         // the new file as the original and never report anything.
         _ = Self.launchedFile
+        Notifier.shared.prepare()
         loadSettings()
         loadAbout()
         checkSetup()
@@ -199,6 +200,7 @@ final class JotbayController: ObservableObject {
             if let data = await run(args) {
                 if let decoded = try? Self.decoder.decode(JotbayStatus.self, from: data) {
                     self.status = decoded
+                    self.notifyProblems()
                 }
             }
             // Both shapes come from `activity --json`; --raw decides which.
@@ -473,6 +475,72 @@ final class JotbayController: ObservableObject {
                 self.lastMessage = self.lastStderr.isEmpty ? "Could not open that note" : self.lastStderr
                 self.lastMessageIsError = true
             }
+        }
+    }
+
+    /// The conditions worth interrupting someone over, drawn from the same
+    /// status every pane renders, so a notification can never disagree with
+    /// the window.
+    private func notifyProblems() {
+        var problems: [(key: String, title: String, body: String)] = []
+
+        for node in status.nodes {
+            let health = node.health(localHead: status.head)
+            switch health {
+            case .error:
+                problems.append((
+                    key: "error-\(node.hostname)",
+                    title: "\(node.hostname) can't sync",
+                    body: node.lastError ?? "It reported a failure."
+                ))
+            case .missing:
+                problems.append((
+                    key: "missing-\(node.hostname)",
+                    title: "\(node.hostname) has gone quiet",
+                    body: "No word from it in over a day. It may be unable to reach your notes repository."
+                ))
+            default:
+                break
+            }
+        }
+
+        if status.rebaseInProgress {
+            problems.append((
+                key: "conflicts-local",
+                title: "Conflicts need attention",
+                body: "\(status.conflicts.count) file(s) were changed in two places. Both versions are kept."
+            ))
+        }
+        for warning in status.warnings where warning.severity == .blocked {
+            problems.append((
+                key: "blocked-\(warning.path)",
+                title: "\(warning.filename) can't sync",
+                body: warning.advice ?? "It is over the size limit, so it stays on this machine only."
+            ))
+        }
+
+        Notifier.shared.reconcile(problems: problems)
+    }
+
+    func conflictPairs() async -> [ConflictPair] {
+        guard let data = await run(["conflicts", "--json"]),
+              let pairs = try? Self.decoder.decode([ConflictPair].self, from: data)
+        else { return [] }
+        return pairs
+    }
+
+    /// choice is keep-current, keep-copy or keep-both, the CLI's own words.
+    func settleConflict(_ copy: String, choice: String, then done: @escaping () -> Void) {
+        Task {
+            if await run(["conflicts", copy, "--settle", choice]) != nil {
+                self.lastMessage = "Settled. It will sync with the next change."
+                self.lastMessageIsError = false
+            } else {
+                self.lastMessage = self.lastStderr.isEmpty ? "Could not settle that" : self.lastStderr
+                self.lastMessageIsError = true
+            }
+            done()
+            self.refresh(fetchRemote: false)
         }
     }
 

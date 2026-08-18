@@ -435,6 +435,15 @@ private struct RightPane: View {
     // occasionally the interesting one.
     @State private var tab: Tab = .files
 
+    private var quickOpen: some View {
+        // Cmd+K must land in the search field even from the Activity tab, so
+        // the tab switch happens here and the pane grabs focus on the same
+        // notification a moment later.
+        EmptyView().onReceive(
+            NotificationCenter.default.publisher(for: .jotbayQuickOpen)
+        ) { _ in tab = .files }
+    }
+
     /// Declaration order is display order.
     enum Tab: String, CaseIterable {
         case files = "Files"
@@ -443,6 +452,7 @@ private struct RightPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            quickOpen
             HStack {
                 // Same place, same weight as the other pane headers, so the
                 // tabs read as part of the chrome rather than as content.

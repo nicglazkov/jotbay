@@ -137,6 +137,14 @@ enum Command {
     },
     /// Open a note in whichever editor this machine uses
     Edit { file: String },
+    /// Conflict copies waiting to be settled, or settle one
+    Conflicts {
+        /// The conflict copy to settle
+        copy: Option<String>,
+        /// keep-current, keep-copy, or keep-both
+        #[arg(long, value_name = "CHOICE")]
+        settle: Option<String>,
+    },
     /// Show this machine: version, notes, remote, and background sync
     About,
     /// Show or change per-machine preferences
@@ -193,6 +201,7 @@ fn main() -> ExitCode {
         Command::New { name, text } => cmd_new(&jotbay, &name, &text.join(" ")),
         Command::Add { file, text } => cmd_add(&jotbay, &file, &text.join(" ")),
         Command::Edit { file } => cmd_edit(&jotbay, &file),
+        Command::Conflicts { copy, settle } => cmd_conflicts(&jotbay, cli.json, copy, settle),
         Command::About => cmd_about(&jotbay, cli.json),
         Command::Settings { assignment } => cmd_settings(cli.json, assignment),
     };
@@ -286,6 +295,44 @@ fn cmd_add(jotbay: &Jotbay, file: &str, text: &str) -> jotbay_core::Result<()> {
 
 fn cmd_edit(jotbay: &Jotbay, file: &str) -> jotbay_core::Result<()> {
     jotbay.open_note_externally(file)?;
+    Ok(())
+}
+
+fn cmd_conflicts(
+    jotbay: &Jotbay,
+    json: bool,
+    copy: Option<String>,
+    settle: Option<String>,
+) -> jotbay_core::Result<()> {
+    use jotbay_core::pairs::Settle;
+
+    if let Some(copy) = copy {
+        let choice = match settle.as_deref() {
+            Some("keep-current") => Settle::KeepCurrent,
+            Some("keep-copy") => Settle::KeepCopy,
+            Some("keep-both") => Settle::KeepBoth,
+            Some(other) => {
+                return Err(jotbay_core::Error::Other(format!(
+                    "'{other}' is not a way to settle. Use keep-current, keep-copy or keep-both."
+                )))
+            }
+            None => {
+                return Err(jotbay_core::Error::Other(
+                    "say how: --settle keep-current, keep-copy or keep-both".into(),
+                ))
+            }
+        };
+        jotbay.settle_conflict(&copy, choice)?;
+        render::settled();
+        return Ok(());
+    }
+
+    let pairs = jotbay.conflict_pairs()?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&pairs)?);
+    } else {
+        render::conflict_pairs(&pairs);
+    }
     Ok(())
 }
 

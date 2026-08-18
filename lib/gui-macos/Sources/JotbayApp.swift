@@ -13,6 +13,14 @@ struct JotbayApp: App {
         }
         .defaultSize(width: 860, height: 560)
         .windowToolbarStyle(.unified(showsTitle: true))
+        .commands {
+            CommandGroup(after: .textEditing) {
+                Button("Find Note") {
+                    NotificationCenter.default.post(name: .jotbayQuickOpen, object: nil)
+                }
+                .keyboardShortcut("k", modifiers: .command)
+            }
+        }
 
         // A real window rather than a popover hanging off the toolbar.
         //

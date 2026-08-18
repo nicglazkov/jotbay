@@ -18,10 +18,13 @@ struct FilesPane: View {
     // than windows on purpose: settings is about the app and gets a window,
     // these are about what is in front of you and belong over it.
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     @State private var hits: [Hit] = []
     @State private var searching = false
     @State private var historyFor: String?
     @State private var showDeleted = false
+    @State private var conflicts: [ConflictPair] = []
+    @State private var showConflicts = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -29,6 +32,34 @@ struct FilesPane: View {
             Divider()
             crumbs
             Divider()
+            // The one mess the app makes on its own, so it is offered for
+            // settling right where the files are, not buried in a menu. Gone
+            // the moment there are no pairs.
+            if !conflicts.isEmpty && query.isEmpty && preview == nil {
+                Button {
+                    showConflicts = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.orange)
+                        Text(conflicts.count == 1
+                             ? "1 note has two versions"
+                             : "\(conflicts.count) notes have two versions")
+                            .font(.system(size: 12))
+                        Spacer()
+                        Text("Review")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(Color.orange.opacity(0.08))
+                Divider()
+            }
             if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                 results
             } else if let preview {
@@ -76,7 +107,15 @@ struct FilesPane: View {
                 listing
             }
         }
-        .onAppear { load() }
+        .onAppear {
+            load()
+            Task { conflicts = await controller.conflictPairs() }
+        }
+        // Cmd+K from anywhere in the window. The publisher, not a local
+        // shortcut, because the key has to work while another pane has focus.
+        .onReceive(NotificationCenter.default.publisher(for: .jotbayQuickOpen)) { _ in
+            searchFocused = true
+        }
         .sheet(item: Binding(
             get: { historyFor.map { HistoryTarget(rel: $0) } },
             set: { historyFor = $0?.rel }
@@ -85,6 +124,12 @@ struct FilesPane: View {
         }
         .sheet(isPresented: $showDeleted) {
             DeletedSheet().environmentObject(controller)
+        }
+        .sheet(isPresented: $showConflicts) {
+            ConflictsSheet(pairs: conflicts) {
+                Task { conflicts = await controller.conflictPairs() }
+            }
+            .environmentObject(controller)
         }
         .sheet(isPresented: $controller.composing) {
             NewNoteSheet { load() }.environmentObject(controller)
@@ -101,7 +146,15 @@ struct FilesPane: View {
             TextField("Search notes", text: $query)
                 .textFieldStyle(.plain)
                 .font(.system(size: 12))
+                .focused($searchFocused)
                 .onChange(of: query) { _, next in runSearch(next) }
+                // Esc puts the listing back; one keystroke out, matching the
+                // one keystroke in.
+                .onExitCommand {
+                    query = ""
+                    hits = []
+                    searchFocused = false
+                }
             if !query.isEmpty {
                 Button {
                     query = ""
@@ -920,5 +973,96 @@ private struct SheetHeader: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
+    }
+}
+
+
+extension Notification.Name {
+    /// Posted by the Cmd+K menu command; lands focus in the search field.
+    static let jotbayQuickOpen = Notification.Name("jotbay.quickOpen")
+}
+
+
+/// Settling the pairs the app's own conflict handling leaves behind.
+///
+/// The wording never says "conflict" first: from the person's side, a note has
+/// two versions and they are choosing which to keep. All three choices keep
+/// both texts in history, and the footer says so, because the fear at this
+/// moment is losing work.
+private struct ConflictsSheet: View {
+    let pairs: [ConflictPair]
+    let changed: () -> Void
+    @EnvironmentObject private var controller: JotbayController
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SheetHeader(title: "Two versions", subtitle: "The same note was edited in two places") {
+                dismiss()
+            }
+            Divider()
+            if pairs.isEmpty {
+                EmptyPane(symbol: "checkmark.circle", title: "All settled",
+                          detail: "No notes have a second version waiting.")
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(pairs) { pair in
+                            ConflictRow(pair: pair) { choice in
+                                controller.settleConflict(pair.copy, choice: choice) {
+                                    changed()
+                                }
+                            }
+                            Divider().padding(.leading, 20)
+                        }
+                    }
+                }
+                Divider()
+                Text("Whichever you choose, both versions stay in this note's history.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+            }
+        }
+        .frame(width: 500, height: 420)
+    }
+}
+
+private struct ConflictRow: View {
+    let pair: ConflictPair
+    let settle: (String) -> Void
+
+    private var when: String {
+        guard let at = pair.at, at.count >= 16 else { return "" }
+        return at.prefix(16).replacingOccurrences(of: "T", with: " ")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(pair.original)
+                .font(.system(size: 12, weight: .medium))
+            if pair.identical {
+                Text("Both versions are identical, so nothing is at stake.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("Tidy up") { settle("keep-current") }
+                        .font(.system(size: 11))
+                }
+            } else {
+                Text("Also edited on \(pair.machine ?? "another machine")\(when.isEmpty ? "" : " · \(when)")")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Button("Keep this version") { settle("keep-current") }
+                    Button("Use \(pair.machine ?? "other")'s") { settle("keep-copy") }
+                    Button("Keep both") { settle("keep-both") }
+                }
+                .font(.system(size: 11))
+            }
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
     }
 }

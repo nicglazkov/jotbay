@@ -434,11 +434,24 @@ jobs:
         with:
           subject-path: dist/*
 
+      # Every release starts as a pre-release, deliberately.
+      #
+      # CI builds Linux and Windows; the notarized DMG is built on a Mac and
+      # attached afterwards. In the gap, this release has no macOS artifact,
+      # and if it is "latest" the website's download button hands macOS
+      # visitors nothing. That happened twice in one day: once when the DMG
+      # could not be built, and once when a re-run of this very step reset a
+      # pre-release flag that had been applied by hand to paper over the first.
+      #
+      # Promotion to a full release is the last step of attaching the DMG, so
+      # "latest" always has a complete set, and re-running this job can only
+      # ever re-assert the safe state.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           generate_release_notes: true
+          prerelease: true
 
   lint-scripts:
     name: lint installers

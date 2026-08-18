@@ -15,6 +15,7 @@ pub mod limits;
 pub mod lock;
 pub mod model;
 pub mod notes;
+pub mod pairs;
 pub mod presence;
 pub mod proc;
 pub mod schedule;
@@ -285,6 +286,17 @@ impl Jotbay {
 
     pub fn open_note_externally(&self, rel: &str) -> Result<()> {
         notes::open_externally(&self.data_dir().join(rel))
+    }
+
+    /// Conflict copies still sitting in the vault, paired with their notes.
+    pub fn conflict_pairs(&self) -> Result<Vec<pairs::ConflictPair>> {
+        pairs::list(&self.data_dir())
+    }
+
+    /// Settle one. Ordinary file work in the working tree: the next sync
+    /// commits it, and version history can undo it.
+    pub fn settle_conflict(&self, copy_rel: &str, choice: pairs::Settle) -> Result<()> {
+        pairs::settle(&self.data_dir(), copy_rel, choice)
     }
 
     pub fn log(&self, limit: u32) -> Result<Vec<CommitInfo>> {
