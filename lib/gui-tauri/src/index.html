@@ -93,6 +93,7 @@
 
     <div class="actions">
       <button id="btn-sync" class="primary">Sync now</button>
+      <button id="btn-new-note">New note</button>
       <button id="btn-folder">Open Folder</button>
       <button id="btn-settings" title="Settings">Settings</button>
     </div>
@@ -210,16 +211,14 @@
       <div id="files" class="pane-body">
         <div class="files-toolbar">
           <input id="files-search" type="search" placeholder="Search notes" autocomplete="off">
-          <button id="btn-new-note" class="link">New note</button>
-          <button id="btn-deleted" class="link">Deleted</button>
         </div>
         <div id="search-results" hidden></div>
         <div id="files-crumbs" class="crumbs"></div>
         <div id="files-list"></div>
         <div id="file-preview" hidden>
           <div class="preview-actions">
-            <button id="btn-open-editor" class="link">Open in editor</button>
-            <button id="btn-history" class="link">History</button>
+            <button id="btn-open-editor" class="link">↗ Open in editor</button>
+            <button id="btn-history" class="link">🕘 Version history</button>
           </div>
           <div id="preview-meta" class="preview-meta"></div>
           <div id="preview-body" class="preview-body"></div>

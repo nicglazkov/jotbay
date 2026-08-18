@@ -62,6 +62,15 @@ struct MainWindow: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
+                    controller.composing = true
+                } label: {
+                    Label("New Note", systemImage: "square.and.pencil")
+                }
+                .help("Start a note")
+                .disabled(controller.needsSetup)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
                     controller.revealDataDirectory()
                 } label: {
                     Label("Open Folder", systemImage: "folder")

@@ -22,7 +22,6 @@ struct FilesPane: View {
     @State private var searching = false
     @State private var historyFor: String?
     @State private var showDeleted = false
-    @State private var newNote = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -34,13 +33,28 @@ struct FilesPane: View {
                 results
             } else if let preview {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 14) {
                         // The honest answer to "let me edit in the app": hand
                         // the note to whatever this person already writes in.
-                        Button("Open in editor") { controller.openInEditor(preview.rel) }
-                        Button("History") { historyFor = preview.rel }
+                        // The outward arrow says it leaves Jotbay, which the
+                        // words alone did not.
+                        Button {
+                            controller.openInEditor(preview.rel)
+                        } label: {
+                            Label("Open in editor", systemImage: "arrow.up.forward.app")
+                        }
+                        // "History" sat one tab away from Activity, which is
+                        // also a history, of something else entirely. Naming
+                        // the thing it is a history *of* is the whole fix.
+                        Button {
+                            historyFor = preview.rel
+                        } label: {
+                            Label("Version history", systemImage: "clock.arrow.circlepath")
+                        }
                         Spacer()
                     }
+                    .buttonStyle(.borderless)
+                    .labelStyle(.titleAndIcon)
                     .font(.system(size: 11))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 7)
@@ -51,8 +65,13 @@ struct FilesPane: View {
                 EmptyPane(symbol: "exclamationmark.triangle", title: "Can't read that",
                           detail: problem)
             } else if entries.isEmpty {
-                EmptyPane(symbol: "tray", title: "Nothing here yet",
-                          detail: "Files you put in this folder sync everywhere.")
+                VStack(spacing: 0) {
+                    EmptyPane(symbol: "tray", title: "Nothing here yet",
+                              detail: "Files you put in this folder sync everywhere.")
+                    // Reachable from an empty folder too. Somebody who has
+                    // just deleted the last note is exactly who needs this.
+                    if relPath.isEmpty { recentlyDeletedRow }
+                }
             } else {
                 listing
             }
@@ -67,7 +86,7 @@ struct FilesPane: View {
         .sheet(isPresented: $showDeleted) {
             DeletedSheet().environmentObject(controller)
         }
-        .sheet(isPresented: $newNote) {
+        .sheet(isPresented: $controller.composing) {
             NewNoteSheet { load() }.environmentObject(controller)
         }
     }
@@ -94,10 +113,6 @@ struct FilesPane: View {
                 .foregroundStyle(.tertiary)
             }
             Spacer()
-            Button("New note") { newNote = true }
-                .font(.system(size: 11))
-            Button("Deleted") { showDeleted = true }
-                .font(.system(size: 11))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)
@@ -227,7 +242,47 @@ struct FilesPane: View {
                     .buttonStyle(.plain)
                     Divider().padding(.leading, 20)
                 }
+
+                // A place, not a button.
+                //
+                // It was a toolbar button labelled "Deleted", which reads as a
+                // filter and sat beside an action. Recovering a note is
+                // somewhere you go, the way Photos and Mail treat it, so it
+                // belongs at the end of the list looking like what it is.
+                //
+                // Only at the top level: shown inside design/ it would read as
+                // that folder's deleted notes, and it is the whole vault's.
+                if relPath.isEmpty {
+                    recentlyDeletedRow
+                }
             }
+        }
+    }
+
+    private var recentlyDeletedRow: some View {
+        VStack(spacing: 0) {
+            // Set apart, because it is not one of the notes above it.
+            Divider().padding(.vertical, 6).padding(.horizontal, 20)
+            Button {
+                showDeleted = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 16)
+                    Text("Recently Deleted")
+                        .font(.system(size: 13))
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
     }
 

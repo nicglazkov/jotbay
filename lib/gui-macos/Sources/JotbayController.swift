@@ -37,6 +37,10 @@ final class JotbayController: ObservableObject {
     @Published var about: About?
     @Published var checkingUpdates = false
     @Published var upgrading = false
+    /// Raised by the window toolbar, acted on by the files pane. Creating a
+    /// note is an action on the vault, so it belongs in the window's toolbar
+    /// with Sync, not in the pane's chrome next to a search field.
+    @Published var composing = false
     @Published var updateCheckResult: String?
 
     private var timer: Timer?
