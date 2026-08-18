@@ -1,6 +1,6 @@
 [package]
 name = "jotbay-gui"
-version = "1.10.1"
+version = "1.10.2"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
