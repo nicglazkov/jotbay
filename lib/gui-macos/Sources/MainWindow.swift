@@ -119,12 +119,19 @@ private struct SummaryBar: View {
         // the network also sets lastError, and testing that directly turned
         // every commute into a red dot for the whole fleet.
         if failingNodes > 0 { return .error }
+        if missingNodes > 0 { return .diverged }
         return controller.status.isClean ? .healthy : .diverged
     }
 
     private var failingNodes: Int {
         controller.status.nodes.filter {
             $0.health(localHead: controller.status.head) == .error
+        }.count
+    }
+
+    private var missingNodes: Int {
+        controller.status.nodes.filter {
+            $0.health(localHead: controller.status.head) == .missing
         }.count
     }
 
@@ -156,10 +163,14 @@ private struct SummaryBar: View {
             local = parts.joined(separator: ", ").capitalizedFirst
         }
 
-        if failing > 0 {
-            return failing == 1
+        // Counted together: from a person's side "this machine is broken" and
+        // "this machine has said nothing for four days" are the same request
+        // for attention, and one of them cannot report itself.
+        let wrong = failing + missingNodes
+        if wrong > 0 {
+            return wrong == 1
                 ? "\(local) · 1 machine needs attention"
-                : "\(local) · \(failing) machines need attention"
+                : "\(local) · \(wrong) machines need attention"
         }
         // Mentioned, never as a warning. A machine that is merely off the
         // network needs nothing from anyone, and it comes back on its own.

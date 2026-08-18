@@ -163,6 +163,9 @@ struct MenuBarView: View {
         if controller.status.nodes.contains(where: {
             $0.health(localHead: controller.status.head) == .error
         }) { return .error }
+        if controller.status.nodes.contains(where: {
+            $0.health(localHead: controller.status.head) == .missing
+        }) { return .diverged }
         if !controller.status.isClean { return .diverged }
         return .healthy
     }
@@ -252,6 +255,8 @@ struct StatusDot: View {
         case .behind: return .cyan
         case .diverged: return .orange
         case .stale: return .secondary
+        // Amber: a day of silence is worth looking at, not worth ignoring.
+        case .missing: return .orange
         case .offline: return .secondary
         case .error: return .red
         }

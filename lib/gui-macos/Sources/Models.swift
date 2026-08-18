@@ -46,6 +46,10 @@ struct NodeStatus: Codable, Identifiable, Hashable {
         // commute red is how red stops meaning anything.
         if offline == true { return .offline }
         if lastError != nil { return .error }
+        // Before the ordinary staleness check. A machine that cannot publish
+        // its own failure, because publishing needs the credentials that
+        // failed, leaves silence as the only signal there is.
+        if Date().timeIntervalSince(lastSync) > 24 * 60 * 60 { return .missing }
         if Date().timeIntervalSince(lastSync) > interval * 3 { return .stale }
         if head != localHead { return (behindLocal ?? false) ? .behind : .diverged }
         return .healthy
@@ -55,7 +59,7 @@ struct NodeStatus: Codable, Identifiable, Hashable {
 }
 
 enum NodeHealth {
-    case healthy, behind, diverged, stale, offline, error
+    case healthy, behind, diverged, stale, missing, offline, error
 
     var label: String {
         switch self {
@@ -63,6 +67,7 @@ enum NodeHealth {
         case .behind: return "behind"
         case .diverged: return "diverged"
         case .stale: return "not answering"
+        case .missing: return "silent for over a day"
         case .offline: return "offline"
         case .error: return "error"
         }

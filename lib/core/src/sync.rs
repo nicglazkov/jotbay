@@ -435,7 +435,7 @@ fn describe(
 /// and are invisible until they bite. Anything unrecognised keeps its first
 /// line, which is nearly always the useful part; the whole text survives in
 /// `detail` for verbose mode either way.
-fn summarise_error(raw: &str) -> String {
+pub(crate) fn summarise_error(raw: &str) -> String {
     let lower = raw.to_lowercase();
 
     if lower.contains("gh007") || lower.contains("publish a private email") {
@@ -445,8 +445,33 @@ fn summarise_error(raw: &str) -> String {
     if lower.contains("author identity unknown") || lower.contains("please tell me who you are") {
         return "Cannot commit: git has no user.name or user.email on this machine.".to_string();
     }
-    if lower.contains("authentication failed") || lower.contains("could not read username") {
-        return "Authentication failed. The credential helper couldn't answer.".to_string();
+    if lower.contains("authentication failed")
+        || lower.contains("could not read username")
+        || lower.contains("terminal prompts disabled")
+    {
+        // Names the remedy. "Authentication failed" alone leaves someone with
+        // a machine that has stopped working and nothing to try.
+        return "This machine can no longer sign in to the remote. \
+                Run `gh auth login`, or re-enter the credential your git helper stores."
+            .to_string();
+    }
+
+    // macOS keychain codes, which surface raw and mean nothing to anyone.
+    // A real one from this fleet: "fetch failed: failed to get: -25308".
+    if lower.contains("-25308") || lower.contains("interactionnotallowed") {
+        return "The keychain would not release the saved credential. It needs someone \
+                signed in at this machine; over SSH it cannot."
+            .to_string();
+    }
+    if lower.contains("-25300") {
+        return "The saved credential is gone from the keychain. \
+                Sign in again with `gh auth login`."
+            .to_string();
+    }
+    if lower.contains("-25293") {
+        return "The keychain refused the saved credential. Unlock the login keychain, \
+                or sign in again with `gh auth login`."
+            .to_string();
     }
     if lower.contains("exceeds github's file size limit") || lower.contains("gh001") {
         return "Push rejected: a file exceeds GitHub's 100 MB limit.".to_string();
@@ -543,8 +568,12 @@ mod tests {
                         git config --global user.email \"you@example.com\"";
         assert!(summarise_error(identity).contains("no user.name"));
 
-        assert!(summarise_error("fatal: Authentication failed for 'https://'")
-            .contains("Authentication failed"));
+        // Was asserting the words "Authentication failed", which only repeated
+        // git back at the reader. What matters is that it is recognised and
+        // that the reader is told what to do about it.
+        let auth = summarise_error("fatal: Authentication failed for 'https://'");
+        assert!(auth.contains("sign in"), "{auth}");
+        assert!(auth.contains("gh auth login"), "{auth}");
         assert!(summarise_error("fatal: unable to access: Could not resolve host: github.com")
             .contains("Offline"));
     }
@@ -560,5 +589,43 @@ mod tests {
         // Truncation has to announce itself. Without a marker a cut-off error
         // reads as a complete one, and the reader acts on half a sentence.
         assert!(s.ends_with("(truncated)"), "no truncation marker: {s}");
+    }
+}
+
+#[cfg(test)]
+mod error_wording {
+    use super::summarise_error;
+
+    /// Every one of these is a real failure taken off a machine in this fleet.
+    /// The test is not that the wording is exact, but that a person is told
+    /// what to do rather than shown a code.
+    #[test]
+    fn opaque_failures_become_instructions() {
+        let cases = [
+            (
+                "fatal: could not read Username for 'https://github.com': terminal prompts disabled",
+                "gh auth login",
+            ),
+            ("fetch failed: failed to get: -25308", "signed in at this machine"),
+            ("error -25300 from keychain", "gh auth login"),
+            ("remote: error: GH007: Your push would publish a private email address.", "noreply"),
+        ];
+        for (raw, expected) in cases {
+            let said = summarise_error(raw);
+            assert!(
+                said.to_lowercase().contains(&expected.to_lowercase()),
+                "\n  raw:  {raw}\n  said: {said}\n  wanted it to mention: {expected}"
+            );
+            assert!(!said.contains("-253"), "a raw keychain code reached the user: {said}");
+        }
+    }
+
+    #[test]
+    fn an_unrecognised_failure_still_says_something_readable() {
+        // Not every failure can be anticipated. The fallback must still be a
+        // sentence rather than five lines of git plumbing.
+        let said = summarise_error("error: something nobody has seen before\nwith a second line");
+        assert!(!said.contains('\n'), "the feed gets one line, not a paragraph");
+        assert!(!said.is_empty());
     }
 }

@@ -32,6 +32,8 @@ fn colored_health(h: NodeHealth) -> String {
         // Dimmed rather than red. There is nothing to fix, and colouring an
         // ordinary commute as a failure is how red stops meaning anything.
         NodeHealth::Offline => h.glyph().bright_black().to_string(),
+        // Amber, not grey. A day of silence is a problem worth looking at.
+        NodeHealth::Missing => h.glyph().yellow().to_string(),
         NodeHealth::Error => h.glyph().red().to_string(),
     }
 }
@@ -211,6 +213,7 @@ pub fn nodes(nodes: &[NodeStatus], local_head: &str) {
             NodeHealth::Diverged => state.yellow().to_string(),
             NodeHealth::Stale => state.bright_black().to_string(),
             NodeHealth::Offline => state.bright_black().to_string(),
+            NodeHealth::Missing => state.yellow().to_string(),
             NodeHealth::Error => state.red().to_string(),
         };
 

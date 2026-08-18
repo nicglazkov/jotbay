@@ -195,6 +195,7 @@ fn draw_nodes(frame: &mut Frame, area: Rect, app: &App) {
                 NodeHealth::Diverged => WARN,
                 NodeHealth::Stale => DIM,
                 NodeHealth::Offline => DIM,
+                NodeHealth::Missing => WARN,
                 NodeHealth::Error => BAD,
             };
 

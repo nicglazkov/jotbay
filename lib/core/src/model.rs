@@ -56,6 +56,24 @@ impl NodeStatus {
         (OffsetDateTime::now_utc() - self.last_sync).whole_seconds()
     }
 
+    /// After this long, silence stops being ordinary and becomes the news.
+    ///
+    /// A machine that has not answered in a few minutes is asleep, or on a
+    /// train. A machine that has not answered in a day is broken, and the
+    /// difference has to be visible: an iMac here lost its credentials and
+    /// went quiet for four days while rendering as the same grey dot as a
+    /// laptop that had been shut for four minutes.
+    ///
+    /// It cannot report the failure itself. Publishing a status means pushing
+    /// it, which needs the credentials that just failed, so the machine knows
+    /// exactly what is wrong and has no way to say so. The absence is the only
+    /// signal that escapes, which makes it worth reading properly.
+    pub const SILENT_TOO_LONG_SECS: i64 = 24 * 60 * 60;
+
+    pub fn is_silent_too_long(&self) -> bool {
+        self.age_secs() > Self::SILENT_TOO_LONG_SECS
+    }
+
     pub fn health(&self, interval_secs: i64, local_head: &str) -> NodeHealth {
         if self.offline {
             // Checked before `last_error`, which is also set: a machine that
@@ -64,6 +82,9 @@ impl NodeStatus {
             NodeHealth::Offline
         } else if self.last_error.is_some() {
             NodeHealth::Error
+        } else if self.is_silent_too_long() {
+            // Ranked with the problems, not with the quiet states.
+            NodeHealth::Missing
         } else if self.is_stale(interval_secs) {
             NodeHealth::Stale
         } else if self.head != local_head {
@@ -90,6 +111,9 @@ pub enum NodeHealth {
     /// Holds commits the local head does not, needs a sync to reconcile.
     Diverged,
     Stale,
+    /// Has not answered for so long that something is wrong with it, whether
+    /// or not it was ever able to say so.
+    Missing,
     /// Reachable and working, but currently without a route to the remote.
     Offline,
     Error,
@@ -102,6 +126,7 @@ impl NodeHealth {
             NodeHealth::Behind => "◑",
             NodeHealth::Diverged => "◐",
             NodeHealth::Stale => "○",
+            NodeHealth::Missing => "⊘",
             NodeHealth::Offline => "◌",
             NodeHealth::Error => "✖",
         }
@@ -113,6 +138,7 @@ impl NodeHealth {
             NodeHealth::Behind => "behind",
             NodeHealth::Diverged => "diverged",
             NodeHealth::Stale => "not answering",
+            NodeHealth::Missing => "silent for over a day",
             NodeHealth::Offline => "offline",
             NodeHealth::Error => "error",
         }

@@ -552,3 +552,7 @@ body.settings-only #settings-panel {
 }
 .newnote p { margin: 0; font-size: 11px; color: var(--text-faint); }
 .newnote-actions { display: flex; justify-content: flex-end; }
+
+/* Silence past a day is amber, not grey: it is the only signal a machine that
+   cannot authenticate is able to send. */
+.dot[data-health="missing"] { background: var(--warn); }
