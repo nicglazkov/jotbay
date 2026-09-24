@@ -43,7 +43,7 @@ jobs:
             arch: x86_64
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # A tag that disagrees with the crate version ships binaries reporting
       # the wrong number in `--version` and in every node's published status.
@@ -120,7 +120,7 @@ jobs:
           echo "RUSTFLAGS=--remap-path-prefix=$ws=/jotbay --remap-path-prefix=$cargo_home/registry=/cargo-registry" >> "$GITHUB_ENV"
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -389,7 +389,7 @@ jobs:
           Write-Host "all Windows artifacts scanned clean"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.label }}
           path: |
@@ -408,7 +408,7 @@ jobs:
   # is not a gate.
   publish:
     needs: [build, test, lint-scripts, no-leaks]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     # id-token and attestations are for the provenance step below; contents
     # stays because this job creates the release.
@@ -417,7 +417,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
           path: dist
@@ -430,7 +430,7 @@ jobs:
       # after this one, and `gh attestation verify <file> -R nicglazkov/jotbay`
       # checks it from anywhere.
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*
 
@@ -447,7 +447,7 @@ jobs:
       # "latest" always has a complete set, and re-running this job can only
       # ever re-assert the safe state.
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true
@@ -465,7 +465,7 @@ jobs:
             shell: powershell
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Shellcheck the POSIX installers
         if: matrix.shell == 'bash'
@@ -518,7 +518,7 @@ jobs:
     name: nothing personal
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: data/ must be empty
         run: |
@@ -593,7 +593,7 @@ jobs:
         os: [ubuntu-22.04, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - name: Configure git
         # The integration tests drive real repositories, which need an identity.
