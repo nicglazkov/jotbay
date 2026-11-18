@@ -27,7 +27,7 @@ jobs:
           # forever. A universal binary from an arm64 runner covers both Apple
           # Silicon and Intel Macs in a single asset.
           - label: macos-universal
-            runner: macos-14
+            runner: macos-15
             target: aarch64-apple-darwin
             os: macos
             arch: universal
