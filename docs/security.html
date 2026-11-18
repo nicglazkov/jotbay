@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jotbay security</title>
 <meta name="description" content="The Jotbay trust model. Jotbay has no server, it does not read your credentials, and it changes no file outside your vault.">
-<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="images/icon.png">
 <script>
-  (function(){try{var s=localStorage.getItem("jotbay-theme");
-  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+  // Applied before first paint so the page never flashes the wrong theme.
+  // ?theme=light|dark wins for one visit, then a saved choice, then the system setting.
+  (function(){var s=null;try{var q=location.search.match(/theme=(light|dark)/);s=q?q[1]:localStorage.getItem("jotbay-theme");}catch(e){}
+  if(s!=="light"&&s!=="dark")s=window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";
+  document.documentElement.setAttribute("data-theme",s);})();
 </script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="console.css">
 </head>
 <body>
 
@@ -102,14 +105,30 @@
 
 </div>
 
-<footer>
-  <a href="commands.html">Commands</a>
-  <a href="security.html">Security</a>
-  <a href="privacy.html">Privacy</a>
-  <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
-  <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
-  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
-</footer>
+<footer class="foot"><div class="shell">
+  <div class="foot-top">
+    <a class="brand" href="index.html"><img src="images/icon.png" alt="">Jotbay</a>
+    <a href="commands.html">Commands</a>
+    <a href="security.html">Security</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
+    <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
+    <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+  </div>
+  <nav class="more" aria-label="More from Nic">
+    <span class="label">More from Nic</span>
+    <ul>
+      <li><a href="https://commutescout.com"><b>CommuteScout</b><span>Live road conditions</span></a></li>
+      <li><a href="https://nicglazkov.github.io/switchboard/"><b>Switchboard</b><span>Claude Code, one board</span></a></li>
+      <li><a href="https://chalkboard.studio"><b>Chalkboard</b><span>Explainer videos</span></a></li>
+      <li><a href="https://getfiberwatch.com"><b>FiberWatch</b><span>Internet at your address</span></a></li>
+      <li><a href="https://nicglazkov.github.io/outagewatch/"><b>OutageWatch</b><span>PG&amp;E outage alerts</span></a></li>
+      <li><a href="https://nicglazkov.github.io/chaincheck/"><b>ChainCheck</b><span>Tahoe chain controls</span></a></li>
+      <li><a href="https://nicglazkov.github.io/highway-radar-sabre-plus/"><b>SABRE Plus</b><span>Feeds for Highway Radar</span></a></li>
+      <li><a class="home" href="https://nicglazkov.github.io/"><b>All projects</b><span>nicglazkov.github.io</span></a></li>
+    </ul>
+  </nav>
+</div></footer>
 
 <script src="theme.js"></script>
 </body>
