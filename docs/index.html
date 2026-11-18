@@ -5,8 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jotbay</title>
 <meta name="description" content="Jotbay copies a folder of markdown notes to your macOS, Windows, and Linux machines. It uses a private git repository. There is no server and no account.">
-<meta name="theme-color" content="#f5f5fa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#08080c" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0c0e12">
 <meta property="og:title" content="Jotbay">
 <meta property="og:description" content="Jotbay puts your notes on all of your machines. It uses a private git repository. You are the owner of the repository.">
 <meta property="og:type" content="website">
@@ -16,10 +15,10 @@
 <link rel="icon" href="images/icon.png">
 <script>
   // Applied before first paint so the page never flashes the wrong theme.
-  (function(){try{var s=localStorage.getItem("jotbay-theme");
+  (function(){try{var q = location.search.match(/theme=(light|dark)/), s = q ? q[1] : localStorage.getItem("jotbay-theme");
   if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
 </script>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="console.css">
 </head>
 <body>
 
@@ -48,15 +47,24 @@
 <div class="shell">
 
   <header class="hero">
-    <img class="icon" src="images/icon.png" alt="" width="96" height="96">
-    <h1>Jotbay puts your notes<br>on all of your machines.</h1>
+    <span class="tag"><i></i>macOS · Windows · Linux</span>
+    <h1>Jotbay puts your notes <em>on all of your machines.</em></h1>
     <p class="lede">One folder of notes, every machine, no server.</p>
     <div class="cta">
       <a class="fill" href="#install">Install Jotbay</a>
-      <a class="ghost" href="https://github.com/nicglazkov/jotbay">See the source</a>
+      <a href="https://github.com/nicglazkov/jotbay">See the source</a>
     </div>
-    <p class="fineprint">macOS, Windows, Linux. MIT license.</p>
+    <p class="fineprint">MIT license. A private git repository you own; no account.</p>
   </header>
+
+  <figure class="stage">
+    <div class="view flush">
+      <img class="only-light" src="images/macos-main.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
+      <img class="only-dark" src="images/macos-main-dark.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
+    </div>
+    <figcaption data-fig="Fig. 01">Each machine sends its status. If a machine cannot sync for six hours,
+      this window shows the error.</figcaption>
+  </figure>
 
   <section class="panel getit" id="install">
     <h2>Install</h2>
@@ -132,12 +140,6 @@ jotbay init</code></pre>
     </div>
   </section>
 
-  <figure class="stage">
-    <img class="shot only-light" src="images/macos-main.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
-    <img class="shot only-dark" src="images/macos-main-dark.png" alt="The Jotbay window. It shows four machines and a list of the operations of each machine">
-    <figcaption>Each machine sends its status. If a machine cannot sync for six hours,
-      this window shows the error.</figcaption>
-  </figure>
 
   <section class="panel" id="what">
     <h2>Three functions</h2>
@@ -261,14 +263,30 @@ jotbay init</code></pre>
 
 </div>
 
-<footer>
-  <a href="commands.html">Commands</a>
-  <a href="security.html">Security</a>
-  <a href="privacy.html">Privacy</a>
-  <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
-  <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
-  <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
-</footer>
+<footer class="foot"><div class="shell">
+  <div class="foot-top">
+    <a class="brand" href="index.html"><img src="images/icon.png" alt="">Jotbay</a>
+    <a href="commands.html">Commands</a>
+    <a href="security.html">Security</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="https://github.com/nicglazkov/jotbay">GitHub</a>
+    <a href="https://github.com/nicglazkov/jotbay/releases">Releases</a>
+    <a href="https://github.com/nicglazkov/jotbay/blob/main/LICENSE">MIT license</a>
+  </div>
+  <nav class="more" aria-label="More from Nic">
+    <span class="label">More from Nic</span>
+    <ul>
+      <li><a href="https://commutescout.com"><b>CommuteScout</b><span>Live road conditions</span></a></li>
+      <li><a href="https://nicglazkov.github.io/switchboard/"><b>Switchboard</b><span>Claude Code, one board</span></a></li>
+      <li><a href="https://chalkboard.studio"><b>Chalkboard</b><span>Explainer videos</span></a></li>
+      <li><a href="https://getfiberwatch.com"><b>FiberWatch</b><span>Internet at your address</span></a></li>
+      <li><a href="https://nicglazkov.github.io/outagewatch/"><b>OutageWatch</b><span>PG&amp;E outage alerts</span></a></li>
+      <li><a href="https://nicglazkov.github.io/chaincheck/"><b>ChainCheck</b><span>Tahoe chain controls</span></a></li>
+      <li><a href="https://nicglazkov.github.io/highway-radar-sabre-plus/"><b>SABRE Plus</b><span>Feeds for Highway Radar</span></a></li>
+      <li><a class="home" href="https://nicglazkov.github.io/"><b>All projects</b><span>nicglazkov.github.io</span></a></li>
+    </ul>
+  </nav>
+</div></footer>
 
 <script src="theme.js"></script>
 <script>
