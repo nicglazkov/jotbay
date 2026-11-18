@@ -1,7 +1,7 @@
 /* Console: the shared skin for Nic's portfolio, Switchboard and the small desktop tools.
    One skeleton (nav, type scale, footer with the "More from Nic" strip) used by every page.
-   Graphite with a faint 48px grid and one blue accent. Dark first; a light theme is one
-   click away on pages that have the theme switch. Fonts are self-hosted, so the page makes
+   Graphite with a faint 48px grid and one blue accent, in dark and light. Each page picks its
+   default theme in a small inline <head> script (the tools follow the system, the portfolio starts light). Fonts are self-hosted, so the page makes
    no requests to anyone else. */
 
 @font-face{font-family:"Inter Tight";src:url("fonts/inter-tight-latin.woff2") format("woff2");font-weight:400 700;font-style:normal;font-display:swap}
@@ -23,10 +23,10 @@
 }
 :root[data-theme="light"]{
   --bg:#f6f7f9; --pan:#ffffff; --pan2:#f0f2f5; --line:#dde1e8; --line2:#c9cfd8;
-  --fg:#11141a; --mut:#566070; --faint:#7d8696;
+  --fg:#11141a; --mut:#566070; --faint:#646d7c;
   --acc:#2563d4; --acc-soft:rgba(37,99,212,.09); --tag-bg:#eaf1fd; --tag-line:#c4d7f7;
   --grid:rgba(17,20,26,.045); --navbg:rgba(246,247,249,.85);
-  --ok:#1f8a57; --warn:#a86a12; --bad:#c8372c;
+  --ok:#1a7a4c; --warn:#91590d; --bad:#c8372c;
   color-scheme:light;
 }
 

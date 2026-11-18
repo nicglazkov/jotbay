@@ -5,11 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jotbay commands</title>
 <meta name="description" content="Every Jotbay command. The apps and the commands use the same engine, and the operation in a terminal is the same as the operation in a window.">
-<meta name="theme-color" content="#0c0e12">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="images/icon.png">
 <script>
-  (function(){try{var q = location.search.match(/theme=(light|dark)/), s = q ? q[1] : localStorage.getItem("jotbay-theme");
-  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+  // Applied before first paint so the page never flashes the wrong theme.
+  // ?theme=light|dark wins for one visit, then a saved choice, then the system setting.
+  (function(){var s=null;try{var q=location.search.match(/theme=(light|dark)/);s=q?q[1]:localStorage.getItem("jotbay-theme");}catch(e){}
+  if(s!=="light"&&s!=="dark")s=window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";
+  document.documentElement.setAttribute("data-theme",s);})();
 </script>
 <link rel="stylesheet" href="console.css">
 </head>

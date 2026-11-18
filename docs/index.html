@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Jotbay</title>
 <meta name="description" content="Jotbay copies a folder of markdown notes to your macOS, Windows, and Linux machines. It uses a private git repository. There is no server and no account.">
-<meta name="theme-color" content="#0c0e12">
+<meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c0e12" media="(prefers-color-scheme: dark)">
 <meta property="og:title" content="Jotbay">
 <meta property="og:description" content="Jotbay puts your notes on all of your machines. It uses a private git repository. You are the owner of the repository.">
 <meta property="og:type" content="website">
@@ -15,8 +16,10 @@
 <link rel="icon" href="images/icon.png">
 <script>
   // Applied before first paint so the page never flashes the wrong theme.
-  (function(){try{var q = location.search.match(/theme=(light|dark)/), s = q ? q[1] : localStorage.getItem("jotbay-theme");
-  if(s==="light"||s==="dark")document.documentElement.setAttribute("data-theme",s);}catch(e){}})();
+  // ?theme=light|dark wins for one visit, then a saved choice, then the system setting.
+  (function(){var s=null;try{var q=location.search.match(/theme=(light|dark)/);s=q?q[1]:localStorage.getItem("jotbay-theme");}catch(e){}
+  if(s!=="light"&&s!=="dark")s=window.matchMedia&&matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";
+  document.documentElement.setAttribute("data-theme",s);})();
 </script>
 <link rel="stylesheet" href="console.css">
 </head>
